@@ -1,0 +1,497 @@
+.catalogue-page {
+  padding-bottom: 55px;
+}
+.catalogue-intro {
+  background: linear-gradient(180deg, #eaf3ff, #f7faff);
+  padding: 25px 0 28px;
+}
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #627789;
+  margin-bottom: 25px;
+}
+.breadcrumbs .icon {
+  width: 12px;
+  height: 12px;
+}
+.catalogue-intro h1 {
+  font-size: 36px;
+  letter-spacing: -1.3px;
+  margin: 16px 0 10px;
+  line-height: 1.2;
+}
+.catalogue-intro > div > p {
+  font-size: 14px;
+  color: #627789;
+  line-height: 1.6;
+}
+.catalogue-search {
+  max-width: none;
+  grid-template-columns: 1.8fr 1fr auto;
+  margin-top: 27px;
+}
+.catalogue-layout {
+  display: grid;
+  grid-template-columns: 255px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+}
+.catalogue-filters {
+  background: white;
+  border: 1px solid #e5edf5;
+  border-radius: 12px;
+  padding: 22px 20px;
+}
+.filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.filter-heading h2 {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+.filter-heading button {
+  font-size: 10px;
+  padding: 5px 0;
+  color: #087579;
+}
+.catalogue-filters fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 25px;
+  min-width: 0;
+}
+.catalogue-filters legend {
+  font-size: 12px;
+  font-weight: 650;
+  padding: 0;
+  margin-bottom: 13px;
+}
+.price-options {
+  display: flex;
+  padding: 4px;
+  border-radius: 7px;
+  background: #edf4fc;
+  gap: 3px;
+}
+.price-options label {
+  flex: 1;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 8px 5px;
+  cursor: pointer;
+  position: relative;
+}
+.price-options label.checked {
+  background: white;
+  box-shadow: 0 1px 4px #15334b0d;
+}
+.price-options input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.price-options label:has(input:focus-visible) {
+  outline: 3px solid #158d91;
+  outline-offset: 2px;
+}
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  min-height: 33px;
+  cursor: pointer;
+}
+.check-option input {
+  margin: 0;
+  accent-color: #15334b;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.check-option small {
+  margin-left: auto;
+  color: #718293;
+  font-size: 10px;
+}
+.date-fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.date-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  color: #647888;
+}
+.date-fields input {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  border: 1px solid #dce6ee;
+  border-radius: 6px;
+  background: #f7faff;
+  padding: 9px 8px;
+  font-size: 11px;
+  color: #15334b;
+}
+.date-error {
+  font-size: 11px;
+  color: #a23423;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.filter-organizer {
+  border-radius: 8px;
+  background: #e5f2fc;
+  padding: 17px 14px;
+  margin-top: 5px;
+}
+.filter-organizer > .icon {
+  color: #ba513d;
+  margin-bottom: 9px;
+}
+.filter-organizer h3 {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.filter-organizer p {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #637789;
+  margin: 8px 0 15px;
+}
+.filter-organizer a {
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-organizer a .icon {
+  width: 14px;
+}
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: white;
+  border: 1px solid #e5edf5;
+  padding: 14px 16px;
+  border-radius: 9px;
+  min-height: 60px;
+}
+.results-toolbar h2 {
+  font-size: 16px;
+  letter-spacing: -0.3px;
+}
+.results-toolbar > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.results-toolbar select {
+  max-width: 170px;
+  border: 0;
+  background: #edf4fc;
+  color: #15334b;
+  padding: 9px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.filter-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+}
+.filter-chips button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  background: #dcecfb;
+  font-size: 10px;
+}
+.filter-chips .icon {
+  width: 12px;
+  height: 12px;
+}
+.filter-chips button:hover {
+  background: #c8e5ed;
+}
+.filter-chips .clear-chips {
+  background: none;
+  text-decoration: underline;
+}
+.catalogue-demo {
+  font-size: 10px;
+  color: #627789;
+  margin: 15px 0;
+}
+.catalogue-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.catalogue-grid .card-photo {
+  height: 175px;
+}
+.catalogue-grid .card-content {
+  padding: 15px 13px;
+}
+.catalogue-grid .card-content h3 {
+  font-size: 13px;
+  min-height: 59px;
+}
+.catalogue-grid .card-bottom {
+  min-height: 32px;
+}
+.catalogue-pagination {
+  margin-top: 22px;
+  background: white;
+  border: 1px solid #e5edf5;
+  border-radius: 9px;
+  padding: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+.catalogue-pagination > p {
+  font-size: 11px;
+  color: #627789;
+}
+.catalogue-pagination nav {
+  display: flex;
+  gap: 6px;
+}
+.catalogue-pagination button {
+  width: 35px;
+  height: 35px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.catalogue-pagination button[aria-current] {
+  background: #15334b;
+  color: white;
+}
+.catalogue-pagination button:disabled {
+  opacity: 0.3;
+}
+.catalogue-pagination .icon {
+  width: 15px;
+  height: 15px;
+}
+.mobile-filter-toggle,
+.apply-mobile {
+  display: none;
+}
+.catalogue-empty {
+  padding: 60px 25px;
+}
+.catalogue-results {
+  scroll-margin-top: 100px;
+}
+main h1:focus {
+  outline: none;
+}
+@media (max-width: 1150px) {
+  .catalogue-layout {
+    grid-template-columns: 225px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .catalogue-filters {
+    padding: 20px 16px;
+  }
+  .catalogue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .catalogue-grid .card-content h3 {
+    min-height: 40px;
+  }
+  .catalogue-grid .card-photo {
+    height: 190px;
+  }
+  .results-toolbar {
+    flex-wrap: wrap;
+  }
+  .results-toolbar > label {
+    margin-left: auto;
+  }
+}
+@media (max-width: 760px) {
+  .catalogue-intro h1 {
+    font-size: 30px;
+  }
+  .catalogue-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .mobile-filter-toggle {
+    display: flex;
+    justify-self: start;
+    font-size: 12px !important;
+    min-height: 44px !important;
+  }
+  .mobile-filter-toggle > span {
+    border-radius: 50%;
+    background: #15334b;
+    color: white;
+    min-width: 21px;
+    padding: 4px;
+    font-size: 10px;
+  }
+  .catalogue-filters {
+    display: none;
+  }
+  .catalogue-filters.expanded {
+    display: block;
+  }
+  .catalogue-filters fieldset {
+    margin-bottom: 20px;
+  }
+  .catalogue-filters .check-option {
+    min-height: 40px;
+    font-size: 13px;
+  }
+  .date-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .filter-organizer {
+    display: none;
+  }
+  .apply-mobile {
+    display: flex;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .catalogue-search {
+    grid-template-columns: 1.4fr 1fr;
+  }
+  .catalogue-search > .button {
+    grid-column: 1/-1;
+    min-height: 44px;
+  }
+  .catalogue-intro {
+    padding-top: 20px;
+  }
+  .catalogue-pagination {
+    padding: 12px;
+  }
+  .catalogue-page {
+    padding-bottom: 30px;
+  }
+}
+@media (max-width: 560px) {
+  .catalogue-intro h1 {
+    font-size: 28px;
+    letter-spacing: -0.8px;
+    margin-top: 14px;
+  }
+  .catalogue-intro > div > p {
+    font-size: 12px;
+  }
+  .breadcrumbs {
+    margin-bottom: 20px;
+  }
+  .catalogue-search {
+    grid-template-columns: 1fr;
+  }
+  .catalogue-search .search-field {
+    min-height: 53px;
+    grid-column: 1/-1;
+  }
+  .catalogue-search input,
+  .catalogue-search select {
+    font-size: 13px;
+  }
+  .catalogue-grid {
+    grid-template-columns: 1fr;
+  }
+  .catalogue-grid .card-photo {
+    height: 220px;
+  }
+  .catalogue-grid .card-content {
+    padding: 17px;
+  }
+  .catalogue-grid .card-content h3 {
+    font-size: 16px;
+    min-height: 0;
+  }
+  .results-toolbar {
+    gap: 13px;
+    padding: 16px;
+  }
+  .results-toolbar h2 {
+    font-size: 17px;
+    width: 100%;
+  }
+  .results-toolbar > label {
+    margin: 0;
+    width: 100%;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .results-toolbar select {
+    flex: 1;
+    max-width: 190px;
+    font-size: 12px;
+  }
+  .catalogue-demo {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .filter-chips button {
+    font-size: 11px;
+    min-height: 34px;
+  }
+  .catalogue-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .catalogue-pagination > p {
+    width: 100%;
+    text-align: center;
+  }
+  .catalogue-pagination button {
+    height: 40px;
+    width: 40px;
+  }
+  .catalogue-empty {
+    padding: 35px 18px;
+  }
+  .catalogue-empty h3 {
+    font-size: 20px;
+  }
+  .catalogue-empty p {
+    font-size: 12px;
+  }
+  .catalogue-empty .button {
+    font-size: 12px;
+  }
+  .catalogue-filters .price-options label {
+    padding: 12px;
+    font-size: 12px;
+  }
+  .catalogue-filters legend {
+    font-size: 14px;
+  }
+  .filter-heading button {
+    font-size: 12px;
+  }
+}

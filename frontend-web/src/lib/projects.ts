@@ -1,0 +1,1 @@
+export const stageLabel = (stage: string | null | undefined) => stage === 'REFERENT' ? 'En attente de l’avis d’un référent' : stage === 'ADMINISTRATEUR' ? 'En attente de l’administrateur' : 'Soumis pour validation';

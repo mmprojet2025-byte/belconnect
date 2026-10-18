@@ -1,0 +1,1 @@
+ALTER TABLE utilisateur ADD COLUMN prenom VARCHAR(80) NOT NULL DEFAULT '';

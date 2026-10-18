@@ -1,0 +1,779 @@
+.enrollment-shell {
+  background: linear-gradient(135deg, #eef5fe, #f7faff 70%, #fbefec);
+  padding: 26px 0 60px;
+  min-height: 65vh;
+}
+.enrollment-container {
+  max-width: 1120px;
+}
+.flow-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #526c80;
+  min-height: 35px;
+  margin-bottom: 15px;
+}
+.flow-back .icon {
+  width: 15px;
+}
+.flow-steps {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  padding: 0;
+  margin: 8px 0 32px;
+}
+.flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: #738494;
+}
+.flow-steps li > span {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+  background: #e0ecf8;
+  color: #597287;
+}
+.flow-steps li[aria-current] {
+  color: #15334b;
+  font-weight: 600;
+}
+.flow-steps li[aria-current] > span {
+  background: #15334b;
+  color: white;
+}
+.flow-steps li.step-done > span {
+  background: #d4eeea;
+  color: #087579;
+}
+.booking-summary {
+  background: white;
+  border: 1px solid #e4edf5;
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.booking-summary > img {
+  width: 110px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.summary-info {
+  flex: 1;
+  min-width: 180px;
+}
+.summary-info .eyebrow {
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.summary-info h2 {
+  font-size: 18px;
+  line-height: 1.4;
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
+}
+.summary-info p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #627789;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.summary-info .icon {
+  width: 13px;
+  height: 13px;
+  color: #158d91;
+}
+.summary-price {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  font-size: 11px;
+  color: #627789;
+}
+.summary-price strong {
+  font-size: 20px;
+  color: #15334b;
+  white-space: nowrap;
+}
+.compact-summary .summary-info h2 {
+  font-size: 19px;
+}
+.compact-summary {
+  padding: 22px 26px;
+}
+.compact-summary > img {
+  width: 100px;
+  height: 100px;
+}
+.auth-card {
+  max-width: 540px;
+  margin: 32px auto 0;
+  background: #fff;
+  border: 1px solid #e3edf5;
+  border-radius: 14px;
+  padding: 35px;
+  box-shadow: 0 8px 26px #15334b06;
+}
+.auth-emblem {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #dff1ef;
+  color: #157c81;
+  margin: 0 auto 18px;
+}
+.auth-card > .eyebrow {
+  text-align: center;
+  font-size: 9px;
+}
+.auth-card h1 {
+  font-size: 28px;
+  text-align: center;
+  line-height: 1.25;
+  letter-spacing: -0.8px;
+  margin: 12px 0;
+}
+.auth-intro {
+  font-size: 12px;
+  color: #627789;
+  text-align: center;
+  line-height: 1.65;
+}
+.demo-notice {
+  background: #eff6fc;
+  border: 1px solid #e0ebf5;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 22px 0;
+  color: #47677e;
+}
+.demo-notice strong {
+  font-size: 11px;
+  font-weight: 650;
+  display: block;
+}
+.demo-notice p {
+  font-size: 11px;
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.auth-switch {
+  display: flex;
+  background: #edf4fc;
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+  margin: 24px 0;
+}
+.auth-switch button {
+  flex: 1;
+  font-size: 12px;
+  padding: 12px 8px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+.auth-switch button[aria-pressed="true"] {
+  background: white;
+  box-shadow: 0 2px 6px #15334b0b;
+}
+.flow-form {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+.flow-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 550;
+  color: #15334b;
+  min-width: 0;
+}
+.flow-form input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  background: white;
+  border: 1px solid #d7e3ee;
+  border-radius: 7px;
+  padding: 13px 12px;
+  font-size: 13px;
+  color: #15334b;
+  min-height: 45px;
+}
+.flow-form input::placeholder {
+  color: #8494a1;
+}
+.flow-form input:user-invalid {
+  border-color: #b44935;
+}
+.form-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.password-input {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-top: -8px;
+}
+.password-input input {
+  padding-right: 78px !important;
+}
+.password-input button {
+  position: absolute;
+  right: 7px;
+  padding: 10px 5px;
+  font-size: 10px;
+  color: #087579;
+  font-weight: 550;
+}
+.field-help {
+  margin-top: -10px;
+  color: #6b7e8d;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.forgot-password {
+  align-self: flex-end;
+  color: #087579;
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 4px;
+}
+.inline-notice {
+  background: #f2f7fc;
+  padding: 12px;
+  border-radius: 6px;
+  color: #5d778b;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.flow-submit {
+  width: 100%;
+  font-size: 12px;
+  min-height: 48px;
+}
+.auth-footnote {
+  text-align: center;
+  color: #718492;
+  font-size: 10px;
+  margin-top: 20px;
+  line-height: 1.6;
+}
+.demo-account {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  text-align: center;
+}
+.demo-account p {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.demo-account > .text-link {
+  font-size: 11px;
+  text-decoration: underline;
+}
+.enrollment-title {
+  margin: 27px 0;
+}
+.enrollment-title h1 {
+  font-size: 32px;
+  letter-spacing: -1px;
+  line-height: 1.25;
+  margin: 10px 0 12px;
+}
+.enrollment-title > p:not(.eyebrow) {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #647888;
+}
+.enrollment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 25px;
+  align-items: start;
+}
+.enrollment-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.enrollment-card {
+  background: white;
+  border: 1px solid #e3edf5;
+  border-radius: 12px;
+  padding: 26px;
+}
+.enrollment-card h2 {
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  line-height: 1.4;
+}
+.enrollment-card h3 {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.places-card > div > p,
+.form-description {
+  font-size: 11px;
+  color: #647888;
+  line-height: 1.7;
+  margin-top: 7px;
+}
+.registration-quantity {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: space-between;
+  background: #eff5fc;
+  padding: 12px 16px;
+  border-radius: 7px;
+  margin-top: 17px;
+  font-size: 12px;
+}
+.registration-quantity .quantity-control {
+  background: white;
+  margin: 0;
+  min-width: 140px;
+}
+.registration-quantity .quantity-control button {
+  background: white;
+}
+.registration-quantity .quantity-control output {
+  padding: 0 16px;
+}
+.optional-label {
+  font-size: 10px;
+  font-weight: 400;
+  color: #718492;
+}
+.flow-form label:has(.optional-label) {
+  position: relative;
+}
+.optional-label {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.participant-note {
+  display: flex;
+  gap: 10px;
+  color: #56758b;
+  background: #f1f7fc;
+  border-radius: 7px;
+  padding: 13px;
+}
+.participant-note > .icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+.participant-note p {
+  font-size: 11px;
+  line-height: 1.65;
+}
+.flow-form .demo-acknowledgement {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  font-weight: 400;
+  gap: 10px;
+  line-height: 1.7;
+  font-size: 11px;
+  background: #f3f7fc;
+  padding: 14px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.demo-acknowledgement input {
+  margin-top: 3px;
+  accent-color: #15334b;
+  min-width: 16px;
+  height: 16px;
+}
+.enrollment-recap {
+  position: sticky;
+  top: 105px;
+}
+.recap-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: #edf4fc;
+  border-radius: 6px;
+  padding: 14px;
+  font-size: 12px;
+  margin: 22px 0;
+}
+.recap-line strong {
+  white-space: nowrap;
+}
+.recap-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.recap-total strong {
+  font-size: 23px;
+  white-space: nowrap;
+  color: #a44732;
+}
+.recap-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 0;
+  color: #637b8e;
+}
+.recap-note > .icon {
+  color: #158d91;
+  width: 17px;
+  flex-shrink: 0;
+}
+.recap-note p {
+  font-size: 11px;
+  line-height: 1.7;
+}
+.recap-demo {
+  font-size: 10px;
+  color: #738594;
+  line-height: 1.6;
+}
+.enrollment-recap hr {
+  border: 0;
+  border-top: 1px solid #e5edf4;
+  margin: 22px 0;
+}
+.enrollment-recap > p:not(.eyebrow):last-of-type {
+  font-size: 12px;
+  color: #647888;
+  margin-top: 8px;
+  line-height: 1.6;
+}
+.enrollment-recap > a {
+  margin-top: 14px;
+  font-size: 11px;
+}
+.review-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  background: #dff2ec;
+  color: #087579;
+  border-radius: 50%;
+  margin-bottom: 16px;
+}
+.review-card > p {
+  font-size: 13px;
+  color: #627789;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+.review-card dl {
+  margin: 22px 0;
+}
+.review-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  border-bottom: 1px solid #e5edf4;
+  padding: 13px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.review-card dt {
+  color: #647888;
+  min-width: 110px;
+}
+.review-card dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+.review-actions .button,
+.review-actions .text-link {
+  font-size: 11px;
+}
+@media (max-width: 950px) {
+  .enrollment-grid {
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: 20px;
+  }
+  .enrollment-card {
+    padding: 22px;
+  }
+  .booking-summary {
+    padding: 18px;
+    gap: 12px;
+  }
+  .booking-summary > img {
+    width: 90px;
+    height: 100px;
+  }
+  .summary-info {
+    min-width: 170px;
+  }
+  .summary-info h2 {
+    font-size: 16px;
+  }
+  .enrollment-content .summary-price {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    border-top: 1px solid #e5edf4;
+    padding-top: 12px;
+  }
+  .enrollment-title h1 {
+    font-size: 29px;
+  }
+  .form-pair {
+    gap: 10px;
+  }
+}
+@media (max-width: 760px) {
+  .enrollment-grid {
+    grid-template-columns: 1fr;
+  }
+  .enrollment-recap {
+    position: static;
+    grid-row: 1;
+  }
+  .enrollment-recap > .recap-note,
+  .enrollment-recap > hr,
+  .enrollment-recap > h3,
+  .enrollment-recap > a,
+  .enrollment-recap > p:last-of-type {
+    display: none;
+  }
+  .enrollment-recap {
+    padding: 20px;
+  }
+  .enrollment-recap h2 {
+    font-size: 18px;
+  }
+  .recap-line {
+    margin: 12px 0;
+  }
+  .recap-total {
+    padding-bottom: 0;
+  }
+  .flow-steps {
+    gap: 18px;
+  }
+  .compact-summary {
+    align-items: flex-start;
+  }
+  .compact-summary .summary-price {
+    margin-left: 112px;
+    align-items: flex-start;
+  }
+  .auth-card {
+    margin-top: 25px;
+  }
+  .enrollment-title h1 {
+    font-size: 28px;
+  }
+}
+@media (max-width: 560px) {
+  .enrollment-shell {
+    padding: 18px 0 35px;
+  }
+  .flow-back {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+  .flow-steps {
+    gap: 11px;
+    margin: 8px 0 24px;
+    justify-content: space-between;
+  }
+  .flow-steps li {
+    font-size: 9px;
+    gap: 5px;
+  }
+  .flow-steps li > span {
+    width: 23px;
+    height: 23px;
+    font-size: 10px;
+  }
+  .booking-summary {
+    padding: 15px;
+    gap: 12px;
+  }
+  .booking-summary > img,
+  .compact-summary > img {
+    width: 70px;
+    height: 85px;
+  }
+  .summary-info {
+    min-width: 160px;
+  }
+  .summary-info h2,
+  .compact-summary .summary-info h2 {
+    font-size: 14px;
+  }
+  .summary-info .eyebrow {
+    font-size: 7px;
+    line-height: 1.6;
+  }
+  .summary-info p {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .summary-price strong {
+    font-size: 18px;
+  }
+  .compact-summary .summary-price {
+    margin: 0;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    border-top: 1px solid #e5edf4;
+    padding-top: 12px;
+  }
+  .auth-card {
+    padding: 25px 20px;
+    margin-top: 22px;
+  }
+  .auth-card h1 {
+    font-size: 25px;
+  }
+  .auth-intro {
+    font-size: 11px;
+  }
+  .auth-switch button {
+    font-size: 11px;
+    padding: 12px 5px;
+  }
+  .demo-notice {
+    padding: 12px;
+  }
+  .demo-notice p {
+    font-size: 10px;
+  }
+  .flow-form {
+    gap: 16px;
+  }
+  .flow-form label {
+    font-size: 11px;
+  }
+  .flow-form input:not([type="checkbox"]) {
+    font-size: 16px;
+    padding: 11px 10px;
+  }
+  .form-pair {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .field-help {
+    font-size: 10px;
+  }
+  .flow-submit {
+    font-size: 11px;
+    padding: 14px 10px;
+    line-height: 1.6;
+  }
+  .flow-submit > .icon {
+    width: 16px;
+  }
+  .enrollment-title {
+    margin: 22px 0;
+  }
+  .enrollment-title h1 {
+    font-size: 26px;
+  }
+  .enrollment-title > p:not(.eyebrow) {
+    font-size: 12px;
+  }
+  .enrollment-card {
+    padding: 20px 17px;
+  }
+  .enrollment-card h2 {
+    font-size: 19px;
+  }
+  .registration-quantity {
+    padding: 10px;
+    gap: 10px;
+    font-size: 11px;
+  }
+  .registration-quantity .quantity-control {
+    min-width: 130px;
+  }
+  .registration-quantity .quantity-control button {
+    width: 36px;
+  }
+  .registration-quantity .quantity-control output {
+    padding: 0 10px;
+  }
+  .recap-total strong {
+    font-size: 22px;
+  }
+  .review-card dl > div {
+    font-size: 11px;
+    gap: 12px;
+  }
+  .review-card dt {
+    min-width: 90px;
+  }
+  .review-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .review-actions > .text-link {
+    align-self: center;
+  }
+  .review-card > p {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .flow-steps:has(li:nth-child(4)) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 18px;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.booking-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.booking-edit-form { margin-top: 18px; }
+.booking-edit-form .button { white-space: normal; }

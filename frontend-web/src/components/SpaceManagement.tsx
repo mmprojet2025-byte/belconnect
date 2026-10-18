@@ -1,0 +1,153 @@
+import { GroupMembers } from './GroupMembers';
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import { postJson, result } from '../lib/auth';
+
+type SpaceContent = { name: string; type: string; description: string };
+type Space = SpaceContent & { id: number; version: number };
+type Opening = SpaceContent & { id: number; status: string; version: number; spaceId: number | null; reason: string; applicant: string; createdAt: string };
+type GroupContent = { name: string; description: string; coverUrl: string; openMembership: boolean; visibility: string };
+type Group = GroupContent & { id: number; spaceId: number; status: string; version: number };
+type Management = { space: Space; groups: Group[] };
+const spaceTypes = { ASSOCIATION: 'Association', PARTICULIER: 'Particulier', ORGANISATEUR: 'Organisateur' };
+const requestStatuses: Record<string, string> = { EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvée', REFUSEE: 'Refusée' };
+const message = (e: unknown) => e instanceof Error ? e.message : 'Impossible de joindre le serveur. Réessayez.';
+const load = (path: string, signal?: AbortSignal) => fetch(`/api/workspace${path}`, { credentials: 'same-origin', cache: 'no-store', signal }).then(result);
+
+function SpaceFields({ value, onChange }: { value: SpaceContent; onChange: (value: SpaceContent) => void }) {
+  return <>
+    <label>Nom de l’espace<input required minLength={3} maxLength={180} value={value.name} onChange={e => onChange({ ...value, name: e.target.value })} /></label>
+    <label>Type d’organisateur<select value={value.type} onChange={e => onChange({ ...value, type: e.target.value })}>{Object.entries(spaceTypes).map(([key, text]) => <option value={key} key={key}>{text}</option>)}</select></label>
+    <label>Présentation<textarea rows={4} maxLength={3000} value={value.description} onChange={e => onChange({ ...value, description: e.target.value })} /></label>
+  </>;
+}
+
+function OpeningForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const [content, setContent] = useState<SpaceContent>({ name: '', type: 'ORGANISATEUR', description: '' });
+  const [requestId] = useState(() => crypto.randomUUID());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await postJson('/api/workspace/requests', { requestId, content }); onDone(); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  return <form className="draft-editor" onSubmit={submit}>
+    <h3>Demander un espace organisateur</h3>
+    <p>Présentez votre organisation. Après approbation par le propriétaire de Belconnect, vous pourrez administrer cet espace et créer vos groupes.</p>
+    <fieldset disabled={busy}><SpaceFields value={content} onChange={setContent} /><div className="management-actions"><button className="button coral">{busy ? 'Envoi…' : 'Envoyer la demande'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Fermer cette demande et abandonner les saisies non envoyées ?')) onCancel(); }}>Annuler</button></div></fieldset>
+    {error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}
+  </form>;
+}
+
+function RequestDecision({ request, onDone }: { request: Opening; onDone: () => void }) {
+  const [decision, setDecision] = useState<'APPROUVEE' | 'REFUSEE' | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await postJson(`/api/workspace/opening-requests/${request.id}/decision`, { version: request.version, status: decision, reason: reason.trim() }); onDone(); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  if (!decision) return <div className="management-actions"><button className="button coral" onClick={() => setDecision('APPROUVEE')}>Approuver l’ouverture</button><button className="button outline" onClick={() => setDecision('REFUSEE')}>Refuser</button></div>;
+  return <form className="draft-editor" onSubmit={submit}><p>{decision === 'APPROUVEE' ? `L’espace sera créé et ${request.applicant} en deviendra administrateur.` : 'Le demandeur pourra consulter votre motif de refus.'}</p><fieldset disabled={busy}>
+    {decision === 'REFUSEE' && <label>Motif du refus<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label>}
+    <div className="management-actions"><button className="button coral">{busy ? 'Traitement…' : decision === 'APPROUVEE' ? 'Confirmer l’ouverture' : 'Confirmer le refus'}</button><button type="button" className="button outline" onClick={() => { setDecision(null); setReason(''); setError(''); }}>Annuler</button></div>
+  </fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
+}
+
+export function SpaceRequests({ owner, onChanged }: { owner: boolean; onChanged: () => void }) {
+  const [mine, setMine] = useState<Opening[]>([]);
+  const [queue, setQueue] = useState<Opening[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
+    Promise.all([load('/requests', signal), owner ? load('/opening-requests', signal) : Promise.resolve([])])
+      .then(([own, all]) => { setMine(own); setQueue(all); setLoaded(true); setError(''); })
+      .catch(e => { if (!controller.signal.aborted) setError(message(e)); });
+    return () => controller.abort();
+  }, [owner, attempt]);
+  const refresh = () => { setAttempt(n => n + 1); onChanged(); };
+  return <section aria-labelledby="space-requests-title">
+    <div className="account-section-heading"><h2 id="space-requests-title">Ouvrir un espace</h2><button className="text-link" onClick={refresh}>Actualiser les demandes</button></div>
+    <p className="workspace-description">Un espace rassemble vos groupes et vos projets. Son ouverture est approuvée par le propriétaire de Belconnect.</p>
+    {notice && <p className="account-notice" role="status">{notice}</p>}
+    {error && <p className="draft-error" role="alert">{error}</p>}
+    {!loaded && !error && <p role="status">Chargement des demandes…</p>}
+    {editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Retrouvez sa réponse ici après actualisation.'); refresh(); }} /> : <button className="button outline workspace-create" onClick={() => setEditing(true)}>Demander un espace</button>}
+    {mine.length > 0 && <div className="workspace-grid">{mine.map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces et groupes ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>}
+    {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <article className="workspace-card" key={request.id}><span className="account-status">En attente</span><h3>{request.name}</h3><p>{request.applicant} · {spaceTypes[request.type as keyof typeof spaceTypes]}</p><p className="management-copy">{request.description || 'Aucune présentation renseignée.'}</p><RequestDecision request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} /></article>)}</div>}
+  </section>;
+}
+
+function SpaceEditor({ space, onSaved, onCancel }: { space: Space; onSaved: (space: Space) => void; onCancel: () => void }) {
+  const [content, setContent] = useState<SpaceContent>({ name: space.name, type: space.type, description: space.description });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { onSaved(await postJson(`/api/workspace/spaces/${space.id}`, { version: space.version, content })); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  return <form className="draft-editor" onSubmit={submit}><h3>Modifier l’espace</h3><fieldset disabled={busy}><SpaceFields value={content} onChange={setContent} /><div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : 'Enregistrer l’espace'}</button><button className="button outline" type="button" onClick={() => { if (window.confirm('Abandonner les modifications non enregistrées ?')) onCancel(); }}>Annuler</button></div></fieldset>{error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées. Fermez puis rouvrez le formulaire pour recharger la version enregistrée.</p>}</form>;
+}
+
+function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | null; spaceId: number; onSaved: (group: Group) => void; onCancel: () => void }) {
+  const [content, setContent] = useState<GroupContent>(group ? { name: group.name, description: group.description, coverUrl: group.coverUrl, openMembership: group.openMembership, visibility: group.visibility } : { name: '', description: '', coverUrl: '', openMembership: false, visibility: 'PRIVEE' });
+  const [requestId] = useState(() => crypto.randomUUID());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { onSaved(await postJson(`/api/workspace/spaces/${spaceId}/groups${group ? `/${group.id}` : ''}`, group ? { version: group.version, content } : { requestId, content })); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  return <form className="draft-editor" onSubmit={submit}><h3>{group ? 'Modifier le groupe' : 'Créer un groupe'}</h3><fieldset disabled={busy}>
+    <label>Nom du groupe<input required minLength={3} maxLength={150} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
+    <label>Description<textarea rows={4} maxLength={3000} value={content.description} onChange={e => setContent({ ...content, description: e.target.value })} /></label>
+    <label>Adresse de l’image de couverture (facultative)<input type="url" pattern="https://.*" maxLength={2048} placeholder="https://…" value={content.coverUrl} onChange={e => setContent({ ...content, coverUrl: e.target.value })} /><span className="management-hint">Utilisez une image accessible en HTTPS. L’import de fichier sera ajouté ultérieurement.</span></label>
+    <div className="draft-columns"><label>Visibilité<select value={content.visibility} onChange={e => setContent({ ...content, visibility: e.target.value })}><option value="PRIVEE">Privée</option><option value="PUBLIQUE">Publique</option></select></label><label>Mode d’adhésion<select value={content.openMembership ? 'OPEN' : 'REQUEST'} onChange={e => setContent({ ...content, openMembership: e.target.value === 'OPEN' })}><option value="REQUEST">Sur demande</option><option value="OPEN">Ouverte</option></select></label></div>
+    <p className="management-hint">Un groupe public est visible dans le catalogue. Un groupe privé est réservé aux membres de son espace. L’adhésion ouverte est immédiate ; sur demande, elle doit être approuvée par l’administrateur.</p>
+    <div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : group ? 'Enregistrer le groupe' : 'Créer le groupe'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Abandonner les saisies non enregistrées ?')) onCancel(); }}>Annuler</button></div>
+  </fieldset>{error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}</form>;
+}
+
+export function SpaceManagement({ spaceId, onChanged, onClose }: { spaceId: number; onChanged: () => void; onClose: () => void }) {
+  const [data, setData] = useState<Management | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [membersGroup, setMembersGroup] = useState<number | null>(null);
+  const [editingSpace, setEditingSpace] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<Group | 'new' | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(`/spaces/${spaceId}/management`, AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]))
+      .then(value => { setData(value); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(message(e)); });
+    return () => controller.abort();
+  }, [spaceId, attempt]);
+  const reload = () => { setData(null); setError(''); setAttempt(n => n + 1); };
+  return <section className="management-panel" aria-labelledby="manage-space-title">
+    <div className="account-section-heading"><h2 id="manage-space-title">{data ? data.space.name : 'Gestion de l’espace'}</h2><button className="text-link" onClick={() => { if ((!editingSpace && !editingGroup) || window.confirm('Fermer la gestion et abandonner les saisies non enregistrées ?')) onClose(); }}>Fermer la gestion</button></div>
+    {error ? <div role="alert"><p className="draft-error">{error}</p><button className="button outline" onClick={reload}>Réessayer</button></div> : !data ? <p role="status">Chargement de l’espace…</p> : <>
+      <p className="workspace-description">Gérez les informations de votre espace et préparez vos groupes.</p>
+      {notice && <p className="account-notice" role="status">{notice}</p>}
+      {editingSpace ? <SpaceEditor space={data.space} onCancel={() => { setEditingSpace(false); reload(); }} onSaved={space => { setData({ ...data, space }); setEditingSpace(false); setNotice('Les informations de l’espace sont enregistrées.'); onChanged(); }} /> : <div className="management-actions"><button className="button outline" disabled={editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingSpace(true); }}>Modifier l’espace</button><button className="button coral" disabled={editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup('new'); }}>Créer un groupe</button></div>}
+      {editingGroup !== null && <GroupEditor key={editingGroup === 'new' ? 'new' : editingGroup.id} group={editingGroup === 'new' ? null : editingGroup} spaceId={spaceId} onCancel={() => { setEditingGroup(null); reload(); }} onSaved={group => { setData({ ...data, groups: [...data.groups.filter(g => g.id !== group.id), group].sort((a, b) => a.name.localeCompare(b.name)) }); setEditingGroup(null); setNotice('Le groupe est enregistré.'); onChanged(); }} />}
+      {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => { setAttempt(n => n + 1); onChanged(); }} onClose={() => { setMembersGroup(null); reload(); }} />}
+      <h3 className="management-groups-title">Groupes de l’espace <span>({data.groups.length})</span></h3>
+      {!data.groups.length ? <div className="account-empty"><h3>Votre premier groupe</h3><p>Créez un groupe pour rassembler votre communauté autour d’un thème ou d’un projet.</p></div> : <div className="workspace-grid">{data.groups.map(group => <article className="workspace-card" key={group.id}>
+        {group.coverUrl && <img key={group.coverUrl} className="management-cover" src={group.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+        <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · {group.openMembership ? 'Adhésion ouverte' : 'Adhésion sur demande'}</p>
+        {group.status === 'ACTIF' && <button className="text-link workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup(group); }}>Modifier ce groupe</button>}
+        {group.status === 'ACTIF' && <button className="button outline workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => setMembersGroup(group.id)}>Membres et référents</button>}
+      </article>)}</div>}
+    </>}
+  </section>;
+}
