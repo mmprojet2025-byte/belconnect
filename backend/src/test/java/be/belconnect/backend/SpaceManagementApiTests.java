@@ -335,4 +335,53 @@ class SpaceManagementApiTests {
    assertEquals(0,ok(ref.get("/api/group-memberships/received"),200).size());
   } finally { cleanup(); }
  }
+ @Test void groupLifecycleAuthorizationPreservationAndReactivation() throws Exception {
+  try {
+   var admin=actor();var ref=actor();var other=actor();var platform=actor();owner(platform);
+   long space=setupSpace(admin),otherSpace=setupSpace(other);
+   long group=setupGroup(space,"Cycle de vie",false,"PUBLIQUE");addMember(ref,space,group,"REFERENT");
+   String base="/api/workspace/spaces/"+space+"/groups/"+group, path=base+"/status";
+   var suspend=Map.of("version",0,"status","SUSPENDU");
+   assertEquals(401,new Actor().post(path,suspend,true).statusCode());
+   assertEquals(403,admin.post(path,suspend,false).statusCode());
+   for(var denied:List.of(ref,other,platform)) assertEquals(403,denied.post(path,suspend,true).statusCode());
+   assertEquals(404,other.post("/api/workspace/spaces/"+otherSpace+"/groups/"+group+"/status",suspend,true).statusCode());
+   assertEquals(400,admin.post(path,Map.of("version",0,"status","SUPPRIME"),true).statusCode());
+   long request=ok(other.post("/api/groups/"+group+"/join",Map.of(),true),200).get("id").asLong();
+   var draft=Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",Map.of("title","Projet à conserver","description","Une idée collective","objective","Rassembler les voisins"));
+   long project=ok(admin.post("/api/project-drafts",draft,true),201).get("id").asLong();
+   assertEquals("SUSPENDU",ok(admin.post(path,suspend,true),200).get("status").asText());
+   assertEquals(409,admin.post(path,suspend,true).statusCode());
+   assertFalse(new Actor().get("/api/groups").body().contains("Cycle de vie"));
+   assertEquals(409,admin.post(base,Map.of("version",1,"content",gc("Modification interdite")),true).statusCode());
+   assertEquals(403,admin.post("/api/project-drafts",draft,true).statusCode());
+   assertEquals(409,admin.post("/api/group-memberships/"+request+"/decision",Map.of("version",0,"status","ACCEPTEE","reason",""),true).statusCode());
+   assertEquals("ACTIF",ok(admin.post(path,Map.of("version",1,"status","ACTIF"),true),200).get("status").asText());
+   assertTrue(new Actor().get("/api/groups").body().contains("Cycle de vie"));
+   assertEquals("REFERENT",jdbc.queryForObject("SELECT role FROM appartenance_groupe WHERE groupe_id=? AND utilisateur_id=?",String.class,group,ref.id));
+   assertEquals("ARCHIVE",ok(admin.post(path,Map.of("version",2,"status","ARCHIVE"),true),200).get("status").asText());
+   assertEquals(409,admin.post(path,Map.of("version",3,"status","ACTIF"),true).statusCode());
+   assertEquals(409,admin.post(path,Map.of("version",3,"status","SUSPENDU"),true).statusCode());
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM projet WHERE id=?",Integer.class,project));
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM demande_adhesion_groupe WHERE id=?",Integer.class,request));
+   assertEquals(3,jdbc.queryForObject("SELECT count(*) FROM historique_gestion_espace WHERE groupe_id=? AND action IN ('GROUPE_SUSPENDU','GROUPE_REACTIVE','GROUPE_ARCHIVE')",Integer.class,group));
+   assertEquals("ARCHIVE",ok(admin.get("/api/workspace/spaces/"+space+"/management"),200).get("groups").get(0).get("status").asText());
+   jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
+   assertEquals(403,admin.post(path,Map.of("version",3,"status","ARCHIVE"),true).statusCode());
+  } finally { cleanup(); }
+ }
+ @Test void concurrentGroupStatusChangesDoNotOverwrite() throws Exception {
+  try {
+   var admin=actor(); long space=setupSpace(admin),group=setupGroup(space,"Cycle concurrent",false,"PUBLIQUE");
+   String path="/api/workspace/spaces/"+space+"/groups/"+group+"/status";
+   try(var pool=Executors.newFixedThreadPool(2)) {
+    var a=pool.submit(()->admin.post(path,Map.of("version",0,"status","SUSPENDU"),true));
+    var b=pool.submit(()->admin.post(path,Map.of("version",0,"status","ARCHIVE"),true));
+    var codes=new ArrayList<>(List.of(a.get(20,TimeUnit.SECONDS).statusCode(),b.get(20,TimeUnit.SECONDS).statusCode()));
+    Collections.sort(codes);assertEquals(List.of(200,409),codes);
+   }
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM historique_gestion_espace WHERE groupe_id=?",Integer.class,group));
+  } finally { cleanup(); }
+ }
+
 }

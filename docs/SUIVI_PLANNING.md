@@ -54,7 +54,7 @@
 | 03.10 | Nommer un ou plusieurs référents par groupe | Réalisé localement | Liste des membres actifs, désignation de plusieurs référents et retrait conservant l’adhésion ; historique et contrôle de version. |
 | 03.11 | Configurer droits des référents par groupe | Partiel | Permission de traiter les adhésions configurable par groupe, désactivée par défaut ; permissions annonces/activités restantes. |
 | 03.12 | Gérer administration directe et déléguée | Partiel | Administration directe et délégation des adhésions réalisées ; autres modules délégués restants. |
-| 03.13 | Suspendre et archiver les groupes | Partiel | Rôles et contrôles projet présents ; désignation, permissions et gestion du cycle des groupes : lot 1C. |
+| 03.13 | Suspendre et archiver les groupes | Réalisé localement | Suspension, réactivation des groupes suspendus et archivage administratif avec conservation des données ; contrôle de version et historique. |
 | 03.14 | Créer formulaire d'activité et images | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
 | 03.15 | Gérer dates, lieux, places, tarifs, échéances | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
 | 03.16 | Rattacher activité à 0 ou 1 groupe / visibilité | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |

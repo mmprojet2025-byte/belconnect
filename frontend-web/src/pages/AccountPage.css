@@ -183,3 +183,6 @@
 .group-members-list li { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0; border-bottom:1px solid #e0e8eb; }
 .group-members-list li>div { display:grid; justify-items:start; gap:8px; min-width:0; overflow-wrap:anywhere; }
 @media(max-width:600px) { .group-members-panel{padding:16px}.group-permissions,.group-role-confirm{padding:15px}.group-members-list li{align-items:stretch;flex-direction:column}.group-members-panel .account-section-heading{gap:12px} }
+
+.group-lifecycle { margin-top: 1rem; }
+.group-lifecycle fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }

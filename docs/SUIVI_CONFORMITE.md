@@ -129,3 +129,13 @@ Désignation/retrait de plusieurs référents par groupe réalisés, avec conser
 23 tests backend passent, dont accès croisés, CSRF, révocation, versions périmées et décisions concurrentes avec retrait de permission. Compilation et lint web réussis. Recette navigateur isolée des parcours administrateur/référent ; vue mobile 390 px sans débordement. Migration V15 appliquée, serveur local sain. Aperçus fictifs dans `docs/images/referents-demo.png` et `referents-mobile-demo.png`.
 
 03.10 est réalisé localement ; 03.11, 03.12 et 03.38 restent partiels. Les permissions d’annonces/activités et la suspension/archivage des groupes restent ouverts. Le lot 1C complet et la conformité intégrale aux maquettes ne sont donc pas déclarés terminés.
+
+### Cycle de vie des groupes
+
+L’administrateur actif de l’espace peut suspendre, réactiver un groupe suspendu ou archiver un groupe actif/suspendu dans « Gérer l’espace et les groupes ». Chaque action comporte une confirmation décrivant ses effets. L’archivage ne propose pas de retour à l’état actif. Les membres, rôles, demandes, projets et historique restent stockés ; les groupes inactifs et leurs projets disparaissent des catalogues, et les actions nécessitant un groupe actif sont bloquées. La réactivation conserve les permissions précédentes. Les activités de démonstration ne sont pas encore rattachées aux groupes.
+
+API : `POST /api/workspace/spaces/{spaceId}/groups/{id}/status`, corps `{version, status}`. Session active, CSRF et rôle administrateur de cet espace obligatoires. Le propriétaire global ou un référent seul ne peut pas changer le statut. Les écritures sont sérialisées par espace et une version périmée retourne 409. Chaque transition écrit une entrée d’historique ; aucune suppression ni migration de schéma.
+
+Recette : scénarios API de droits, isolation, conservation, réactivation et écritures concurrentes ; parcours navigateur simulés de suspension, réactivation et archivage, affichage mobile 390 px sans débordement. Les données fictives restent hors de la base applicative. Aperçu : `docs/images/groupes-archive-mobile-demo.png`. Les notifications et permissions d’annonces/activités restent hors de ce lot.
+
+Validation finale : 25 tests backend réussis, compilation et lint web réussis, `git diff --check` sans anomalie. Serveur local redémarré et état de santé UP. Modifications locales prêtes à être enregistrées dans Git depuis le terminal de VS Code.

@@ -118,6 +118,26 @@ function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | nul
   </fieldset>{error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}</form>;
 }
 
+function GroupLifecycle({ group, spaceId, disabled, onSaved, onReload }: { group: Group; spaceId: number; disabled: boolean; onSaved: (group: Group) => void; onReload: () => void }) {
+  const [target, setTarget] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const labels: Record<string, string> = { ACTIF: 'Réactiver le groupe', SUSPENDU: 'Suspendre le groupe', ARCHIVE: 'Archiver le groupe' };
+  async function save() {
+    setBusy(true); setError('');
+    try { onSaved(await postJson(`/api/workspace/spaces/${spaceId}/groups/${group.id}/status`, { version: group.version, status: target })); setTarget(null); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  if (group.status === 'ARCHIVE') return <p className="management-hint">Groupe archivé : données et historique conservés. La réactivation n’est pas disponible.</p>;
+  return <div className="group-lifecycle"><fieldset disabled={disabled || busy}>
+    {target ? <div className="group-role-confirm">
+      <h4>{labels[target]} : {group.name}</h4>
+      <p>{target === 'ACTIF' ? 'Le groupe retrouvera sa visibilité et ses accès précédents. Les rôles et permissions sont conservés.' : target === 'SUSPENDU' ? 'Le groupe et ses projets seront masqués du catalogue. Les adhésions et actions sur les projets seront bloquées jusqu’à sa réactivation.' : 'Le groupe sera fermé et masqué du catalogue, ainsi que ses projets. Ses membres, projets, demandes et historique seront conservés. Aucune réactivation ne sera proposée.'}</p>
+      <div className="management-actions"><button className="button coral" onClick={save}>{busy ? 'Enregistrement…' : 'Confirmer'}</button><button className="button outline" onClick={() => { setTarget(null); setError(''); }}>Annuler</button></div>
+    </div> : <div className="management-actions"><button className="button outline" onClick={() => setTarget(group.status === 'ACTIF' ? 'SUSPENDU' : 'ACTIF')}>{labels[group.status === 'ACTIF' ? 'SUSPENDU' : 'ACTIF']}</button><button className="text-link" onClick={() => setTarget('ARCHIVE')}>Archiver le groupe</button></div>}
+  </fieldset>{error && <div role="alert"><p className="draft-error">{error}</p><button className="text-link" disabled={busy} onClick={onReload}>Actualiser les groupes</button></div>}</div>;
+}
+
 export function SpaceManagement({ spaceId, onChanged, onClose }: { spaceId: number; onChanged: () => void; onClose: () => void }) {
   const [data, setData] = useState<Management | null>(null);
   const [error, setError] = useState('');
@@ -147,6 +167,7 @@ export function SpaceManagement({ spaceId, onChanged, onClose }: { spaceId: numb
         <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · {group.openMembership ? 'Adhésion ouverte' : 'Adhésion sur demande'}</p>
         {group.status === 'ACTIF' && <button className="text-link workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup(group); }}>Modifier ce groupe</button>}
         {group.status === 'ACTIF' && <button className="button outline workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => setMembersGroup(group.id)}>Membres et référents</button>}
+        <GroupLifecycle key={`${group.id}-${group.version}`} group={group} spaceId={spaceId} disabled={editingSpace || editingGroup !== null || membersGroup !== null} onReload={reload} onSaved={updated => { setData({ ...data, groups: data.groups.map(g => g.id === updated.id ? updated : g) }); setNotice('Le statut du groupe est enregistré.'); onChanged(); }} />
       </article>)}</div>}
     </>}
   </section>;

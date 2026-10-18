@@ -181,4 +181,20 @@ public class SpaceManagementController {
             throw error(HttpStatus.CONFLICT,"Ce groupe a changé. Rechargez les données avant de modifier.");
         audit(spaceId,id,user,"GROUPE_MODIFIE",body.version()+1); return group(spaceId,id);
     }
+    public record GroupStatus(@NotNull @Min(0) Long version,
+        @NotNull @Pattern(regexp="ACTIF|SUSPENDU|ARCHIVE") String status) {}
+    @PostMapping("/spaces/{spaceId}/groups/{id}/status") @Transactional
+    public Group changeGroupStatus(Authentication auth,@PathVariable long spaceId,@PathVariable long id,
+                                   @Valid @RequestBody GroupStatus body) {
+        long actor=user(auth); admin(actor,spaceId,true); var old=group(spaceId,id);
+        if(old.version()!=body.version()) throw error(HttpStatus.CONFLICT,"Ce groupe a changé. Actualisez les groupes avant de réessayer.");
+        if(old.status().equals(body.status())) return old;
+        if(old.status().equals("ARCHIVE")) throw error(HttpStatus.CONFLICT,"Un groupe archivé ne peut plus être réactivé ou suspendu.");
+        jdbc.update("UPDATE groupe SET statut=?,version=version+1 WHERE id=? AND espace_id=? AND version=?",
+            body.status(),id,spaceId,body.version());
+        String action=switch(body.status()) { case "ACTIF" -> "GROUPE_REACTIVE"; case "SUSPENDU" -> "GROUPE_SUSPENDU"; default -> "GROUPE_ARCHIVE"; };
+        audit(spaceId,id,actor,action,body.version()+1);
+        return group(spaceId,id);
+    }
+
 }
