@@ -50,6 +50,9 @@ class SpaceManagementApiTests {
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
  void cleanup() {
   for(long user:users) for(long space:jdbc.queryForList("SELECT id FROM espace_organisateur WHERE createur_id=?",Long.class,user)) {
+   jdbc.update("DELETE FROM inscription_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
+   jdbc.update("DELETE FROM historique_gestion_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
+   jdbc.update("DELETE FROM activite WHERE espace_id=?",space);
    jdbc.update("DELETE FROM demande_adhesion_groupe WHERE espace_id=?",space);
    jdbc.update("DELETE FROM historique_gestion_espace WHERE espace_id=?",space);
    jdbc.update("DELETE FROM soumission_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
@@ -381,6 +384,91 @@ class SpaceManagementApiTests {
     Collections.sort(codes);assertEquals(List.of(200,409),codes);
    }
    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM historique_gestion_espace WHERE groupe_id=?",Integer.class,group));
+  } finally { cleanup(); }
+ }
+
+ Map<String,Object> activityContent() {
+  var c=new HashMap<String,Object>();
+  c.put("title","Balade du quartier");c.put("category","nature");c.put("city","Bruxelles");c.put("location","Place du quartier");
+  c.put("price",0);c.put("image","balade");c.put("startsAt","2099-06-20T10:00:00+02:00");c.put("closesAt","2099-06-19T18:00:00+02:00");
+  c.put("description","Découvrir les jardins ensemble");c.put("duration","2 heures");c.put("capacity",4);c.put("audience","Tout public");
+  c.put("meetingPoint","Devant la fontaine");c.put("preparation","Prévoir de bonnes chaussures");c.put("visibility","PUBLIQUE");return c;
+ }
+ Map<String,Object> booking(String slug) { return Map.of("activityId",slug,"quantity",1,"firstName","Test","lastName","Inscription","email","test@example.com","phone","","acknowledged",true); }
+ @Test void activityAuthoringPublicationIsolationAndBookingProtection() throws Exception {
+  try {
+   var admin=actor();var other=actor();var ref=actor();var platform=actor();owner(platform);
+   long space=setupSpace(admin),otherSpace=setupSpace(other),group=setupGroup(space,"Activités du quartier",false,"PUBLIQUE");addMember(ref,space,group,"REFERENT");
+   var content=activityContent();var creation=Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",content);
+   String path="/api/managed-activities";
+   assertEquals(401,new Actor().get(path).statusCode());
+   assertEquals(403,admin.post(path,creation,false).statusCode());
+   for(var denied:List.of(other,ref,platform)) assertEquals(403,denied.post(path,creation,true).statusCode());
+   assertEquals(409,other.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",otherSpace,"groupId",group,"content",content),true).statusCode());
+   var a=ok(admin.post(path,creation,true),201);long id=a.get("id").asLong();String slug=a.get("slug").asText();
+   assertEquals(id,ok(admin.post(path,creation,true),201).get("id").asLong());
+   assertEquals(0,ok(other.get(path),200).size());assertEquals(1,ok(admin.get(path),200).size());
+   assertEquals(404,new Actor().get("/api/activities/"+slug).statusCode());
+   assertEquals(404,other.post("/api/bookings",booking(slug),true).statusCode());
+   content.put("title","Balade modifiée");
+   var update=Map.of("version",0,"content",content);
+   assertEquals(403,ref.post(path+"/"+id,update,true).statusCode());
+   ok(admin.post(path+"/"+id,update,true),200);assertEquals(409,admin.post(path+"/"+id,update,true).statusCode());
+   var pub=Map.of("version",1,"published",true);
+   assertEquals(403,platform.post(path+"/"+id+"/publication",pub,true).statusCode());
+   ok(admin.post(path+"/"+id+"/publication",pub,true),200);
+   assertEquals(200,new Actor().get("/api/activities/"+slug).statusCode());
+   assertEquals(409,admin.post(path+"/"+id,Map.of("version",2,"content",content),true).statusCode());
+   long booked=ok(other.post("/api/bookings",booking(slug),true),201).get("id").asLong();
+   assertEquals(409,admin.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true).statusCode());
+   assertEquals(3,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE id=?",Integer.class,id));
+   assertEquals(204,other.post("/api/bookings/"+booked+"/cancel",Map.of(),true).statusCode());
+   ok(admin.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true),200);
+   assertEquals(404,new Actor().get("/api/activities/"+slug).statusCode());
+   content.put("price",12.50);ok(admin.post(path+"/"+id,Map.of("version",3,"content",content),true),200);
+   assertEquals(409,admin.post(path+"/"+id+"/publication",Map.of("version",4,"published",true),true).statusCode());
+   content.put("closesAt","2100-01-01T00:00:00Z");assertEquals(400,admin.post(path+"/"+id,Map.of("version",4,"content",content),true).statusCode());
+   content.put("closesAt","2000-01-01T00:00:00Z");assertEquals(400,admin.post(path+"/"+id,Map.of("version",4,"content",content),true).statusCode());
+   jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
+   assertEquals(403,admin.post(path+"/"+id+"/publication",Map.of("version",4,"published",true),true).statusCode());
+  } finally { cleanup(); }
+ }
+ @Test void privateActivitiesDeadlineAndInactiveGroupsAreEnforced() throws Exception {
+  try {
+   var admin=actor();var member=actor();var outsider=actor();long space=setupSpace(admin),group=setupGroup(space,"Activités privées",false,"PRIVEE");addMember(member,space,group,"MEMBRE");
+   var content=activityContent();content.put("visibility","PRIVEE");String path="/api/managed-activities";
+   var a=ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",content),true),201);
+   long id=a.get("id").asLong();String slug=a.get("slug").asText();ok(admin.post(path+"/"+id+"/publication",Map.of("version",0,"published",true),true),200);
+   for(var denied:List.of(new Actor(),outsider)) { assertEquals(404,denied.get("/api/activities/"+slug).statusCode());assertFalse(denied.get("/api/activities").body().contains(slug)); }
+   assertEquals(404,outsider.post("/api/bookings",booking(slug),true).statusCode());
+   assertEquals(200,member.get("/api/activities/"+slug).statusCode());
+   jdbc.update("UPDATE activite SET cloture_inscriptions=now()-interval '1 hour' WHERE id=?",id);
+   assertEquals(409,member.post("/api/bookings",booking(slug),true).statusCode());
+   jdbc.update("UPDATE activite SET cloture_inscriptions=debut WHERE id=?",id);
+   long booked=ok(member.post("/api/bookings",booking(slug),true),201).get("id").asLong();
+   ok(admin.post("/api/workspace/spaces/"+space+"/groups/"+group+"/status",Map.of("version",0,"status","SUSPENDU"),true),200);
+   assertEquals(404,member.get("/api/activities/"+slug).statusCode());
+   assertEquals(409,admin.post(path+"/"+id+"/publication",Map.of("version",1,"published",false),true).statusCode());
+   assertEquals(204,member.post("/api/bookings/"+booked+"/cancel",Map.of(),true).statusCode());
+   ok(admin.post("/api/workspace/spaces/"+space+"/groups/"+group+"/status",Map.of("version",1,"status","ACTIF"),true),200);
+   assertEquals(200,member.get("/api/activities/"+slug).statusCode());
+   jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE utilisateur_id=? AND groupe_id=?",member.id,group);
+   assertEquals(404,member.get("/api/activities/"+slug).statusCode());
+   assertEquals(404,member.post("/api/bookings",booking(slug),true).statusCode());
+   assertEquals(200,admin.get("/api/activities/"+slug).statusCode());
+  } finally { cleanup(); }
+ }
+ @Test void publicationWithdrawalSerializesWithNewBooking() throws Exception {
+  try {
+   var admin=actor();var member=actor();long space=setupSpace(admin);String path="/api/managed-activities";
+   var a=ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"content",activityContent()),true),201);
+   long id=a.get("id").asLong();String slug=a.get("slug").asText();ok(admin.post(path+"/"+id+"/publication",Map.of("version",0,"published",true),true),200);
+   try(var pool=Executors.newFixedThreadPool(2)) {
+    var withdrawal=pool.submit(()->admin.post(path+"/"+id+"/publication",Map.of("version",1,"published",false),true));
+    var reserve=pool.submit(()->member.post("/api/bookings",booking(slug),true));
+    int w=withdrawal.get(20,TimeUnit.SECONDS).statusCode(),r=reserve.get(20,TimeUnit.SECONDS).statusCode();
+    assertTrue((w==200 && r==404)||(w==409 && r==201),"withdrawal="+w+", reservation="+r);
+   }
   } finally { cleanup(); }
  }
 

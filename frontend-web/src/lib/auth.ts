@@ -16,9 +16,9 @@ export async function postJson(path: string, payload?: object) {
   if (response.status === 204) return;
   return result(response);
 }
-export async function authenticate(mode: 'login' | 'register', payload: object): Promise<UserProfile> { return postJson(`/api/auth/${mode}`, payload); }
+export async function authenticate(mode: 'login' | 'register', payload: object): Promise<UserProfile> { const profile = await postJson(`/api/auth/${mode}`, payload); window.dispatchEvent(new Event("catalog-reset")); return profile; }
 export async function currentUser(signal?: AbortSignal): Promise<UserProfile | null> {
   const response = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store', signal });
   return response.status === 401 ? null : result(response);
 }
-export async function signOut() { await postJson('/api/auth/logout'); }
+export async function signOut() { await postJson('/api/auth/logout'); window.dispatchEvent(new Event('catalog-reset')); }

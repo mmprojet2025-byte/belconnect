@@ -2,7 +2,7 @@
 
 État au 18 octobre 2026. Projet concerné : `/Users/Malaba/Projects/belconnect`.
 
-Le développement couvre déjà une partie importante du parcours des projets et des inscriptions gratuites. Il ne couvre pas encore tout le cahier des charges, et les tableaux de bord ne reproduisent pas entièrement les maquettes Stitch. Le premier lot de gestion des espaces et groupes est maintenant implémenté. Le parcours d’adhésion aux groupes est également réalisé localement. La prochaine priorité est la désignation des référents et leurs permissions.
+Le développement couvre déjà une partie importante du parcours des projets et des inscriptions gratuites. Il ne couvre pas encore tout le cahier des charges, et les tableaux de bord ne reproduisent pas entièrement les maquettes Stitch. Le premier lot de gestion des espaces et groupes est maintenant implémenté. Le parcours d’adhésion aux groupes est également réalisé localement. La désignation des référents, la délégation des adhésions et le cycle de vie des groupes sont disponibles. Un premier parcours administratif de création et publication d’activités est désormais réalisé.
 
 ## Références et règles de lecture
 
@@ -31,7 +31,7 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Désignation et permissions des référents | 03.10, 03.11 | Partiel | Rôle reconnu pour l'examen des projets ; désignation et permissions configurables absentes. |
 | Administration directe et déléguée | 03.12 | Partiel | Intervention directe de l'administrateur sur les projets ; gestion complète des groupes restante. |
 | Suspension et archivage des groupes | 03.13 | Partiel | Certains contrôles d'activité existent ; cycle de gestion et historique consultable à compléter. |
-| Création et publication des activités | 03.14–03.17 | À développer | Catalogue alimenté en base, mais pas de gestion organisateur des images, dates, visibilité et validation. |
+| Création et publication des activités | 03.14–03.17 | Partiel | Formulaire, galerie, dates, clôture, visibilité et publication gratuite par administrateur ; import, délégation et paiement restants. |
 | Catalogue et détail des activités | 03.18 | Réalisé localement | Lecture API et filtres web ; contenu initial de démonstration. |
 | Inscriptions gratuites | 03.19 | Partiel | Création, modification, annulation et capacité ; limite actuelle de 1 à 4 places, capacité illimitée et échéance distincte du début non couvertes. |
 | Paiements des activités | 03.20–03.22 | À développer | Écran de simulation ; aucun encaissement réel ni confirmation serveur du prestataire. |
@@ -139,3 +139,17 @@ API : `POST /api/workspace/spaces/{spaceId}/groups/{id}/status`, corps `{version
 Recette : scénarios API de droits, isolation, conservation, réactivation et écritures concurrentes ; parcours navigateur simulés de suspension, réactivation et archivage, affichage mobile 390 px sans débordement. Les données fictives restent hors de la base applicative. Aperçu : `docs/images/groupes-archive-mobile-demo.png`. Les notifications et permissions d’annonces/activités restent hors de ce lot.
 
 Validation finale : 25 tests backend réussis, compilation et lint web réussis, `git diff --check` sans anomalie. Serveur local redémarré et état de santé UP. Modifications locales prêtes à être enregistrées dans Git depuis le terminal de VS Code.
+
+### Activités organisateur — premier parcours administratif
+
+Dans **Mon espace → Mes espaces et projets → Activités de mes espaces**, les administrateurs actifs créent et modifient des brouillons, publient les activités gratuites et retirent une publication sans inscription confirmée. Les boutons « Organiser une activité » mènent à cet espace. Un compte sans espace peut y demander une ouverture. Le propriétaire global, un membre ou un référent sans rôle administrateur ne reçoit pas ces droits.
+
+Le formulaire comporte titre, catégorie, description, ville, adresse, rendez-vous, début, clôture des inscriptions, durée, capacité, prix, public cible, préparation et image de la galerie locale. Les heures sont saisies dans le fuseau du navigateur et affichées en heure de Bruxelles sur le catalogue. Une activité appartient à un espace et au maximum un groupe actif du même espace ; ce rattachement n’est pas modifiable après création. La visibilité privée est réservée aux membres actifs du groupe, ou de l’espace sans groupe, ainsi qu’à l’administrateur. Catalogue, lien direct et réservation appliquent ce contrôle côté serveur.
+
+Migration V16 : rattachements, auteur, identifiant de création, version, visibilité, clôture et historique administratif. API `GET/POST /api/managed-activities`, `POST /api/managed-activities/{id}` et `POST /api/managed-activities/{id}/publication`. Les écritures exigent CSRF, rôle actif, groupe actif et version courante. Le brouillon est partagé entre les administrateurs de l’espace, jamais public. Une création réessayée à l’identique ne crée pas de doublon. La publication payante est bloquée, mais le tarif peut être enregistré en brouillon. Les données de démonstration existantes restent accessibles selon leur publication.
+
+Les inscriptions respectent la clôture distincte du début. Une activité d’espace/groupe inactif n’est plus visible ni réservable. L’annulation individuelle reste possible avant le début même si l’activité est masquée. Publication/retrait et réservation sont sérialisés : aucune réservation confirmée ne peut être contournée par un retrait concurrent. Les activités publiées ne sont pas directement modifiables ; retirer leur publication d’abord, uniquement sans inscription confirmée. Les annulations organisateur et notifications associées restent à développer.
+
+Validation : 28 tests backend réussis, compilation et lint web réussis, diff sans erreur de format. Tests d’isolation, CSRF, visibilité privée, publication, dates, révocation, retrait concurrent avec inscription et non-régression. Parcours navigateur simulés de création, modification, publication et retrait ; formulaire mobile 390 px sans débordement. Aperçu fictif : `docs/images/activites-organisateur-mobile-demo.png`. Aucun compte ni activité de démonstration de cette recette n’a été ajouté à la base applicative.
+
+Limites : galerie d’images fournie uniquement, sans import ; pas encore de gestion des activités par les référents, de paiement réel, de capacité illimitée, de registre détaillé des participants ni de notifications. Les tâches 03.14, 03.15 et 03.17 restent partielles ; la reproduction complète des tableaux de bord Stitch n’est pas déclarée terminée.

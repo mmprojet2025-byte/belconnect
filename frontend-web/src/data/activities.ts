@@ -12,6 +12,7 @@ export type Activity = {
   image: string;
   date: string;
   startsAt: string;
+  closesAt?: string | null;
   weekend: boolean;
   description: string;
   badge?: string;

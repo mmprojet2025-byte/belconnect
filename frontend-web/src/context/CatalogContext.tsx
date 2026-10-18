@@ -103,8 +103,11 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   }, [attempt]);
   useEffect(() => {
     const refresh = () => setAttempt(v => v + 1);
+    const reset = () => { setActivities([]); refresh(); };
     window.addEventListener("catalog-refresh", refresh);
-    return () => window.removeEventListener("catalog-refresh", refresh);
+    window.addEventListener("catalog-reset", reset);
+    window.addEventListener("focus", refresh);
+    return () => { window.removeEventListener("catalog-refresh", refresh); window.removeEventListener("catalog-reset", reset); window.removeEventListener("focus", refresh); };
   }, []);
   if (!activities)
     return (

@@ -221,12 +221,7 @@ function App() {
           <div className="header-actions">
             <button
               className="button outline organize"
-              onClick={() =>
-                upcoming(
-                  "Organiser une activité",
-                  "Un espace dédié permettra aux organisateurs de proposer et gérer leurs activités sur Belconnect. Nous préparons ce parcours.",
-                )
-              }
+              onClick={() => navigate('/mon-espace#espaces')}
             >
               Organiser une activité
             </button>
@@ -260,7 +255,7 @@ function App() {
             <a className="login" href={user ? "/mon-espace" : "/connexion"}>
               {user ? "Mon espace" : "Connexion"}
             </a>
-            <a href="/#organisateurs" onClick={() => setMenuOpen(false)}>
+            <a href="/mon-espace#espaces" onClick={() => setMenuOpen(false)}>
               Organiser une activité
             </a>
           </nav>
@@ -580,12 +575,7 @@ function App() {
                   </p>
                   <button
                     className="button coral"
-                    onClick={() =>
-                      upcoming(
-                        "Partagez votre passion",
-                        "Le parcours organisateur permettra de présenter votre activité, de proposer des dates et de gérer les inscriptions. Il sera construit dans une prochaine étape.",
-                      )
-                    }
+                    onClick={() => navigate('/mon-espace#espaces')}
                   >
                     Proposer une activité
                     <Icon name="arrow" />
@@ -654,7 +644,7 @@ function App() {
           <div>
             <h3>Ensemble</h3>
             <a href="/projets">Les projets locaux</a>
-            <a href="/#organisateurs">Organiser une activité</a>
+            <a href="/mon-espace#espaces">Organiser une activité</a>
             <button
               onClick={() =>
                 upcoming(

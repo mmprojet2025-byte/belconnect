@@ -55,12 +55,12 @@
 | 03.11 | Configurer droits des référents par groupe | Partiel | Permission de traiter les adhésions configurable par groupe, désactivée par défaut ; permissions annonces/activités restantes. |
 | 03.12 | Gérer administration directe et déléguée | Partiel | Administration directe et délégation des adhésions réalisées ; autres modules délégués restants. |
 | 03.13 | Suspendre et archiver les groupes | Réalisé localement | Suspension, réactivation des groupes suspendus et archivage administratif avec conservation des données ; contrôle de version et historique. |
-| 03.14 | Créer formulaire d'activité et images | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
-| 03.15 | Gérer dates, lieux, places, tarifs, échéances | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
-| 03.16 | Rattacher activité à 0 ou 1 groupe / visibilité | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
-| 03.17 | Gérer brouillons, publication et workflow référent | À développer | Données du catalogue présentes ; gestion des activités par organisateur/référent absente. |
+| 03.14 | Créer formulaire d'activité et images | Partiel | Formulaire administrateur et galerie locale disponibles ; import de photos restant. |
+| 03.15 | Gérer dates, lieux, places, tarifs, échéances | Partiel | Date, lieu, durée, capacité bornée, tarif de brouillon et clôture distincte ; paiements réels et capacité illimitée restants. |
+| 03.16 | Rattacher activité à 0 ou 1 groupe / visibilité | Réalisé localement | Espace obligatoire, groupe actif facultatif et visibilité publique/privée ; catalogue, détail et réservations filtrés côté serveur. |
+| 03.17 | Gérer brouillons, publication et workflow référent | Partiel | Brouillon, modification, publication gratuite et retrait sans inscription confirmée par administrateur ; délégation référent et annulation organisateur restantes. |
 | 03.18 | Créer catalogue, détail et filtres d'activités | Réalisé localement | Catalogue API, détail et filtres web ; contenu initial de démonstration. |
-| 03.19 | Gérer inscriptions gratuites, capacité et doublons | Partiel | Réservation gratuite et capacité gérées ; échéance dédiée et capacité illimitée non couvertes. |
+| 03.19 | Gérer inscriptions gratuites, capacité et doublons | Partiel | Réservation gratuite, capacité, doublons et clôture gérés ; 1 à 4 places par inscription, capacité illimitée restante. |
 | 03.20 | Préparer compte organisateur prestataire de paiement | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.21 | Créer paiement activité et suivi de session | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.22 | Vérifier paiement serveur, idempotence, expiration | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |

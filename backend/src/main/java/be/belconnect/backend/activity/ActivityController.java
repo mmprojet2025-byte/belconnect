@@ -17,13 +17,13 @@ public class ActivityController {
     public ActivityController(ActivityRepository repository) { this.repository = repository; }
 
     @GetMapping
-    public ResponseEntity<List<ActivityView>> list() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(repository.findPublished());
+    public ResponseEntity<List<ActivityView>> list(org.springframework.security.core.Authentication auth) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(repository.findPublished(auth==null?null:repository.userId(auth.getName())));
     }
 
     @GetMapping("/{slug}")
-    public ResponseEntity<ActivityView> detail(@PathVariable String slug) {
-        var activity = repository.findPublishedBySlug(slug)
+    public ResponseEntity<ActivityView> detail(@PathVariable String slug,org.springframework.security.core.Authentication auth) {
+        var activity = repository.findPublishedBySlug(slug,auth==null?null:repository.userId(auth.getName()))
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Activité introuvable"));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(activity);
     }

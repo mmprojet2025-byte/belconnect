@@ -1,5 +1,5 @@
 import { useActivities } from "../context/catalogStore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { categories } from "../data/activities";
 import type { Activity } from "../data/activities";
@@ -20,6 +20,8 @@ export function ActivityDetail({
   card: (activity: Activity) => ReactNode;
 }) {
   const activities = useActivities();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const [quantity, setQuantity] = useState(1);
   const [shareMessage, setShareMessage] = useState("");
   if (!activity)
@@ -36,6 +38,7 @@ export function ActivityDetail({
     );
   const detail = activity.details;
   const full = detail.remaining === 0;
+  const closed = new Date(activity.closesAt || activity.startsAt).getTime() <= now;
   const category = categories.find((c) => c.id === activity.category)!;
   const date = new Intl.DateTimeFormat("fr-BE", {
     dateStyle: "full",
@@ -288,7 +291,8 @@ export function ActivityDetail({
               ? "Toutes les places sont prises"
               : `${detail.remaining} places encore disponibles`}
           </div>
-          {full ? (
+          {activity.closesAt && <p>Clôture des inscriptions : {new Date(activity.closesAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels" })} (heure de Bruxelles)</p>}
+          {closed ? <p className="account-notice" role="status">Les inscriptions sont closes pour cette activité.</p> : full ? (
             <div className="full-message">
               <h2>On se retrouve une prochaine fois ?</h2>
               <p>
@@ -329,7 +333,7 @@ export function ActivityDetail({
               </div>
               <p className="quantity-help">
                 Jusqu’à {Math.min(4, detail.remaining)} participants par
-                inscription dans cette démo.
+                inscription.
               </p>
               <div className="booking-total">
                 <span>
