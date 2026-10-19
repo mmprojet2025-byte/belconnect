@@ -17,7 +17,7 @@ public class GroupRolesController {
     public GroupRolesController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     public record Member(long id,String name,String role,long version) {}
     public record Roster(long id,String name,String spaceName,long version,boolean canManageRoles,
-                         boolean referentsManageMemberships,boolean canManageMemberships,List<Member> members) {}
+                         boolean referentsManageMemberships,boolean canManageMemberships,boolean referentsManageActivities,List<Member> members) {}
     public record RoleChange(@NotNull @Min(0) Long version,@NotNull @Pattern(regexp="MEMBRE|REFERENT") String role) {}
     public record Delegation(@NotNull @Min(0) Long version,@NotNull Boolean manageMemberships) {}
     private record Access(long space,boolean admin,boolean delegated) {}
@@ -50,7 +50,7 @@ public class GroupRolesController {
             """,(r,n)->new Member(r.getLong("id"),r.getString("prenom")+" "+r.getString("nom"),r.getString("role"),r.getLong("version")),group);
         return jdbc.query("SELECT g.*,e.nom AS espace_nom FROM groupe g JOIN espace_organisateur e ON e.id=g.espace_id WHERE g.id=?",
             (r,n)->new Roster(group,r.getString("nom"),r.getString("espace_nom"),r.getLong("version"),access.admin(),r.getBoolean("referents_gerent_adhesions"),
-                access.admin() || r.getBoolean("referents_gerent_adhesions"),members),group).getFirst();
+                access.admin() || r.getBoolean("referents_gerent_adhesions"),r.getBoolean("referents_gerent_activites"),members),group).getFirst();
     }
     @GetMapping("/{id}/members") @Transactional
     public Roster get(Authentication auth,@PathVariable long id) { return roster(id,access(user(auth),id,false)); }
@@ -87,4 +87,14 @@ public class GroupRolesController {
         jdbc.update("INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,action,version) VALUES (?,?,?,'DELEGATION_ADHESIONS',?)",access.space(),id,actor,body.version()+1);
         return roster(id,access);
     }
+    public record ActivityDelegation(@NotNull @Min(0) Long version,@NotNull Boolean enabled) {}
+    @PostMapping("/{id}/activity-permission") @Transactional
+    public Roster activities(Authentication auth,@PathVariable long id,@Valid @RequestBody ActivityDelegation body) {
+        long actor=user(auth);var access=access(actor,id,true);
+        if(jdbc.update("UPDATE groupe SET referents_gerent_activites=?,version=version+1 WHERE id=? AND version=?",body.enabled(),id,body.version())!=1)
+            throw error(HttpStatus.CONFLICT,"Les droits ont changé. Actualisez les membres avant de réessayer.");
+        jdbc.update("INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,action,version) VALUES (?,?,?,'DELEGATION_ACTIVITES',?)",access.space(),id,actor,body.version()+1);
+        return roster(id,access);
+    }
+
 }

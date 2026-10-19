@@ -511,4 +511,46 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
 
+ @Test void referentsOrganizeOnlyTheirDelegatedGroupsAndLoseAccessImmediately() throws Exception {
+  try {
+   var admin=actor();var ref=actor();var member=actor();long space=setupSpace(admin);
+   long group=setupGroup(space,"Sorties des voisins",false,"PUBLIQUE"),other=setupGroup(space,"Autre groupe",false,"PUBLIQUE");
+   addMember(ref,space,group,"REFERENT");addMember(member,space,group,"MEMBRE");
+   String permission="/api/workspace/groups/"+group+"/activity-permission",path="/api/managed-activities";
+   var creation=Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",activityContent());
+   assertEquals(403,ref.post(path,creation,true).statusCode());
+   assertEquals(403,ref.post(permission,Map.of("version",0,"enabled",true),true).statusCode());
+   assertEquals(403,admin.post(permission,Map.of("version",0,"enabled",true),false).statusCode());
+   ok(admin.post(permission,Map.of("version",0,"enabled",true),true),200);
+   assertEquals(409,admin.post(permission,Map.of("version",0,"enabled",true),true).statusCode());
+   assertTrue(ok(ref.get("/api/workspace"),200).get("groups").get(0).get("canManageActivities").asBoolean());
+   assertEquals(403,member.post(path,creation,true).statusCode());
+   assertEquals(403,ref.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"content",activityContent()),true).statusCode());
+   assertEquals(403,ref.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",other,"content",activityContent()),true).statusCode());
+   var a=ok(ref.post(path,creation,true),201);long id=a.get("id").asLong();String slug=a.get("slug").asText();
+   var otherA=ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",other,"content",activityContent()),true),201);
+   assertEquals(1,ok(ref.get(path),200).size());
+   assertEquals(403,ref.get(path+"/"+otherA.get("id").asLong()+"/registrations.csv").statusCode());
+   ok(ref.post(path+"/"+id,Map.of("version",0,"content",activityContent()),true),200);
+   ok(ref.post(path+"/"+id+"/publication",Map.of("version",1,"published",true),true),200);
+   ok(member.post("/api/bookings",booking(slug),true),201);
+   assertEquals(1,ok(ref.get(path+"/"+id+"/registrations"),200).get("registrations").size());
+   assertEquals(200,ref.get(path+"/"+id+"/registrations.csv").statusCode());
+   assertEquals(409,ref.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true).statusCode());
+   ok(admin.post(permission,Map.of("version",1,"enabled",false),true),200);
+   assertEquals(0,ok(ref.get(path),200).size());
+   assertEquals(403,ref.get(path+"/"+id+"/registrations.csv").statusCode());
+   assertEquals(403,ref.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true).statusCode());
+   assertEquals(200,admin.get(path+"/"+id+"/registrations").statusCode());
+   assertEquals(200,member.get("/api/activities/"+slug).statusCode());
+   ok(admin.post(permission,Map.of("version",2,"enabled",true),true),200);
+   jdbc.update("UPDATE appartenance_groupe SET role='MEMBRE' WHERE groupe_id=? AND utilisateur_id=?",group,ref.id);
+   assertEquals(403,ref.get(path+"/"+id+"/registrations").statusCode());
+   jdbc.update("UPDATE appartenance_groupe SET role='REFERENT' WHERE groupe_id=? AND utilisateur_id=?",group,ref.id);
+   jdbc.update("UPDATE groupe SET statut='SUSPENDU' WHERE id=?",group);
+   assertEquals(0,ok(ref.get(path),200).size());assertEquals(409,ref.get(path+"/"+id+"/registrations.csv").statusCode());
+   assertEquals(200,admin.get(path+"/"+id+"/registrations.csv").statusCode());
+  } finally { cleanup(); }
+ }
+
 }

@@ -52,8 +52,8 @@
 | 03.08 | Implémenter adhésion ouverte/sur demande | Réalisé localement | Adhésion ouverte ou demande, suivi personnel ; appartenance espace/groupe créée seulement après acceptation. Notifications restantes. |
 | 03.09 | Gérer acceptation/refus et statut des membres | Réalisé localement | Acceptation/refus par administrateur ou référent autorisé du groupe ; version, isolation et révocation vérifiées. |
 | 03.10 | Nommer un ou plusieurs référents par groupe | Réalisé localement | Liste des membres actifs, désignation de plusieurs référents et retrait conservant l’adhésion ; historique et contrôle de version. |
-| 03.11 | Configurer droits des référents par groupe | Partiel | Permission de traiter les adhésions configurable par groupe, désactivée par défaut ; permissions annonces/activités restantes. |
-| 03.12 | Gérer administration directe et déléguée | Partiel | Administration directe et délégation des adhésions réalisées ; autres modules délégués restants. |
+| 03.11 | Configurer droits des référents par groupe | Partiel | Permission de traiter les adhésions configurable par groupe, désactivée par défaut ; permission activités (publication gratuite et inscrits/CSV) disponible ; annonces restantes. |
+| 03.12 | Gérer administration directe et déléguée | Partiel | Administration directe et délégation des adhésions et activités réalisées ; autres modules délégués restants. |
 | 03.13 | Suspendre et archiver les groupes | Réalisé localement | Suspension, réactivation des groupes suspendus et archivage administratif avec conservation des données ; contrôle de version et historique. |
 | 03.14 | Créer formulaire d'activité et images | Partiel | Formulaire administrateur et galerie locale disponibles ; import de photos restant. |
 | 03.15 | Gérer dates, lieux, places, tarifs, échéances | Partiel | Date, lieu, durée, capacité bornée, tarif de brouillon et clôture distincte ; paiements réels et capacité illimitée restants. |
@@ -64,7 +64,7 @@
 | 03.20 | Préparer compte organisateur prestataire de paiement | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.21 | Créer paiement activité et suivi de session | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.22 | Vérifier paiement serveur, idempotence, expiration | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
-| 03.23 | Créer liste des inscrits et accès du référent | Partiel | Registre administrateur et export CSV filtré disponibles ; accès délégué aux référents restant. |
+| 03.23 | Créer liste des inscrits et accès du référent | Réalisé localement | Registre et export CSV filtré accessibles aux administrateurs et aux référents autorisés pour leur groupe. |
 | 03.24 | Gérer annulation selon politique finalisée | Partiel | Annulation gratuite disponible ; politique définitive et remboursements payants restants. |
 | 03.25 | Créer brouillon projet avec objectifs, images et aide | Partiel | Brouillons présents ; images et types d’aide recherchée manquants. |
 | 03.26 | Soumettre projets et gérer leurs statuts | Réalisé localement | Soumission sauvegardée, statuts et permissions contrôlés. |
@@ -132,3 +132,18 @@
 | 06.10 | Suivre coûts, incidents, performance et revenus | À valider | Pilotage, lancement ou exploitation hors code ; réalisation non établie, à suivre avec le fondateur. |
 | 06.11 | Planifier maintenance et évolutions V2 | À valider | Pilotage, lancement ou exploitation hors code ; réalisation non établie, à suivre avec le fondateur. |
 
+
+
+### Activités confiées aux référents — 19 octobre 2026
+
+Décision produit : simplifier le quotidien, avec une seule autorisation par groupe et les écrans existants. Dans les membres et permissions du groupe, l’administrateur peut confier les activités à ses référents. Aucun nouveau circuit d’approbation des activités.
+
+La permission est désactivée par défaut (migration V17). Un référent actif autorisé retrouve « Mes activités » : création et modification de brouillons, publication gratuite, inscriptions et export CSV, uniquement pour son groupe actif. Le formulaire sélectionne un groupe autorisé et ne propose pas « Sans groupe » au référent. L’administrateur conserve ses droits. Retirer l’autorisation ou le rôle retire immédiatement l’accès côté serveur, sans supprimer activités ni inscriptions. Les administrateurs peuvent toujours consulter les inscriptions historiques d’un groupe suspendu ou archivé.
+
+API de configuration : `POST /api/workspace/groups/{id}/activity-permission`, avec CSRF, contrôle administrateur, version du groupe et historique. Les garde-fous existants sont conservés : activités payantes en brouillon seulement, retrait de publication bloqué en présence d’inscriptions confirmées.
+
+Les contrôles navigateur utilisent des données fictives isolées ; aucun droit réel n’est attribué par cette livraison. Aperçu : `docs/images/activites-referent-demo.png`. Les annonces, notifications et paiements restent à développer ; les tâches 03.11, 03.12 et 03.17 restent partielles. La tâche 03.23 est réalisée localement pour les inscriptions et leur export.
+
+Recette web : compilation et lint réussis ; parcours administrateur et référent vérifiés avec des données fictives, affichage mobile à 390 px sans débordement horizontal.
+
+Validation backend : suite de 30 tests exécutée ; une régression du code de refus (409 au lieu de 403 pour une appartenance retirée) corrigée, puis les 14 tests SpaceManagementApiTests relancés avec succès. Les 16 autres tests étaient réussis. Migration V17 appliquée en local ; serveur sain et accès anonyme aux activités organisées refusé (401).

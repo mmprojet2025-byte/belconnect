@@ -15,7 +15,7 @@ const displayDate = (value: string) => new Date(value).toLocaleString('fr-BE', {
 
 function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activity: Managed | null; spaces: Space[]; groups: Group[]; onSaved: () => void; onClose: () => void }) {
   const [spaceId, setSpaceId] = useState(activity?.spaceId ?? spaces[0]?.id ?? 0);
-  const [groupId, setGroupId] = useState(activity?.groupId?.toString() ?? '');
+  const [groupId, setGroupId] = useState(activity ? activity.groupId?.toString() ?? '' : spaces[0]?.role === 'ADMINISTRATEUR' ? '' : groups.find(g => g.spaceId === spaces[0]?.id)?.id.toString() ?? '');
   const [content, setContent] = useState<Content>(activity ? { ...activity.content, startsAt: localTime(activity.content.startsAt), closesAt: localTime(activity.content.closesAt) } : { title: '', category: 'nature', city: '', location: '', price: 0, image: 'balade', startsAt: '', closesAt: '', description: '', duration: '', capacity: 20, audience: 'Tout public', meetingPoint: '', preparation: '', visibility: 'PUBLIQUE' });
   const [requestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
@@ -31,10 +31,10 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
   }
   return <form className="draft-editor activity-editor" onSubmit={submit}>
     <p className="eyebrow teal">PRÉPARER UNE RENCONTRE</p><h3>{activity ? 'Modifier le brouillon' : 'Créer une activité'}</h3>
-    <p>Le brouillon est accessible aux administrateurs de votre espace. Il ne sera visible par les participants qu’après publication.</p>
+    <p>Le brouillon est partagé avec l’administrateur et les référents autorisés du groupe. Il ne sera visible par les participants qu’après publication.</p>
     <fieldset disabled={busy}>
-      <div className="draft-columns"><label>Espace organisateur<select disabled={!!activity} value={spaceId} onChange={e => { setSpaceId(Number(e.target.value)); setGroupId(''); }}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-      <label>Groupe (facultatif)<select disabled={!!activity} value={groupId} onChange={e => setGroupId(e.target.value)}><option value="">Sans groupe</option>{groups.filter(g => g.spaceId === spaceId).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label></div>
+      <div className="draft-columns"><label>Espace organisateur<select disabled={!!activity} value={spaceId} onChange={e => { const id = Number(e.target.value); setSpaceId(id); setGroupId(spaces.find(s => s.id === id)?.role === 'ADMINISTRATEUR' ? '' : groups.find(g => g.spaceId === id)?.id.toString() ?? ''); }}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+      <label>Groupe<select disabled={!!activity} value={groupId} onChange={e => setGroupId(e.target.value)}>{spaces.find(s => s.id === spaceId)?.role === 'ADMINISTRATEUR' && <option value="">Sans groupe</option>}{groups.filter(g => g.spaceId === spaceId).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label></div>
       <label>Titre de l’activité<input required minLength={5} maxLength={250} value={content.title} onChange={e => patch({ title: e.target.value })} /></label>
       <div className="draft-columns"><label>Catégorie<select value={content.category} onChange={e => patch({ category: e.target.value })}>{categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label><label>Visibilité<select value={content.visibility} onChange={e => patch({ visibility: e.target.value })}><option value="PUBLIQUE">Publique</option><option value="PRIVEE">Privée</option></select></label></div>
       <p className="management-hint">Une activité publique est ouverte aux comptes Belconnect, sans adhésion au groupe. Une activité privée est réservée aux membres actifs du groupe choisi, ou de l’espace si aucun groupe n’est choisi.</p>
@@ -84,8 +84,8 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
   }
   const filtered = activities.filter(a => filter === 'ALL' || (filter === 'PUBLISHED') === a.published);
   return <section aria-labelledby="managed-activities-title">
-    <div className="account-section-heading"><h2 id="managed-activities-title">Activités de mes espaces</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser les activités</button></div>
-    <p className="workspace-description">Préparez vos activités, puis publiez-les pour ouvrir les inscriptions. Seuls les administrateurs de l’espace peuvent les gérer dans cette version.</p>
+    <div className="account-section-heading"><h2 id="managed-activities-title">Mes activités</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser les activités</button></div>
+    <p className="workspace-description">Préparez une activité, publiez-la et retrouvez vos inscrits ici.</p>
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
     {!editing && <button className="button coral workspace-create" disabled={busy || confirm !== null} onClick={() => { setNotice(''); setEditing('new'); }}>Créer une activité</button>}

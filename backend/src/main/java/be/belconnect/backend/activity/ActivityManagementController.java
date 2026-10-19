@@ -44,12 +44,20 @@ public class ActivityManagementController {
       return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName()).stream().findFirst()
         .orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter."));
     }
-    private void admin(long user,long space,Long group) {
-      if(jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? AND statut='ACTIF' FOR UPDATE",space).isEmpty()
-        || jdbc.queryForList("SELECT id FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? AND role='ADMINISTRATEUR' AND statut='ACTIF' FOR SHARE",space,user).isEmpty())
-        throw error(HttpStatus.FORBIDDEN,"Cette action est réservée à un administrateur actif de cet espace.");
-      if(group!=null && jdbc.queryForList("SELECT id FROM groupe WHERE id=? AND espace_id=? AND statut='ACTIF' FOR SHARE",group,space).isEmpty())
-        throw error(HttpStatus.CONFLICT,"Le groupe choisi doit être actif et appartenir à cet espace.");
+    private void access(long user,long space,Long group,boolean write) {
+      if(jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? AND statut='ACTIF'"+(write?" FOR UPDATE":" FOR SHARE"),space).isEmpty())
+        throw error(HttpStatus.FORBIDDEN,"Cet espace n’est plus accessible.");
+      var roles=jdbc.query("SELECT role FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getString(1),space,user);
+      if(roles.isEmpty()) throw error(HttpStatus.FORBIDDEN,"Vous ne faites plus partie de cet espace.");
+      boolean admin=roles.contains("ADMINISTRATEUR");
+      if(group!=null) {
+        var g=jdbc.queryForList("SELECT statut,referents_gerent_activites FROM groupe WHERE id=? AND espace_id=? FOR SHARE",group,space);
+        if(g.isEmpty() || ((!admin || write) && !"ACTIF".equals(g.getFirst().get("statut"))))
+          throw error(HttpStatus.CONFLICT,"Le groupe doit être actif et appartenir à cet espace.");
+        if(!admin && !roles.isEmpty() && Boolean.TRUE.equals(g.getFirst().get("referents_gerent_activites"))
+          && !jdbc.queryForList("SELECT groupe_id FROM appartenance_groupe WHERE groupe_id=? AND espace_id=? AND utilisateur_id=? AND role='REFERENT' AND statut='ACTIF' FOR SHARE",group,space,user).isEmpty()) return;
+      }
+      if(!admin) throw error(HttpStatus.FORBIDDEN,"Vous devez être administrateur ou référent autorisé de ce groupe.");
     }
     private void dates(Content c) {
       if(!c.startsAt().isAfter(OffsetDateTime.now()) || !c.closesAt().isAfter(OffsetDateTime.now()) || c.closesAt().isAfter(c.startsAt()))
@@ -65,18 +73,18 @@ public class ActivityManagementController {
     }
     private Activity activity(long id) { return read("WHERE a.id=?",id).stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Activité introuvable.")); }
     private Activity lock(long user,long id) {
-      var a=activity(id);admin(user,a.spaceId(),a.groupId());
+      var a=activity(id);access(user,a.spaceId(),a.groupId(),true);
       jdbc.queryForList("SELECT id FROM activite WHERE id=? FOR UPDATE",id);return activity(id);
     }
     private void version(Activity a,long v) { if(a.version()!=v) throw error(HttpStatus.CONFLICT,"Cette activité a changé. Actualisez la liste avant de réessayer."); }
     private void audit(long id,long actor,String action,long version) { jdbc.update("INSERT INTO historique_gestion_activite(activite_id,acteur_id,action,version) VALUES (?,?,?,?)",id,actor,action,version); }
     @GetMapping @Transactional
     public List<Activity> list(Authentication auth) {
-      long u=user(auth);return read("WHERE e.statut='ACTIF' AND EXISTS (SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF')",u);
+      long u=user(auth);return read("WHERE e.statut='ACTIF' AND EXISTS (SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id AND ae.utilisateur_id=? AND ae.statut='ACTIF' AND (ae.role='ADMINISTRATEUR' OR (g.statut='ACTIF' AND g.referents_gerent_activites AND EXISTS (SELECT 1 FROM appartenance_groupe ag WHERE ag.groupe_id=a.groupe_id AND ag.espace_id=a.espace_id AND ag.utilisateur_id=ae.utilisateur_id AND ag.statut='ACTIF' AND ag.role='REFERENT'))))",u);
     }
     @PostMapping @Transactional @ResponseStatus(HttpStatus.CREATED)
     public Activity create(Authentication auth,@Valid @RequestBody Creation body) {
-      long u=user(auth);admin(u,body.spaceId(),body.groupId());dates(body.content());
+      long u=user(auth);access(u,body.spaceId(),body.groupId(),true);dates(body.content());
       var old=jdbc.queryForList("SELECT id FROM activite WHERE createur_id=? AND creation_request=?",u,body.requestId());
       if(!old.isEmpty()) {
         var a=activity(((Number)old.getFirst().get("id")).longValue());
@@ -120,10 +128,8 @@ public class ActivityManagementController {
     private Register register(long actor,long id,String status) {
       if(!Set.of("ALL","CONFIRMEE","ANNULEE").contains(status)) throw error(HttpStatus.BAD_REQUEST,"Filtre d’inscriptions invalide.");
       var activity=activity(id);
-      // Historical registrations remain available for an inactive group; only the space admin can read them.
-      if(jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? AND statut='ACTIF' FOR SHARE",activity.spaceId()).isEmpty()
-        || jdbc.queryForList("SELECT id FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? AND role='ADMINISTRATEUR' AND statut='ACTIF' FOR SHARE",activity.spaceId(),actor).isEmpty())
-        throw error(HttpStatus.FORBIDDEN,"Seul un administrateur actif de cet espace peut consulter les inscriptions.");
+      // Admins retain historical access; delegated referents need an active group and permission.
+      access(actor,activity.spaceId(),activity.groupId(),false);
       // Bookings, cancellations and edits all lock the activity before changing capacity or registrations.
       var capacity=jdbc.queryForMap("SELECT capacite,places_disponibles FROM activite WHERE id=? FOR SHARE",id);
       var all=jdbc.query("""

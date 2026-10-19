@@ -14,7 +14,7 @@ public class WorkspaceController {
     private final JdbcTemplate jdbc;
     public WorkspaceController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
     public record Space(long id, String name, String role) {}
-    public record Group(long id, long spaceId, String name, String role, boolean canManageMemberships) {}
+    public record Group(long id, long spaceId, String name, String role, boolean canManageMemberships, boolean canManageActivities) {}
     public record Project(long id, String title, String status, String spaceName, String reviewStage) {}
     public record Overview(boolean owner, List<Space> spaces, List<Group> groups,
                            List<Project> projects, List<Space> managedSpaces) {}
@@ -35,7 +35,8 @@ public class WorkspaceController {
         var groups = jdbc.query("""
             SELECT g.id, g.espace_id, g.nom,
               COALESCE(ag.role,'ADMINISTRATEUR') AS role,
-              (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_adhesions)) AS gestion_adhesions
+              (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_adhesions)) AS gestion_adhesions,
+              (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_activites)) AS gestion_activites
             FROM appartenance_espace a
             JOIN espace_organisateur e ON e.id=a.espace_id
             JOIN groupe g ON g.espace_id=e.id
@@ -44,7 +45,7 @@ public class WorkspaceController {
             WHERE a.utilisateur_id=? AND a.statut='ACTIF' AND e.statut='ACTIF' AND g.statut='ACTIF'
               AND (a.role='ADMINISTRATEUR' OR ag.utilisateur_id IS NOT NULL)
             ORDER BY g.nom, g.id
-            """, (r,n) -> new Group(r.getLong("id"), r.getLong("espace_id"), r.getString("nom"), r.getString("role"),r.getBoolean("gestion_adhesions")), userId);
+            """, (r,n) -> new Group(r.getLong("id"), r.getLong("espace_id"), r.getString("nom"), r.getString("role"),r.getBoolean("gestion_adhesions"),r.getBoolean("gestion_activites")), userId);
         // Personal drafts stay private, including from administrators and the platform owner.
         var projects = jdbc.query("""
             SELECT p.id, p.titre, p.statut, p.etape_validation, e.nom FROM projet p

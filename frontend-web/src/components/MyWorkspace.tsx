@@ -15,7 +15,7 @@ type Space = { id: number; name: string; role: string };
 type Overview = {
   owner: boolean;
   spaces: Space[];
-  groups: { id: number; spaceId: number; name: string; role: string; canManageMemberships: boolean }[];
+  groups: { id: number; spaceId: number; name: string; role: string; canManageMemberships: boolean; canManageActivities: boolean }[];
   projects: { id: number; title: string; status: string; spaceName: string; reviewStage?: string | null }[];
   managedSpaces: Space[];
 };
@@ -57,7 +57,7 @@ export function MyWorkspace() {
     </section>
     {managedSpace !== null && <SpaceManagement key={managedSpace} spaceId={managedSpace} onChanged={() => setAttempt(n => n + 1)} onClose={() => setManagedSpace(null)} />}
     {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => setAttempt(n => n + 1)} onClose={() => setMembersGroup(null)} />}
-    {data.spaces.some(s => s.role === 'ADMINISTRATEUR') && <ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR')} groups={data.groups} />}
+    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} />}
     <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />
     {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
     <SpaceRequests owner={data.owner} onChanged={() => setAttempt(n => n + 1)} />

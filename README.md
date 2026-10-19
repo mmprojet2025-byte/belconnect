@@ -316,3 +316,18 @@ Validation : 29 tests backend réussis ; contrôles du registre vide, des quanti
 Limites : pas encore d’accès référent délégué, de pointage des présences ou d’annulation par l’organisateur. Ce lot ne transmet aucun e-mail et ne modifie aucune inscription. La tâche 03.23 reste partielle pour l’accès référent.
 
 Contrôle mobile : panneau et filtres vérifiés à 390 px, sans débordement horizontal. Aperçu avec données fictives : `docs/images/inscriptions-organisateur-mobile-demo.png`.
+
+
+### Activités confiées aux référents — 19 octobre 2026
+
+Décision produit : simplifier le quotidien, avec une seule autorisation par groupe et les écrans existants. Dans les membres et permissions du groupe, l’administrateur peut confier les activités à ses référents. Aucun nouveau circuit d’approbation des activités.
+
+La permission est désactivée par défaut (migration V17). Un référent actif autorisé retrouve « Mes activités » : création et modification de brouillons, publication gratuite, inscriptions et export CSV, uniquement pour son groupe actif. Le formulaire sélectionne un groupe autorisé et ne propose pas « Sans groupe » au référent. L’administrateur conserve ses droits. Retirer l’autorisation ou le rôle retire immédiatement l’accès côté serveur, sans supprimer activités ni inscriptions. Les administrateurs peuvent toujours consulter les inscriptions historiques d’un groupe suspendu ou archivé.
+
+API de configuration : `POST /api/workspace/groups/{id}/activity-permission`, avec CSRF, contrôle administrateur, version du groupe et historique. Les garde-fous existants sont conservés : activités payantes en brouillon seulement, retrait de publication bloqué en présence d’inscriptions confirmées.
+
+Les contrôles navigateur utilisent des données fictives isolées ; aucun droit réel n’est attribué par cette livraison. Aperçu : `docs/images/activites-referent-demo.png`. Les annonces, notifications et paiements restent à développer ; les tâches 03.11, 03.12 et 03.17 restent partielles. La tâche 03.23 est réalisée localement pour les inscriptions et leur export.
+
+Recette web : compilation et lint réussis ; parcours administrateur et référent vérifiés avec des données fictives, affichage mobile à 390 px sans débordement horizontal.
+
+Validation backend : suite de 30 tests exécutée ; une régression du code de refus (409 au lieu de 403 pour une appartenance retirée) corrigée, puis les 14 tests SpaceManagementApiTests relancés avec succès. Les 16 autres tests étaient réussis. Migration V17 appliquée en local ; serveur sain et accès anonyme aux activités organisées refusé (401).
