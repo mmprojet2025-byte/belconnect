@@ -1,14 +1,20 @@
 package be.belconnect.backend.activity;
 
+import be.belconnect.backend.booking.PaidActivityCancellation;
+import com.stripe.exception.StripeException;
+import com.stripe.model.Account;
+import com.stripe.net.RequestOptions;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,7 +22,14 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/managed-activities")
 public class ActivityManagementController {
     private final JdbcTemplate jdbc;
-    public ActivityManagementController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
+    private final TransactionTemplate tx;
+    private final PaidActivityCancellation paidCancellation;
+    private final String stripeKey,webhookSecret;
+    public ActivityManagementController(JdbcTemplate jdbc,TransactionTemplate tx,PaidActivityCancellation paidCancellation,
+        @Value("${STRIPE_SECRET_KEY:}") String stripeKey,@Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret) {
+      this.jdbc=jdbc; this.tx=tx; this.paidCancellation=paidCancellation;
+      this.stripeKey=stripeKey; this.webhookSecret=webhookSecret;
+    }
     public record Content(@NotBlank @Size(min=5,max=250) String title,
       @NotNull @Pattern(regexp="art|gastronomie|nature|culture|savoir-faire|bien-etre") String category,
       @NotBlank @Size(max=120) String city,@NotBlank @Size(max=250) String location,
@@ -38,7 +51,7 @@ public class ActivityManagementController {
     public record Update(@NotNull @Min(0) Long version,@NotNull @Valid Content content) {}
     public record Publication(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
     public record Activity(long id,String slug,long spaceId,Long groupId,String spaceName,String groupName,
-      boolean published,boolean cancelled,long version,int bookings,Content content) {}
+      boolean published,boolean cancelled,long version,int bookings,int pendingCancellation,Content content) {}
     private ResponseStatusException error(HttpStatus code,String text) { return new ResponseStatusException(code,text); }
     private long user(Authentication auth) {
       return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName()).stream().findFirst()
@@ -66,9 +79,11 @@ public class ActivityManagementController {
     private List<Activity> read(String where,Object... args) {
       return jdbc.query("""
         SELECT a.*,e.nom AS espace_nom,g.nom AS groupe_nom,
-        (SELECT count(*) FROM inscription_activite i WHERE i.activite_id=a.id AND i.statut='CONFIRMEE') AS inscriptions
+        (SELECT count(*) FROM inscription_activite i WHERE i.activite_id=a.id AND i.statut='CONFIRMEE') AS inscriptions,
+        (SELECT count(*) FROM reservation_payante_activite r WHERE r.activite_id=a.id
+          AND r.statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS')) AS paiements_a_traiter
         FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id LEFT JOIN groupe g ON g.id=a.groupe_id
-        """+where+" ORDER BY a.date_creation DESC,a.id DESC",(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getLong("version"),r.getInt("inscriptions"),
+        """+where+" ORDER BY a.date_creation DESC,a.id DESC",(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getLong("version"),r.getInt("inscriptions"),r.getInt("paiements_a_traiter")+r.getInt("inscriptions"),
           new Content(r.getString("titre"),r.getString("categorie"),r.getString("ville"),r.getString("lieu"),r.getBigDecimal("prix"),r.getString("image"),r.getObject("debut",OffsetDateTime.class),r.getObject("cloture_inscriptions",OffsetDateTime.class),r.getString("description"),r.getString("duree"),r.getInt("capacite"),r.getString("public_cible"),r.getString("rendez_vous"),r.getString("preparation"),r.getString("visibilite"))),args);
     }
     private Activity activity(long id) { return read("WHERE a.id=?",id).stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Activité introuvable.")); }
@@ -117,8 +132,23 @@ public class ActivityManagementController {
       if(a.published()==body.published()) return a;
       if(body.published()) {
         dates(a.content());
-        if(a.content().price().signum()!=0) throw error(HttpStatus.CONFLICT,"La publication payante sera disponible après connexion du service de paiement. Votre brouillon est conservé.");
-      } else if(a.bookings()>0) throw error(HttpStatus.CONFLICT,"Cette activité a des inscriptions confirmées. Le retrait nécessite un parcours d’annulation qui n’est pas encore disponible.");
+        if(a.content().price().signum()>0) {
+          if(a.content().price().compareTo(new BigDecimal("0.50"))<0
+              || a.content().price().compareTo(new BigDecimal("999999.99"))>0)
+            throw error(HttpStatus.CONFLICT,"Le tarif payant doit être compris entre 0,50 € et 999 999,99 € par place.");
+          if(!stripeKey.startsWith("sk_test_") || !webhookSecret.startsWith("whsec_"))
+            throw error(HttpStatus.SERVICE_UNAVAILABLE,"Configurez Stripe en mode test et son webhook avant de publier cette activité payante.");
+          String accountId=jdbc.queryForObject("SELECT stripe_account_id FROM espace_organisateur WHERE id=?",String.class,a.spaceId());
+          if(accountId==null || !accountId.startsWith("acct_"))
+            throw error(HttpStatus.CONFLICT,"Terminez la connexion Stripe de cet espace avant de publier.");
+          try {
+            Account account=Account.retrieve(accountId,RequestOptions.builder().setApiKey(stripeKey).build());
+            if(!Boolean.TRUE.equals(account.getChargesEnabled()) || !Boolean.TRUE.equals(account.getPayoutsEnabled()))
+              throw error(HttpStatus.CONFLICT,"Le compte Stripe de l'organisateur n'est pas encore prêt à recevoir les paiements.");
+          } catch(StripeException ex) { throw error(HttpStatus.BAD_GATEWAY,"Impossible de vérifier le compte Stripe de l'organisateur."); }
+        }
+      } else if(a.bookings()>0 || jdbc.queryForObject("SELECT count(*) FROM reservation_payante_activite WHERE activite_id=? AND statut='EN_ATTENTE'",Integer.class,id)>0)
+        throw error(HttpStatus.CONFLICT,"Cette activité a des inscriptions ou paiements en cours. Utilisez l’annulation de l’activité.");
       jdbc.update("UPDATE activite SET publiee=?,version=version+1 WHERE id=?",body.published(),id);
       audit(id,u,body.published()?"ACTIVITE_PUBLIEE":"PUBLICATION_RETIREE",a.version()+1);return activity(id);
     }
@@ -126,11 +156,37 @@ public class ActivityManagementController {
     @PostMapping("/{id}/cancel") @Transactional
     public Activity cancel(Authentication auth,@PathVariable long id,@Valid @RequestBody Cancellation body) {
       long u=user(auth);var a=lock(u,id);version(a,body.version());
+      if(a.content().price().signum()>0)
+        throw error(HttpStatus.CONFLICT,"Cette activité payante doit suivre le parcours de remboursement.");
       if(a.cancelled() || !a.published()) throw error(HttpStatus.CONFLICT,"Cette activité ne peut pas être annulée.");
       if(!a.content().startsAt().isAfter(OffsetDateTime.now())) throw error(HttpStatus.CONFLICT,"Cette activité a déjà commencé.");
+      jdbc.update("""
+        INSERT INTO notification_activite(utilisateur_id,inscription_id,activite_id)
+        SELECT utilisateur_id,id,activite_id FROM inscription_activite
+        WHERE activite_id=? AND statut='CONFIRMEE'
+        ON CONFLICT (inscription_id) DO NOTHING
+        """,id);
       jdbc.update("UPDATE activite SET annulee=true,publiee=false,date_annulation=now(),places_disponibles=capacite,version=version+1 WHERE id=?",id);
       jdbc.update("UPDATE inscription_activite SET statut='ANNULEE',date_annulation=now(),version=version+1 WHERE activite_id=? AND statut='CONFIRMEE'",id);
       audit(id,u,"ACTIVITE_ANNULEE",a.version()+1);
+      return activity(id);
+    }
+    @PostMapping("/{id}/cancel-paid")
+    public Activity cancelPaid(Authentication auth,@PathVariable long id,@Valid @RequestBody Cancellation body) {
+      long u=user(auth);
+      tx.executeWithoutResult(status->{
+        var a=lock(u,id);
+        if(a.content().price().signum()<=0) throw error(HttpStatus.CONFLICT,"Cette activité est gratuite.");
+        if(a.cancelled()) return; // Authorized retry after a partial Stripe response.
+        version(a,body.version());
+        if(!a.published()) throw error(HttpStatus.CONFLICT,"Cette activité n'est pas publiée.");
+        if(!a.content().startsAt().isAfter(OffsetDateTime.now())) throw error(HttpStatus.CONFLICT,"Cette activité a déjà commencé.");
+        if(!paidCancellation.configured()) throw error(HttpStatus.SERVICE_UNAVAILABLE,"Stripe test n'est pas configuré.");
+        // Closing publication first prevents new Checkouts while existing ones are resolved.
+        jdbc.update("UPDATE activite SET annulee=true,publiee=false,date_annulation=now(),version=version+1 WHERE id=?",id);
+        audit(id,u,"ACTIVITE_ANNULEE",a.version()+1);
+      });
+      paidCancellation.process(id);
       return activity(id);
     }
     public record Registration(long id,String firstName,String lastName,String email,String phone,int quantity,

@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 @org.springframework.test.context.ActiveProfiles("test")
+@org.springframework.test.context.TestPropertySource(properties="STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_test_subscription_local")
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SpaceManagementApiTests {
  @LocalServerPort int port;
@@ -50,6 +51,9 @@ class SpaceManagementApiTests {
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
  void cleanup() {
   for(long user:users) for(long space:jdbc.queryForList("SELECT id FROM espace_organisateur WHERE createur_id=?",Long.class,user)) {
+   jdbc.update("DELETE FROM abonnement_espace WHERE espace_id=?",space);
+   jdbc.update("DELETE FROM annonce_groupe WHERE groupe_id IN (SELECT id FROM groupe WHERE espace_id=?)",space);
+   jdbc.update("DELETE FROM notification_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM inscription_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM historique_gestion_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM activite WHERE espace_id=?",space);
@@ -65,6 +69,59 @@ class SpaceManagementApiTests {
   }
   for(long user:users) { jdbc.update("DELETE FROM demande_espace WHERE demandeur_id=? OR examinateur_id=?",user,user); jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",user); }
   for(long user:users) jdbc.update("DELETE FROM utilisateur WHERE id=?",user);
+ }
+ @Test void subscriptionIsSpaceScopedAndOnlySignedWebhookActivatesPro() throws Exception {
+  try {
+   var admin=actor(); var other=actor();
+   long space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Espace abonnement','ASSOCIATION',?) RETURNING id",Long.class,admin.id);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",admin.id,space);
+   String path="/api/workspace/spaces/"+space+"/subscription";
+   assertEquals(401,new Actor().get(path).statusCode());
+   assertEquals(404,other.get(path).statusCode());
+   assertEquals("STARTER",ok(admin.get(path),200).get("plan").asText());
+   assertEquals(403,admin.post(path+"/checkout",Map.of("requestId",UUID.randomUUID()),false).statusCode());
+   assertEquals(503,admin.post(path+"/checkout",Map.of("requestId",UUID.randomUUID()),true).statusCode());
+   jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,session_stripe) VALUES (?,?,'cs_test_subscription123')",space,admin.id);
+   String payload="""
+     {"id":"evt_test_subscription","object":"event","created":%d,"livemode":false,"type":"checkout.session.completed",
+      "data":{"object":{"id":"cs_test_subscription123","object":"checkout.session","client_reference_id":"space-subscription-%d",
+      "subscription":"sub_test_subscription123","customer":"cus_test_subscription123","mode":"subscription",
+      "payment_status":"paid","currency":"eur","amount_subtotal":1000}}}
+     """.formatted(System.currentTimeMillis()/1000,space);
+   var mac=javax.crypto.Mac.getInstance("HmacSHA256");
+   mac.init(new javax.crypto.spec.SecretKeySpec("whsec_test_subscription_local".getBytes(java.nio.charset.StandardCharsets.UTF_8),"HmacSHA256"));
+   long timestamp=System.currentTimeMillis()/1000;
+   String digest=HexFormat.of().formatHex(mac.doFinal((timestamp+"."+payload).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+   var target=URI.create("http://localhost:"+port+"/api/stripe/subscriptions/webhook");
+   var invalid=HttpRequest.newBuilder(target).header("Stripe-Signature","t="+timestamp+",v1="+"0".repeat(64))
+     .POST(HttpRequest.BodyPublishers.ofString(payload)).build();
+   assertEquals(400,HttpClient.newHttpClient().send(invalid,HttpResponse.BodyHandlers.ofString()).statusCode());
+   assertEquals("STARTER",ok(admin.get(path),200).get("plan").asText());
+   var valid=HttpRequest.newBuilder(target).header("Stripe-Signature","t="+timestamp+",v1="+digest)
+     .POST(HttpRequest.BodyPublishers.ofString(payload)).build();
+   assertEquals(204,HttpClient.newHttpClient().send(valid,HttpResponse.BodyHandlers.ofString()).statusCode());
+   assertEquals(204,HttpClient.newHttpClient().send(valid,HttpResponse.BodyHandlers.ofString()).statusCode());
+   assertEquals("PRO",ok(admin.get(path),200).get("plan").asText());
+   assertEquals(404,other.get(path).statusCode());
+  } finally { cleanup(); }
+ }
+ @Test void stripeConnectIsLimitedToActiveSpaceAdminsAndTestConfiguration() throws Exception {
+  try {
+   var admin=actor(); var outsider=actor();
+   long space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,?,?) RETURNING id",Long.class,
+     "Atelier Stripe Test", "ORGANISATEUR", admin.id);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",admin.id,space);
+   String path="/api/workspace/spaces/"+space+"/stripe-connect";
+   assertEquals(401,new Actor().get(path).statusCode());
+   assertEquals(404,outsider.get(path).statusCode());
+   assertEquals(403,admin.post(path+"/onboarding",Map.of(),false).statusCode());
+   assertFalse(ok(admin.get(path),200).get("configured").asBoolean());
+   assertEquals(503,admin.post(path+"/onboarding",Map.of(),true).statusCode());
+   assertNull(jdbc.queryForObject("SELECT stripe_account_id FROM espace_organisateur WHERE id=?",String.class,space));
+   jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE espace_id=? AND utilisateur_id=?",space,admin.id);
+   assertEquals(404,admin.get(path).statusCode());
+   assertEquals(404,admin.post(path+"/onboarding",Map.of(),true).statusCode());
+  } finally { cleanup(); }
  }
  @Test void approvalGroupsIsolationValidationAndRevocation() throws Exception {
   try {
@@ -426,7 +483,7 @@ class SpaceManagementApiTests {
    ok(admin.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true),200);
    assertEquals(404,new Actor().get("/api/activities/"+slug).statusCode());
    content.put("price",12.50);ok(admin.post(path+"/"+id,Map.of("version",3,"content",content),true),200);
-   assertEquals(409,admin.post(path+"/"+id+"/publication",Map.of("version",4,"published",true),true).statusCode());
+   assertEquals(503,admin.post(path+"/"+id+"/publication",Map.of("version",4,"published",true),true).statusCode());
    content.put("closesAt","2100-01-01T00:00:00Z");assertEquals(400,admin.post(path+"/"+id,Map.of("version",4,"content",content),true).statusCode());
    content.put("closesAt","2000-01-01T00:00:00Z");assertEquals(400,admin.post(path+"/"+id,Map.of("version",4,"content",content),true).statusCode());
    jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
@@ -572,11 +629,45 @@ class SpaceManagementApiTests {
    assertEquals("ANNULEE",jdbc.queryForObject("SELECT statut FROM inscription_activite WHERE id=?",String.class,booking));
    var b=ok(participant.get("/api/bookings"),200).get(0);
    assertTrue(b.get("activityCancelled").asBoolean());assertEquals("ANNULEE",b.get("status").asText());
+   var notice=ok(participant.get("/api/notifications"),200).get(0);
+   assertEquals("Balade du quartier",notice.get("title").asText());
+   long noticeId=notice.get("id").asLong();
+   assertEquals(404,outsider.post("/api/notifications/"+noticeId+"/read",Map.of(),true).statusCode());
+   assertEquals(204,participant.post("/api/notifications/"+noticeId+"/read",Map.of(),true).statusCode());
+   assertEquals(0,ok(participant.get("/api/notifications"),200).size());
    assertEquals(404,new Actor().get("/api/activities/"+slug).statusCode());
    assertEquals(404,participant.post("/api/bookings",booking(slug),true).statusCode());
    assertEquals(409,admin.post(path+"/publication",Map.of("version",2,"published",true),true).statusCode());
    assertEquals(409,admin.post(path+"/cancel",Map.of("version",2),true).statusCode());
    assertEquals(200,admin.get(path+"/registrations").statusCode());
+  } finally { cleanup(); }
+ }
+
+ @Test void groupAnnouncementsStayInsideActiveMemberships() throws Exception {
+  try {
+   var admin=actor();var ref=actor();var member=actor();var outsider=actor();long space=setupSpace(admin);
+   long group=setupGroup(space,"Nouvelles du quartier",false,"PRIVEE"),other=setupGroup(space,"Autre groupe",false,"PRIVEE");
+   addMember(ref,space,group,"REFERENT");addMember(member,space,group,"MEMBRE");
+   String path="/api/group-announcements";UUID request=UUID.randomUUID();
+   var content=Map.of("requestId",request,"groupId",group,"content","  Rendez-vous samedi !  ");
+   assertEquals(401,new Actor().get(path).statusCode());
+   assertEquals(403,ref.post(path,content,false).statusCode());
+   assertEquals(403,member.post(path,content,true).statusCode());
+   assertEquals(403,outsider.post(path,content,true).statusCode());
+   assertEquals(403,ref.post(path,Map.of("requestId",UUID.randomUUID(),"groupId",other,"content","Essai"),true).statusCode());
+   var posted=ok(ref.post(path,content,true),201);long id=posted.get("id").asLong();
+   assertEquals("Rendez-vous samedi !",posted.get("content").asText());
+   assertEquals(id,ok(ref.post(path,content,true),201).get("id").asLong());
+   assertEquals(409,ref.post(path,Map.of("requestId",request,"groupId",group,"content","Autre texte"),true).statusCode());
+   assertEquals(1,ok(member.get(path),200).size());assertEquals(0,ok(outsider.get(path),200).size());
+   ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"groupId",other,"content","Annonce de l’autre groupe"),true),201);
+   assertEquals(1,ok(member.get(path),200).size());assertEquals(2,ok(admin.get(path),200).size());
+   jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE groupe_id=? AND utilisateur_id=?",group,member.id);
+   assertEquals(0,ok(member.get(path),200).size());
+   jdbc.update("UPDATE appartenance_groupe SET role='MEMBRE' WHERE groupe_id=? AND utilisateur_id=?",group,ref.id);
+   assertEquals(403,ref.post(path,Map.of("requestId",UUID.randomUUID(),"groupId",group,"content","Essai"),true).statusCode());
+   jdbc.update("UPDATE groupe SET statut='SUSPENDU' WHERE id=?",group);
+   assertEquals(0,ok(ref.get(path),200).size());
   } finally { cleanup(); }
  }
 

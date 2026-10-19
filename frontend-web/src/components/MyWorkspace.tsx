@@ -1,6 +1,9 @@
 import { ManagedActivities } from './ManagedActivities';
 import { GroupMembers } from './GroupMembers';
 import { GroupMemberships } from './GroupMemberships';
+import { GroupAnnouncements } from './GroupAnnouncements';
+import { StripeConnectSetup } from './StripeConnectSetup';
+import { SpaceSubscriptions } from './SpaceSubscriptions';
 import { SpaceManagement, SpaceRequests } from './SpaceManagement';
 import { ProjectParticipations } from './ProjectParticipations';
 import { ProjectPublications } from './ProjectPublications';
@@ -56,7 +59,10 @@ export function MyWorkspace() {
       {data.groups.some(g => g.role === 'REFERENT') && <p className="account-notice">En tant que référent, vous accompagnez les projets de vos groupes. La décision finale revient à l’administrateur de l’espace.</p>}
     </section>
     {managedSpace !== null && <SpaceManagement key={managedSpace} spaceId={managedSpace} onChanged={() => setAttempt(n => n + 1)} onClose={() => setManagedSpace(null)} />}
+    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <SpaceSubscriptions spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} />}
+    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <StripeConnectSetup spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} />}
     {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => setAttempt(n => n + 1)} onClose={() => setMembersGroup(null)} />}
+    {data.groups.length > 0 && <GroupAnnouncements groups={data.groups} />}
     {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} />}
     <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />
     {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}

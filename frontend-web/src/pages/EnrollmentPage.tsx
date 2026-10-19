@@ -25,7 +25,8 @@ export function EnrollmentPage({
 }) {
   const submitted = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => new URLSearchParams(window.location.search).get("paiement") === "annule"
+    ? "Le paiement a été interrompu. Votre inscription n'est pas confirmée." : "");
   async function confirmBooking() {
     if (submitted.current) return;
     submitted.current = true; setBusy(true); setError("");
@@ -34,6 +35,24 @@ export function EnrollmentPage({
       window.dispatchEvent(new Event("catalog-refresh"));
       navigate("/connexion?inscription=confirmee");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Inscription impossible."); }
+    finally { submitted.current = false; setBusy(false); }
+  }
+  async function startPaidCheckout() {
+    if (submitted.current) return;
+    submitted.current = true; setBusy(true); setError("");
+    const key = `belconnect-paid-activity-${user.id}-${activity.id}-${quantity}`;
+    const existing = window.sessionStorage.getItem(key);
+    const requestId = existing || crypto.randomUUID();
+    if (!existing) window.sessionStorage.setItem(key, requestId);
+    try {
+      const checkout: { url: string } = await postJson("/api/paid-activity-bookings", {
+        requestId, activityId: activity.id, quantity,
+        firstName: value.firstName, lastName: value.lastName,
+        email: value.email, phone: value.phone, acknowledged: value.acknowledged,
+      });
+      if (!checkout.url.startsWith("https://checkout.stripe.com/")) throw new Error("Lien de paiement invalide.");
+      window.location.assign(checkout.url);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Paiement indisponible. Réessayez."); }
     finally { submitted.current = false; setBusy(false); }
   }
   const details = activity.details;
@@ -101,6 +120,7 @@ export function EnrollmentPage({
               : "Vérifiez le nombre de places et renseignez les coordonnées du participant principal."}
           </p>
         </div>
+        {!complete && error && <p role="alert" className="inline-notice">{error}</p>}
         <div className="enrollment-grid">
           <div className="enrollment-content">
             <BookingSummary activity={activity} quantity={quantity} />
@@ -117,7 +137,9 @@ export function EnrollmentPage({
                 <p>
                   {activity.price === 0
                     ? "La confirmation enregistrera votre inscription et réservera les places dans Belconnect."
-                    : "Votre formulaire est rempli. Vous pouvez maintenant découvrir le paiement de démonstration. Cette activité n’est pas encore réservée."}
+                    : activity.demonstration
+                      ? "Votre formulaire est rempli. Vous pouvez maintenant découvrir le paiement de démonstration. Cette activité n’est pas encore réservée."
+                      : "Votre formulaire est rempli. Stripe ouvrira sa page de paiement sécurisée. L'inscription sera confirmée dans Mon espace après validation du paiement."}
                 </p>
                 <dl>
                   <div>
@@ -150,15 +172,15 @@ export function EnrollmentPage({
                   </div>
                 </dl>
                 <div className="demo-notice">
-                  <strong>{activity.price === 0 ? "Confirmation avant réservation" : "Une simulation, sans réservation"}</strong>
+                  <strong>{activity.price === 0 ? "Confirmation avant réservation" : activity.demonstration ? "Une simulation, sans réservation" : "Paiement sécurisé par Stripe"}</strong>
                   <p>
-                    {activity.price === 0 ? "Votre inscription sera conservée dans Mon espace. Les activités du catalogue sont des exemples : aucun événement réel ni e-mail ne sont confirmés." : "Aucun paiement, e-mail ou billet n’a été généré. Le paiement reste simulé."}
+                    {activity.price === 0 ? "Votre inscription sera conservée dans Mon espace. Les activités du catalogue sont des exemples : aucun événement réel ni e-mail ne sont confirmés." : activity.demonstration ? "Aucun paiement, e-mail ou billet n’a été généré. Le paiement reste simulé." : "Les places sont retenues pendant le paiement. Le retour de Stripe ne confirme pas à lui seul l'inscription : vérifiez son état dans Mon espace."}
                   </p>
                 </div>
                 {error && <p role="alert" className="inline-notice">{error} <a href="/connexion">Mon espace</a></p>}
                 <div className="review-actions">
                   {activity.price === 0 && <button className="button coral" disabled={busy} onClick={confirmBooking}>{busy ? "Enregistrement…" : "Confirmer mon inscription gratuite"}</button>}
-                  {activity.price > 0 && (
+                  {activity.price > 0 && activity.demonstration && (
                     <a
                       className="button coral"
                       href={bookingUrl(activity.id, "paiement", quantity)}
@@ -167,6 +189,7 @@ export function EnrollmentPage({
                       <Icon name="arrow" />
                     </a>
                   )}
+                  {activity.price > 0 && !activity.demonstration && <button className="button coral" disabled={busy} onClick={startPaidCheckout}>{busy ? "Ouverture de Stripe…" : "Payer avec Stripe"}<Icon name="arrow" /></button>}
                   <a className="button navy" href="/activites">
                     Continuer la découverte
                     <Icon name="arrow" />

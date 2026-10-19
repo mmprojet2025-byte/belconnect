@@ -27,10 +27,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/groups", "/api/projects", "/api/projects/*", "/api/activities", "/api/activities/*", "/api/auth/csrf", "/actuator/health").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/stripe/webhook", "/api/stripe/subscriptions/webhook").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/stripe/webhook", "/api/stripe/subscriptions/webhook"))
             .requestCache(AbstractHttpConfigurer::disable)
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, exception) -> response.sendError(401))

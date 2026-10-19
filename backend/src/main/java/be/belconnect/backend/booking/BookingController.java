@@ -22,7 +22,8 @@ public class BookingController {
    @NotBlank @Email @Size(max=254) String email, @Size(max=30) String phone,
    @AssertTrue boolean acknowledged) {}
  public record Booking(long id, String activityId, String title, OffsetDateTime startsAt, String location,
-   int quantity, String firstName, String lastName, String email, String phone, String status, boolean activityCancelled, long version) {}
+   int quantity, String firstName, String lastName, String email, String phone, String status, boolean activityCancelled, long version,
+   Long amountCents, String paymentStatus) {}
  public record Modification(@Min(1) @Max(4) int quantity,
    @NotBlank @Size(max=80) String firstName, @NotBlank @Size(max=80) String lastName,
    @NotBlank @Email @Size(max=254) String email, @Size(max=30) String phone,
@@ -35,11 +36,15 @@ public class BookingController {
  @GetMapping public List<Booking> list(Authentication auth) { return listFor(user(auth)); }
  private List<Booking> listFor(long userId) {
   return jdbc.query("""
-   SELECT i.*, a.slug, a.titre, a.debut, a.lieu, a.annulee FROM inscription_activite i
-   JOIN activite a ON a.id=i.activite_id WHERE i.utilisateur_id=? ORDER BY a.debut, i.id
+   SELECT i.*, a.slug, a.titre, a.debut, a.lieu, a.annulee,
+          r.montant_centimes,r.statut AS paiement_statut
+   FROM inscription_activite i JOIN activite a ON a.id=i.activite_id
+   LEFT JOIN reservation_payante_activite r ON r.inscription_id=i.id
+   WHERE i.utilisateur_id=? ORDER BY a.debut, i.id
    """, (r,n)->new Booking(r.getLong("id"),r.getString("slug"),r.getString("titre"),
     r.getObject("debut",OffsetDateTime.class),r.getString("lieu"),r.getInt("quantite"),
-    r.getString("prenom"),r.getString("nom"),r.getString("email"),r.getString("telephone"),r.getString("statut"),r.getBoolean("annulee"),r.getLong("version")),userId);
+    r.getString("prenom"),r.getString("nom"),r.getString("email"),r.getString("telephone"),r.getString("statut"),r.getBoolean("annulee"),r.getLong("version"),
+    r.getObject("montant_centimes",Long.class),r.getString("paiement_statut")),userId);
  }
  @PostMapping @Transactional @ResponseStatus(HttpStatus.CREATED)
  public Booking create(Authentication auth, @Valid @RequestBody Request body) {

@@ -28,3 +28,9 @@
 .project-help textarea,.project-help-controls textarea { resize:vertical; }
 .project-help .text-link { display:block; margin-top:16px; }
 .project-help button { justify-self:start; }
+.project-donation { margin-top:32px; border-top:1px solid #dce7eb; padding-top:8px; }
+.project-donation > p { color:#597080; line-height:1.7; }
+.project-donation form { display:grid; justify-items:start; gap:12px; margin-top:20px; }
+.project-donation label { display:grid; gap:8px; font-weight:600; }
+.project-donation input { width:min(100%,250px); padding:12px; border:1px solid #b9ccd4; border-radius:10px; font:inherit; }
+.project-donation small { color:#597080; }

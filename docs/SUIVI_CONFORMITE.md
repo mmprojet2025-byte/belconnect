@@ -34,7 +34,7 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Création et publication des activités | 03.14–03.17 | Partiel | Formulaire, galerie, dates, clôture, visibilité, publication et annulation gratuite par administrateur ou référent autorisé ; import et paiement restants. |
 | Catalogue et détail des activités | 03.18 | Réalisé localement | Lecture API et filtres web ; contenu initial de démonstration. |
 | Inscriptions gratuites | 03.19 | Partiel | Création, modification, annulation et capacité ; limite actuelle de 1 à 4 places, capacité illimitée et échéance distincte du début non couvertes. |
-| Paiements des activités | 03.20–03.22 | À développer | Écran de simulation ; aucun encaissement réel ni confirmation serveur du prestataire. |
+| Paiements des activités | 03.20–03.22 | Partiel | Préparation Stripe Connect Express en mode test pour les espaces ; écran de paiement encore simulé, aucun encaissement réel ni confirmation serveur du prestataire. |
 | Liste organisateur des inscrits et export | 03.23 | À développer | L'utilisateur voit ses inscriptions ; ce n'est pas le registre organisateur. |
 | Annulation et remboursements | 03.24 | Partiel | Annulation gratuite par le participant et annulation d’activité avant le début par l’organisateur ; politique définitive et remboursement payant à établir. |
 | Brouillon de projet | 03.25 | Partiel | Titre, description, objectif, dates et groupe ; images et types d'aide recherchée manquants. |
@@ -43,7 +43,7 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Décision finale et publication | 03.28 | Réalisé localement | Administrateur de l'espace ; approbation distincte de publication, retrait possible. Cas de son propre projet à arbitrer. |
 | Catalogue public des projets | 03.29 | Réalisé localement | Projets effectivement publiés, détail et contrôle des accès réservés au groupe. |
 | Propositions d'aide non financière | 03.30 | Réalisé localement | Aide, suivi personnel, acceptation/refus administratif et annulation. Ce ne sont pas des billets. |
-| Participation gratuite ou payante et soutien financier aux projets | Complément récent | Partiel | Aide non financière disponible ; réservation/participation structurée, paiement et soutien financier absents. |
+| Participation gratuite ou payante et soutien financier aux projets | Complément récent | Partiel | Aide non financière disponible ; don libre en mode test préparé avec Stripe Connect et webhook, sans clé ni recette réelle ; participation structurée encore absente. |
 | Annonces et commentaires des groupes | 03.31–03.33 | À développer | Publication, modération et épinglage absents. |
 | Notifications et e-mails | 03.34, 03.35 | À développer | Pas d'envoi lors des changements de statut, adhésions ou inscriptions. |
 | Mon espace membre ou auteur | 03.36 | Partiel | Inscriptions, espaces, projets et aides ; groupes, annonces et notifications incomplets. |
@@ -65,7 +65,7 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Sujet | Constat | Traitement proposé |
 |---|---|---|
 | Ordre du planning | Le parcours projet a avancé avant la gestion autonome des espaces et groupes. | Revenir à cette fondation ; conserver les parcours projet déjà réalisés. |
-| Financement des projets | Le cahier initial exclut les dons ; les décisions récentes envisagent trois parcours, dont soutien financier. | Garder ces parcours dans le suivi, sans les considérer réalisés ni les reporter silencieusement en V2. Définir leurs règles avant paiement réel. |
+| Financement des projets | Le cahier initial exclut les dons ; le fondateur demande maintenant un don libre à tous les projets publiés, vers l'organisateur, avec 5 % pour Belconnect. | Parcours séparé des activités et de l'aide non financière ; mode test préparé, frais Stripe, remboursements et recette réelle restants. Voir [soutien financier des projets](SOUTIEN_FINANCIER_PROJETS.md). |
 | Projet créé par un administrateur | Le code empêche l'auto-approbation ; la publication directe reste une hypothèse de maquette. | Arbitrer ce cas explicitement avant modification des droits. |
 | Accès aux brouillons | Le brouillon est privé à son auteur ; la formulation « tous les projets » de l'administrateur est plus large. | Confirmer la confidentialité attendue des brouillons. |
 | Authentification | Le cahier évoque des jetons ; le web utilise des sessions avec cookies et CSRF. | Formaliser ce choix technique et le futur accès mobile ; ne pas supprimer les protections existantes. |
@@ -191,3 +191,19 @@ Depuis « Mon espace → Mes activités », un administrateur ou un référent a
 La migration V18 ajoute l’état et la date d’annulation de l’activité. `POST /api/managed-activities/{id}/cancel` vérifie le rôle, le groupe, la version et le début, puis met à jour l’activité et ses inscriptions dans une transaction sous verrou. Une activité annulée ne peut être ni republiée ni réservée. Les activités déjà commencées sont refusées.
 
 Validation : 31 tests backend réussis, compilation et lint web réussis. Migration V18 appliquée sur la base locale ; serveur opérationnel.
+
+
+### Avis d’annulation dans Mon espace — 19 octobre 2026
+
+Lorsqu’une activité est annulée, chaque inscription encore confirmée crée un avis personnel persistant. L’avis apparaît en haut de « Mon espace », mène à « Mes inscriptions » et peut être marqué comme lu. L’accès est limité au destinataire côté serveur ; la liste est sans cache. L’inscription annulée reste visible même après lecture de l’avis. Migration V19 et API `GET /api/notifications`, `POST /api/notifications/{id}/read`. Les autres notifications et les e-mails ne sont pas encore implémentés.
+
+Validation : 31 tests backend réussis, compilation et lint web réussis. Avis et marquage comme lu vérifiés dans un navigateur avec des données fictives ; affichage mobile à 390 px sans débordement horizontal. Aperçus : `docs/images/avis-activite-annulee-demo.png` et `docs/images/avis-activite-annulee-mobile-demo.png`. Migration V19 appliquée en local.
+
+
+### Nouvelles des groupes — 19 octobre 2026
+
+Dans « Mon espace », les membres actifs voient les annonces de leurs groupes ; les administrateurs d’espace voient celles de leurs groupes. Un administrateur ou un référent actif peut publier un court texte dans son groupe. Les groupes suspendus et les appartenances retirées perdent immédiatement l’accès ; le propriétaire de la plateforme seul n’a pas d’accès spécial. L’interface reste un fil simple, sans nouvel espace de gestion. Migration V20 ; API `GET` et `POST /api/group-announcements`, avec authentification, CSRF à l’écriture, identifiant de requête et limite de 1 000 caractères.
+
+Les commentaires, l’édition, la modération et les e-mails restent à faire. Décision du fondateur : les activités payantes font partie du lancement initial ; les tâches 03.20–03.22 et les remboursements restent donc obligatoires avant publication réelle de ces activités.
+
+Validation : 32 tests backend réussis, compilation et lint web réussis. Publication et lecture vérifiées dans un navigateur sur données fictives ; affichage mobile à 390 px sans débordement horizontal. Aperçus : `docs/images/nouvelles-groupes-demo.png` et `docs/images/nouvelles-groupes-mobile-demo.png`. Migration V20 appliquée en local ; serveur sain.

@@ -33,6 +33,16 @@ npm run dev
 
 L’accueil, le catalogue et les fiches chargent les activités depuis PostgreSQL via le backend. Vite redirige `/api` vers `http://127.0.0.1:8080` (aussi en mode preview). Démarrer le backend avant d’ouvrir le frontend. Si l’API est indisponible, un message permet de réessayer ; aucun jeu de données de secours n’est embarqué.
 
+## Préparer Stripe Connect en mode test
+
+Le fondateur a choisi Stripe : chaque organisateur recevra le paiement de ses activités, et Belconnect prélèvera 8 % avec Starter ou 5 % avec Pro du prix total. En cas d'annulation par l'organisateur, le participant devra recevoir un remboursement intégral. Si le participant annule lui-même, aucun remboursement automatique ne sera déclenché. Le raccordement Stripe Connect d'un espace se lance dans « Mon espace → Mes espaces et projets → Paiements des activités » par son administrateur.
+
+Le backend attend la clé secrète **de test** dans la variable d'environnement `STRIPE_SECRET_KEY` (préfixe `sk_test_`) et la signature du webhook dans `STRIPE_WEBHOOK_SECRET` (`whsec_`). La clé secrète doit rester uniquement dans l'environnement du serveur : ne jamais l'ajouter à Git, au frontend ni à une conversation. Définir aussi `APP_PUBLIC_URL` si l'adresse du site diffère de `http://localhost:5173`. Stripe Connect doit être activé sur le compte Stripe du fondateur. Sans ces deux secrets, le paiement d'activité et sa publication restent indisponibles.
+
+La publication des activités payantes en **mode test** est conditionnée à un compte organisateur Stripe Connect prêt. Checkout, la confirmation par webhook et le remboursement intégral en cas d'annulation par l'organisateur sont codés ; aucune recette Stripe de bout en bout n'a encore été faite avec les secrets du compte, absents de la configuration locale. Aucun paiement de production n'est accepté. Voir [le suivi des paiements Stripe](docs/PAIEMENTS_STRIPE.md).
+
+Les projets approuvés et publiés disposent aussi d'un parcours de **don libre distinct** de la participation aux activités : l'organisateur reçoit les fonds via Stripe Connect et Belconnect prélève 8 % avec Starter ou 5 % avec Pro. Le formulaire n'est ouvert que si le compte organisateur est prêt et si le backend possède à la fois `STRIPE_SECRET_KEY` de test et `STRIPE_WEBHOOK_SECRET`. Le montant est de 1 € à 100 000 € ; le retour du navigateur affiche un état provisoire, tandis qu'un webhook Stripe signé confirme le paiement. « Mon espace → Mes inscriptions » affiche également les soutiens du compte. Sans clés de test et sans recette Stripe, aucun don réel n'est encaissé par l'installation locale. Voir [le suivi des dons aux projets](docs/SOUTIEN_FINANCIER_PROJETS.md).
+
 ## Démarrer l'application mobile
 
 Dans un autre terminal :
@@ -53,7 +63,7 @@ L'application utilise Expo SDK 57 et TypeScript. Depuis un téléphone, ouvre Ex
 - Les dates sont renvoyées dans le fuseau `Europe/Brussels`. Prix en euros. Les filtres et la pagination restent côté navigateur sur la liste chargée.
 - Profil `local` par défaut : les sept exemples Stitch sont insérés par `db/demo/R__demo_activities.sql`, sans écraser les lignes déjà présentes. Images dans `frontend-web/public/images`.
 - Pour une nouvelle base sans exemples, activer explicitement `SPRING_PROFILES_ACTIVE=prod` avec les identifiants de l’environnement. Cela ne supprime pas les exemples d’une base existante.
-- Les comptes sont réels. Les inscriptions gratuites sont enregistrées et décomptent les places en base. Les parcours payants restent simulés. Les activités du catalogue sont des exemples, sans engagement auprès d’un organisateur réel.
+- Les comptes sont réels. Les inscriptions gratuites sont enregistrées et décomptent les places en base. Les activités de démonstration gardent un paiement simulé ; une activité payante créée par un organisateur utilise Stripe Checkout en mode test lorsque les secrets et le compte Connect sont prêts. Les exemples du catalogue ne correspondent pas à des événements réels.
 - En déploiement, prévoir la redirection de `/api` vers le backend.
 
 Consulter les activités :
@@ -340,3 +350,21 @@ Depuis « Mon espace → Mes activités », un administrateur ou un référent a
 La migration V18 ajoute l’état et la date d’annulation de l’activité. `POST /api/managed-activities/{id}/cancel` vérifie le rôle, le groupe, la version et le début, puis met à jour l’activité et ses inscriptions dans une transaction sous verrou. Une activité annulée ne peut être ni republiée ni réservée. Les activités déjà commencées sont refusées.
 
 Validation : 31 tests backend réussis, compilation et lint web réussis. Migration V18 appliquée sur la base locale ; serveur opérationnel.
+
+
+### Avis d’annulation dans Mon espace — 19 octobre 2026
+
+Lorsqu’une activité est annulée, chaque inscription encore confirmée crée un avis personnel persistant. L’avis apparaît en haut de « Mon espace », mène à « Mes inscriptions » et peut être marqué comme lu. L’accès est limité au destinataire côté serveur ; la liste est sans cache. L’inscription annulée reste visible même après lecture de l’avis. Migration V19 et API `GET /api/notifications`, `POST /api/notifications/{id}/read`. Les autres notifications et les e-mails ne sont pas encore implémentés.
+
+Validation : 31 tests backend réussis, compilation et lint web réussis. Avis et marquage comme lu vérifiés dans un navigateur avec des données fictives ; affichage mobile à 390 px sans débordement horizontal. Aperçus : `docs/images/avis-activite-annulee-demo.png` et `docs/images/avis-activite-annulee-mobile-demo.png`. Migration V19 appliquée en local.
+
+
+### Nouvelles des groupes — 19 octobre 2026
+
+Dans « Mon espace », les membres actifs voient les annonces de leurs groupes ; les administrateurs d’espace voient celles de leurs groupes. Un administrateur ou un référent actif peut publier un court texte dans son groupe. Les groupes suspendus et les appartenances retirées perdent immédiatement l’accès ; le propriétaire de la plateforme seul n’a pas d’accès spécial. L’interface reste un fil simple, sans nouvel espace de gestion. Migration V20 ; API `GET` et `POST /api/group-announcements`, avec authentification, CSRF à l’écriture, identifiant de requête et limite de 1 000 caractères.
+
+Les commentaires, l’édition, la modération et les e-mails restent à faire. Décision du fondateur : les activités payantes font partie du lancement initial et Stripe est le prestataire choisi. Le parcours et les décisions encore nécessaires sont détaillés dans [la préparation des paiements Stripe](docs/PAIEMENTS_STRIPE.md) ; les tâches 03.20–03.22 et les remboursements restent obligatoires avant publication réelle de ces activités.
+
+Validation : 32 tests backend réussis, compilation et lint web réussis. Publication et lecture vérifiées dans un navigateur sur données fictives ; affichage mobile à 390 px sans débordement horizontal. Aperçus : `docs/images/nouvelles-groupes-demo.png` et `docs/images/nouvelles-groupes-mobile-demo.png`. Migration V20 appliquée en local ; serveur sain.
+
+La préparation des abonnements Starter/Pro des espaces est décrite dans [docs/ABONNEMENT_ORGANISATEURS.md](docs/ABONNEMENT_ORGANISATEURS.md).

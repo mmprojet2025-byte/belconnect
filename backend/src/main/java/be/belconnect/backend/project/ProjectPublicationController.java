@@ -74,6 +74,11 @@ public class ProjectPublicationController {
    if(body.published() && !"ACTIF".equals(group.get("statut")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Le groupe doit être actif pour publier.");
   }
   p=jdbc.queryForMap("SELECT * FROM projet WHERE id=? FOR UPDATE",id);
+  if(!body.published() && !jdbc.queryForList("""
+    SELECT o.projet_id FROM offre_participation_projet o
+    WHERE o.projet_id=? AND o.active LIMIT 1
+    """,id).isEmpty())
+    throw new ResponseStatusException(HttpStatus.CONFLICT,"Fermez d'abord la participation payante et remboursez les participants.");
   var prior=jdbc.queryForList("SELECT administrateur_id,publie FROM publication_projet WHERE projet_id=? AND version_projet=?",id,body.version());
   if(!prior.isEmpty()) {
    var old=prior.getFirst();

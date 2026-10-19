@@ -27,10 +27,14 @@ public class ActivityRepository {
         return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",(r,n)->r.getLong(1),email).stream().findFirst().orElse(null);
     }
     public List<ActivityView> findPublished(Long user) {
-        return jdbc.query("SELECT a.* FROM activite a WHERE "+ActivityAccess.VISIBLE+" ORDER BY debut,id",this::map,user);
+        return jdbc.query("SELECT a.*, "+remaining()+" AS places_visibles FROM activite a WHERE "+ActivityAccess.VISIBLE+" ORDER BY debut,id",this::map,user);
     }
     public Optional<ActivityView> findPublishedBySlug(String slug,Long user) {
-        return jdbc.query("SELECT a.* FROM activite a WHERE "+ActivityAccess.VISIBLE+" AND slug=?",this::map,user,slug).stream().findFirst();
+        return jdbc.query("SELECT a.*, "+remaining()+" AS places_visibles FROM activite a WHERE "+ActivityAccess.VISIBLE+" AND slug=?",this::map,user,slug).stream().findFirst();
+    }
+
+    private static String remaining() {
+        return "GREATEST(0,a.places_disponibles - COALESCE((SELECT sum(r.quantite) FROM reservation_payante_activite r WHERE r.activite_id=a.id AND r.statut='EN_ATTENTE'),0))";
     }
 
     private ActivityView map(ResultSet row, int index) throws SQLException {
@@ -39,7 +43,7 @@ public class ActivityRepository {
                 row.getBigDecimal("prix"), row.getString("image"), row.getObject("debut", OffsetDateTime.class).atZoneSameInstant(ZoneId.of("Europe/Brussels")).toOffsetDateTime(),
                 row.getString("description"), row.getString("badge"), row.getBoolean("demonstration"), row.getObject("cloture_inscriptions", OffsetDateTime.class),
                 new ActivityView.Details(row.getString("duree"), row.getInt("capacite"),
-                        row.getInt("places_disponibles"), row.getString("public_cible"), row.getString("rendez_vous"),
+                        row.getInt("places_visibles"), row.getString("public_cible"), row.getString("rendez_vous"),
                         strings(row, "programme"), strings(row, "inclus"), row.getString("preparation")));
     }
 

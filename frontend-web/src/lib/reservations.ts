@@ -12,4 +12,6 @@ export type Booking = {
   status: "CONFIRMEE" | "ANNULEE";
   activityCancelled: boolean;
   version: number;
+  amountCents: number | null;
+  paymentStatus: string | null;
 };

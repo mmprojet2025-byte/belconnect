@@ -7,7 +7,7 @@ import { categories } from '../data/activities';
 type Space = { id: number; name: string; role: string };
 type Group = { id: number; spaceId: number; name: string };
 type Content = { title: string; category: string; city: string; location: string; price: number; image: string; startsAt: string; closesAt: string; description: string; duration: string; capacity: number; audience: string; meetingPoint: string; preparation: string; visibility: string };
-type Managed = { id: number; slug: string; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; published: boolean; cancelled: boolean; version: number; bookings: number; content: Content };
+type Managed = { id: number; slug: string; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; published: boolean; cancelled: boolean; version: number; bookings: number; pendingCancellation: number; content: Content };
 const images = ['balade', 'brasserie', 'ceramique', 'chocolat', 'cinema', 'potager', 'randonnee', 'street-art', 'velo'];
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Le serveur est indisponible. Réessayez.';
 const localTime = (value: string) => { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
@@ -45,7 +45,7 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
       <p className="management-hint">Heures saisies dans votre fuseau : {Intl.DateTimeFormat().resolvedOptions().timeZone}. La clôture doit précéder le début ou lui être égale.</p>
       <div className="draft-columns"><label>Durée (ex. 2 heures)<input required maxLength={80} value={content.duration} onChange={e => patch({ duration: e.target.value })} /></label><label>Nombre de places<input type="number" required min={1} max={100000} step={1} value={content.capacity} onChange={e => patch({ capacity: Number(e.target.value) })} /></label></div>
       <label>Prix par participant (€)<input type="number" required min={0} max={99999999.99} step="0.01" value={content.price} onChange={e => patch({ price: Number(e.target.value) })} /></label>
-      <p className="management-hint">0 € pour une activité gratuite. Un tarif payant peut être enregistré en brouillon ; sa publication attend la connexion du paiement réel.</p>
+      <p className="management-hint">0 € pour une activité gratuite ; au moins 0,50 € par place pour une activité payante. Sa publication demande Stripe test, son webhook et un compte organisateur prêt.</p>
       <label>Public cible<input required maxLength={200} value={content.audience} onChange={e => patch({ audience: e.target.value })} /></label>
       <label>À prévoir (facultatif)<textarea maxLength={3000} value={content.preparation} onChange={e => patch({ preparation: e.target.value })} /></label>
       <label>Image de la galerie<select value={content.image} onChange={e => patch({ image: e.target.value })}>{images.map(image => <option key={image} value={image}>{image}</option>)}</select></label>
@@ -87,10 +87,12 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
   async function cancelActivity(a: Managed) {
     setBusy(true); setError('');
     try {
-      await postJson(`/api/managed-activities/${a.id}/cancel`, { version: a.version });
-      setNotice(`« ${a.content.title} » est annulée. Les inscriptions concernées apparaissent comme annulées dans « Mes inscriptions ».`);
+      await postJson(`/api/managed-activities/${a.id}/${a.content.price > 0 ? 'cancel-paid' : 'cancel'}`, { version: a.version });
+      setNotice(a.content.price > 0
+        ? `« ${a.content.title} » est annulée. Les inscriptions payées ont été remboursées intégralement.`
+        : `« ${a.content.title} » est annulée. Les inscriptions concernées apparaissent comme annulées dans « Mes inscriptions ».`);
       refresh(); window.dispatchEvent(new Event('catalog-refresh'));
-    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+    } catch (e) { setError(errorText(e)); refresh(); } finally { setBusy(false); }
   }
   const filtered = activities.filter(a => filter === 'ALL' || (filter === 'PUBLISHED' && a.published) || (filter === 'DRAFT' && !a.published && !a.cancelled));
   return <section aria-labelledby="managed-activities-title">
@@ -109,7 +111,7 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
       <span className="account-status">{a.cancelled ? 'Annulée' : a.published ? 'Publiée' : 'Brouillon'}</span><h3>{a.content.title}</h3><p>{a.spaceName}{a.groupName ? ` · ${a.groupName}` : ' · Sans groupe'}</p>
       <p>{displayDate(a.content.startsAt)} (Bruxelles) · {a.content.city}</p><p>{a.content.capacity} places · {a.content.price === 0 ? 'Gratuit' : `${a.content.price} €`} · {a.content.visibility === 'PUBLIQUE' ? 'Publique' : 'Privée'}</p><p>Clôture : {displayDate(a.content.closesAt)}</p>
       <button className="button outline workspace-resume" disabled={registrationsId === a.id} onClick={() => setRegistrationsId(a.id)}>Voir les inscriptions</button>
-      {a.cancelled ? <p className="account-notice">Activité annulée. Les inscriptions sont conservées dans l’historique.</p> : a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
+      {a.cancelled ? <div className="account-notice"><p>{a.content.price > 0 && a.pendingCancellation > 0 ? 'Activité fermée. Des paiements ou remboursements restent à vérifier.' : 'Activité annulée. Les inscriptions sont conservées dans l’historique.'}</p>{a.content.price > 0 && a.pendingCancellation > 0 && <button className="text-link" disabled={busy} onClick={() => cancelActivity(a)}>Revérifier les remboursements</button>}</div> : a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
         {a.published && <a className="text-link" href={`/activites/${a.slug}`}>Voir la fiche de l’activité</a>}
         <p className="management-hint">{a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'}. {a.published ? 'Pour modifier, retirez d’abord la publication. Le retrait est bloqué si des inscriptions sont confirmées.' : 'Enregistrez vos modifications avant de publier.'}</p>
         {confirm?.id === a.id ? <div className="group-role-confirm"><p>{a.published ? 'Retirer cette activité du catalogue ? Elle redeviendra un brouillon.' : `Publier « ${a.content.title} » et ouvrir ses inscriptions ${a.content.visibility === 'PRIVEE' ? 'aux membres autorisés' : 'aux comptes Belconnect'} ?`}</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={publish}>{busy ? 'Traitement…' : 'Confirmer'}</button><button className="button outline" disabled={busy} onClick={() => setConfirm(null)}>Annuler</button></div></div> : <div className="management-actions">
@@ -117,7 +119,7 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
           <button className="button outline" disabled={editing !== null || busy || confirm !== null || cancelId !== null || (a.published && a.bookings > 0)} onClick={() => { setError(''); setConfirm(a); }}>{a.published ? 'Retirer la publication' : 'Publier l’activité'}</button>
           {a.published && new Date(a.content.startsAt).getTime() > now && <button className="text-link" disabled={editing !== null || busy || confirm !== null || cancelId !== null} onClick={() => { setError(''); setCancelId(a.id); }}>Annuler l’activité</button>}
         </div>}
-        {cancelId === a.id && <div className="group-role-confirm"><p>Annuler « {a.content.title} » ? L’activité disparaîtra du catalogue et les {a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'} seront annulée{a.bookings === 1 ? '' : 's'}. Cette action est définitive.</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={() => cancelActivity(a)}>{busy ? 'Annulation…' : 'Confirmer l’annulation'}</button><button className="button outline" disabled={busy} onClick={() => setCancelId(null)}>Garder l’activité</button></div></div>}
+        {cancelId === a.id && <div className="group-role-confirm"><p>{a.content.price > 0 ? `Annuler « ${a.content.title} » ? L’activité sera immédiatement fermée. Chaque paiement sera remboursé intégralement, commission comprise ; les inscriptions seront annulées après confirmation des remboursements.` : `Annuler « ${a.content.title} » ? L’activité disparaîtra du catalogue et les ${a.bookings} inscription${a.bookings === 1 ? '' : 's'} confirmée${a.bookings === 1 ? '' : 's'} seront annulée${a.bookings === 1 ? '' : 's'}. Cette action est définitive.`}</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={() => cancelActivity(a)}>{busy ? 'Annulation…' : 'Confirmer l’annulation'}</button><button className="button outline" disabled={busy} onClick={() => setCancelId(null)}>Garder l’activité</button></div></div>}
       </>}
     </article>)}</div>
   </section>;

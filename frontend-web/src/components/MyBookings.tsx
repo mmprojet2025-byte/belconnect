@@ -25,13 +25,18 @@ export function MyBookings() {
       await postJson(`/api/bookings/${booking.id}/cancel`);
       setBookings(items => items?.map(item => item.id === booking.id ? {...item, status: "ANNULEE"} : item) ?? null);
       setConfirmId(null);
-      setNotice(`Inscription à « ${booking.title} » annulée. ${booking.quantity} place${booking.quantity > 1 ? "s libérées" : " libérée"}.`);
+      setNotice(`Inscription à « ${booking.title} » annulée. ${booking.quantity} place${booking.quantity > 1 ? "s libérées" : " libérée"}.${booking.amountCents != null ? " Aucun remboursement automatique n'est déclenché." : ""}`);
       window.dispatchEvent(new Event("catalog-refresh"));
       requestAnimationFrame(() => noticeRef.current?.focus());
     } catch(cause) { setActionError(cause instanceof Error ? cause.message : "Annulation impossible. Réessayez."); }
     finally { locked.current = false; setBusyId(null); }
   }
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const refresh = () => setAttempt(value => value + 1);
+    window.addEventListener("bookings-refresh", refresh);
+    return () => window.removeEventListener("bookings-refresh", refresh);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/bookings", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
@@ -40,6 +45,11 @@ export function MyBookings() {
     return () => controller.abort();
   }, [attempt]);
   const group = (b: Booking) => b.status === "ANNULEE" ? "cancelled" : new Date(b.startsAt).getTime() > now ? "upcoming" : "past";
+  const paymentLabel = (b: Booking) => b.amountCents == null ? "Gratuit" :
+    b.paymentStatus === "REMBOURSE" ? "Remboursé intégralement" :
+    b.paymentStatus === "REMBOURSEMENT_EN_COURS" ? "Remboursement en cours" :
+    b.activityCancelled ? "Remboursement à vérifier" :
+    `${new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" }).format(b.amountCents / 100)} payé`;
   const visible = bookings?.filter(b => filter === "all" || group(b) === filter);
   return <section className="account-bookings" id="mes-inscriptions" aria-label="Mes inscriptions">
     <div className="account-section-heading"><h2>Mes inscriptions</h2><span>{bookings ? `${bookings.length} au total` : ""}</span></div>
@@ -55,7 +65,7 @@ export function MyBookings() {
       <div className="account-booking-info"><div className="account-card-meta"><span className={`account-status status-${group(b)}`}>{b.activityCancelled ? "Activité annulée" : b.status === "ANNULEE" ? "Annulée" : group(b) === "past" ? "Passée" : "Confirmée"}</span><span className="account-reference">Réf. #{b.id}</span></div>
       <h3>{b.activityCancelled ? b.title : <a href={`/activites/${b.activityId}`}>{b.title}</a>}</h3>
       <p className="account-booking-date"><Icon name="calendar" /> {new Intl.DateTimeFormat("fr-BE", {dateStyle:"medium", timeStyle:"short", timeZone:"Europe/Brussels"}).format(new Date(b.startsAt))} · {b.location}</p>
-      <p>{b.quantity} place{b.quantity > 1 ? "s" : ""} · Gratuit · {b.activityCancelled ? "L’organisateur a annulé cette activité" : b.status === "ANNULEE" ? "Inscription annulée" : "Inscription confirmée"}</p>
+      <p>{b.quantity} place{b.quantity > 1 ? "s" : ""} · {paymentLabel(b)} · {b.activityCancelled ? "L’organisateur a annulé cette activité" : b.status === "ANNULEE" ? "Inscription annulée" : "Inscription confirmée"}</p>
       </div></div><details className="account-booking-contact"><summary>Coordonnées de l’inscription</summary><p>Contact : {b.firstName} {b.lastName} · {b.email}{b.phone ? ` · ${b.phone}` : ""}</p>
       </details>
       {b.status === "CONFIRMEE" && new Date(b.startsAt).getTime() > now && (
@@ -68,11 +78,11 @@ export function MyBookings() {
             window.dispatchEvent(new Event("catalog-refresh"));
             requestAnimationFrame(() => noticeRef.current?.focus());
           }} /> : confirmId === b.id ? <div className="account-cancel-confirm" role="group" aria-label={`Annuler ${b.title}`}>
-          <p>Annuler cette inscription pour {b.quantity} personne{b.quantity > 1 ? "s" : ""} ? Toutes les places de cette réservation seront libérées.</p>
+          <p>Annuler cette inscription pour {b.quantity} personne{b.quantity > 1 ? "s" : ""} ? Toutes les places de cette réservation seront libérées.{b.amountCents != null && " Aucun remboursement automatique ne sera effectué si vous annulez vous-même."}</p>
           <button className="button outline" disabled={busyId !== null} onClick={() => cancel(b)}>{busyId === b.id ? "Annulation…" : "Confirmer l’annulation"}</button>
           <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(null); setActionError("");}}>Garder mon inscription</button>
         </div> : <div className="booking-actions">
-          <button className="text-link" disabled={busyId !== null} onClick={() => {setEditId(b.id); setConfirmId(null); setActionError("");}}>Modifier mon inscription</button>
+          {b.amountCents == null && <button className="text-link" disabled={busyId !== null} onClick={() => {setEditId(b.id); setConfirmId(null); setActionError("");}}>Modifier mon inscription</button>}
           <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(b.id); setEditId(null); setActionError("");}}>Annuler mon inscription</button>
         </div>
       )}

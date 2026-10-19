@@ -290,6 +290,7 @@ function App() {
             />
           ) : ["paiement", "confirmation", "echec"].includes(step) &&
             selectedActivity.price > 0 &&
+            selectedActivity.demonstration &&
             drafts[selectedActivity.id]?.acknowledged &&
             drafts[selectedActivity.id]?.reviewedQuantity === quantity ? (
             <PaymentPage
