@@ -331,3 +331,12 @@ Les contrôles navigateur utilisent des données fictives isolées ; aucun droit
 Recette web : compilation et lint réussis ; parcours administrateur et référent vérifiés avec des données fictives, affichage mobile à 390 px sans débordement horizontal.
 
 Validation backend : suite de 30 tests exécutée ; une régression du code de refus (409 au lieu de 403 pour une appartenance retirée) corrigée, puis les 14 tests SpaceManagementApiTests relancés avec succès. Les 16 autres tests étaient réussis. Migration V17 appliquée en local ; serveur sain et accès anonyme aux activités organisées refusé (401).
+
+
+### Annulation simple d’une activité — 19 octobre 2026
+
+Depuis « Mon espace → Mes activités », un administrateur ou un référent autorisé peut annuler une activité publiée avant son début. Une confirmation indique le nombre d’inscriptions concernées. L’action est définitive : l’activité disparaît du catalogue, les inscriptions confirmées deviennent annulées et les places sont libérées. Les participants voient « Activité annulée » dans « Mes inscriptions » ; l’organisateur conserve le registre et son export comme historique. Aucun e-mail automatique n’est envoyé.
+
+La migration V18 ajoute l’état et la date d’annulation de l’activité. `POST /api/managed-activities/{id}/cancel` vérifie le rôle, le groupe, la version et le début, puis met à jour l’activité et ses inscriptions dans une transaction sous verrou. Une activité annulée ne peut être ni republiée ni réservée. Les activités déjà commencées sont refusées.
+
+Validation : 31 tests backend réussis, compilation et lint web réussis. Migration V18 appliquée sur la base locale ; serveur opérationnel.

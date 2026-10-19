@@ -11,7 +11,7 @@ public class ActivityAccess {
     public ActivityAccess(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     // Same predicate for catalogue, direct detail and reservation. Existing demo rows have no space.
     public static final String VISIBLE = """
-      a.publiee AND (a.espace_id IS NULL OR EXISTS (SELECT 1 FROM espace_organisateur e WHERE e.id=a.espace_id AND e.statut='ACTIF'))
+      a.publiee AND NOT a.annulee AND (a.espace_id IS NULL OR EXISTS (SELECT 1 FROM espace_organisateur e WHERE e.id=a.espace_id AND e.statut='ACTIF'))
       AND (a.groupe_id IS NULL OR EXISTS (SELECT 1 FROM groupe g WHERE g.id=a.groupe_id AND g.espace_id=a.espace_id AND g.statut='ACTIF'))
       AND (a.visibilite='PUBLIQUE' OR EXISTS (
         SELECT 1 FROM appartenance_espace ae JOIN utilisateur u ON u.id=ae.utilisateur_id

@@ -58,14 +58,14 @@
 | 03.14 | Créer formulaire d'activité et images | Partiel | Formulaire administrateur et galerie locale disponibles ; import de photos restant. |
 | 03.15 | Gérer dates, lieux, places, tarifs, échéances | Partiel | Date, lieu, durée, capacité bornée, tarif de brouillon et clôture distincte ; paiements réels et capacité illimitée restants. |
 | 03.16 | Rattacher activité à 0 ou 1 groupe / visibilité | Réalisé localement | Espace obligatoire, groupe actif facultatif et visibilité publique/privée ; catalogue, détail et réservations filtrés côté serveur. |
-| 03.17 | Gérer brouillons, publication et workflow référent | Partiel | Brouillon, modification, publication gratuite et retrait sans inscription confirmée par administrateur ; délégation référent et annulation organisateur restantes. |
+| 03.17 | Gérer brouillons, publication et workflow référent | Partiel | Brouillon, modification, publication gratuite, retrait sans inscription et annulation d’activité avant son début ; référent autorisé pour son groupe. Paiement restant. |
 | 03.18 | Créer catalogue, détail et filtres d'activités | Réalisé localement | Catalogue API, détail et filtres web ; contenu initial de démonstration. |
 | 03.19 | Gérer inscriptions gratuites, capacité et doublons | Partiel | Réservation gratuite, capacité, doublons et clôture gérés ; 1 à 4 places par inscription, capacité illimitée restante. |
 | 03.20 | Préparer compte organisateur prestataire de paiement | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.21 | Créer paiement activité et suivi de session | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.22 | Vérifier paiement serveur, idempotence, expiration | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.23 | Créer liste des inscrits et accès du référent | Réalisé localement | Registre et export CSV filtré accessibles aux administrateurs et aux référents autorisés pour leur groupe. |
-| 03.24 | Gérer annulation selon politique finalisée | Partiel | Annulation gratuite disponible ; politique définitive et remboursements payants restants. |
+| 03.24 | Gérer annulation selon politique finalisée | Partiel | Annulation gratuite par le participant et annulation d’activité avant son début par l’organisateur ; politique définitive et remboursements payants restants. |
 | 03.25 | Créer brouillon projet avec objectifs, images et aide | Partiel | Brouillons présents ; images et types d’aide recherchée manquants. |
 | 03.26 | Soumettre projets et gérer leurs statuts | Réalisé localement | Soumission sauvegardée, statuts et permissions contrôlés. |
 | 03.27 | Examen projet par référent et demandes de correction | Réalisé localement | Avis, corrections et nouvelle soumission du même projet avec historique. |
@@ -147,3 +147,12 @@ Les contrôles navigateur utilisent des données fictives isolées ; aucun droit
 Recette web : compilation et lint réussis ; parcours administrateur et référent vérifiés avec des données fictives, affichage mobile à 390 px sans débordement horizontal.
 
 Validation backend : suite de 30 tests exécutée ; une régression du code de refus (409 au lieu de 403 pour une appartenance retirée) corrigée, puis les 14 tests SpaceManagementApiTests relancés avec succès. Les 16 autres tests étaient réussis. Migration V17 appliquée en local ; serveur sain et accès anonyme aux activités organisées refusé (401).
+
+
+### Annulation simple d’une activité — 19 octobre 2026
+
+Depuis « Mon espace → Mes activités », un administrateur ou un référent autorisé peut annuler une activité publiée avant son début. Une confirmation indique le nombre d’inscriptions concernées. L’action est définitive : l’activité disparaît du catalogue, les inscriptions confirmées deviennent annulées et les places sont libérées. Les participants voient « Activité annulée » dans « Mes inscriptions » ; l’organisateur conserve le registre et son export comme historique. Aucun e-mail automatique n’est envoyé.
+
+La migration V18 ajoute l’état et la date d’annulation de l’activité. `POST /api/managed-activities/{id}/cancel` vérifie le rôle, le groupe, la version et le début, puis met à jour l’activité et ses inscriptions dans une transaction sous verrou. Une activité annulée ne peut être ni republiée ni réservée. Les activités déjà commencées sont refusées.
+
+Validation : 31 tests backend réussis, compilation et lint web réussis. Migration V18 appliquée sur la base locale ; serveur opérationnel.

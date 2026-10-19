@@ -553,4 +553,31 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
 
+ @Test void organizerCancellationClosesActivityAndMarksBookingsCancelled() throws Exception {
+  try {
+   var admin=actor();var referent=actor();var participant=actor();var outsider=actor();
+   long space=setupSpace(admin),group=setupGroup(space,"Sorties simples",false,"PUBLIQUE");
+   addMember(referent,space,group,"REFERENT");
+   var created=ok(admin.post("/api/managed-activities",Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",activityContent()),true),201);
+   long id=created.get("id").asLong();String slug=created.get("slug").asText(),path="/api/managed-activities/"+id;
+   assertEquals(409,admin.post(path+"/cancel",Map.of("version",0),true).statusCode());
+   ok(admin.post(path+"/publication",Map.of("version",0,"published",true),true),200);
+   long booking=ok(participant.post("/api/bookings",booking(slug),true),201).get("id").asLong();
+   assertEquals(403,outsider.post(path+"/cancel",Map.of("version",1),true).statusCode());
+   assertEquals(403,referent.post(path+"/cancel",Map.of("version",1),true).statusCode());
+   ok(admin.post("/api/workspace/groups/"+group+"/activity-permission",Map.of("version",0,"enabled",true),true),200);
+   var cancelled=ok(referent.post(path+"/cancel",Map.of("version",1),true),200);
+   assertTrue(cancelled.get("cancelled").asBoolean());assertFalse(cancelled.get("published").asBoolean());
+   assertEquals(4,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE id=?",Integer.class,id));
+   assertEquals("ANNULEE",jdbc.queryForObject("SELECT statut FROM inscription_activite WHERE id=?",String.class,booking));
+   var b=ok(participant.get("/api/bookings"),200).get(0);
+   assertTrue(b.get("activityCancelled").asBoolean());assertEquals("ANNULEE",b.get("status").asText());
+   assertEquals(404,new Actor().get("/api/activities/"+slug).statusCode());
+   assertEquals(404,participant.post("/api/bookings",booking(slug),true).statusCode());
+   assertEquals(409,admin.post(path+"/publication",Map.of("version",2,"published",true),true).statusCode());
+   assertEquals(409,admin.post(path+"/cancel",Map.of("version",2),true).statusCode());
+   assertEquals(200,admin.get(path+"/registrations").statusCode());
+  } finally { cleanup(); }
+ }
+
 }

@@ -7,7 +7,7 @@ import { categories } from '../data/activities';
 type Space = { id: number; name: string; role: string };
 type Group = { id: number; spaceId: number; name: string };
 type Content = { title: string; category: string; city: string; location: string; price: number; image: string; startsAt: string; closesAt: string; description: string; duration: string; capacity: number; audience: string; meetingPoint: string; preparation: string; visibility: string };
-type Managed = { id: number; slug: string; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; published: boolean; version: number; bookings: number; content: Content };
+type Managed = { id: number; slug: string; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; published: boolean; cancelled: boolean; version: number; bookings: number; content: Content };
 const images = ['balade', 'brasserie', 'ceramique', 'chocolat', 'cinema', 'potager', 'randonnee', 'street-art', 'velo'];
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Le serveur est indisponible. Réessayez.';
 const localTime = (value: string) => { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
@@ -58,6 +58,7 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
 }
 
 export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups: Group[] }) {
+  const [now] = useState(() => Date.now());
   const [activities, setActivities] = useState<Managed[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -65,6 +66,7 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState<Managed | 'new' | null>(null);
   const [confirm, setConfirm] = useState<Managed | null>(null);
+  const [cancelId, setCancelId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [registrationsId, setRegistrationsId] = useState<number | null>(null);
@@ -73,7 +75,7 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
     fetch('/api/managed-activities', { cache: 'no-store', signal: AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]) }).then(result).then(value => { setActivities(value); setLoaded(true); setError(''); }).catch(e => { if (!abort.signal.aborted) setError(errorText(e)); });
     return () => abort.abort();
   }, [attempt]);
-  const refresh = () => { setConfirm(null); setAttempt(n => n + 1); };
+  const refresh = () => { setConfirm(null); setCancelId(null); setAttempt(n => n + 1); };
   async function publish() {
     if (!confirm) return; setBusy(true); setError('');
     try {
@@ -82,7 +84,15 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
       refresh(); window.dispatchEvent(new Event('catalog-refresh'));
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
-  const filtered = activities.filter(a => filter === 'ALL' || (filter === 'PUBLISHED') === a.published);
+  async function cancelActivity(a: Managed) {
+    setBusy(true); setError('');
+    try {
+      await postJson(`/api/managed-activities/${a.id}/cancel`, { version: a.version });
+      setNotice(`« ${a.content.title} » est annulée. Les inscriptions concernées apparaissent comme annulées dans « Mes inscriptions ».`);
+      refresh(); window.dispatchEvent(new Event('catalog-refresh'));
+    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  const filtered = activities.filter(a => filter === 'ALL' || (filter === 'PUBLISHED' && a.published) || (filter === 'DRAFT' && !a.published && !a.cancelled));
   return <section aria-labelledby="managed-activities-title">
     <div className="account-section-heading"><h2 id="managed-activities-title">Mes activités</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser les activités</button></div>
     <p className="workspace-description">Préparez une activité, publiez-la et retrouvez vos inscrits ici.</p>
@@ -96,16 +106,18 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
     {registrationsId !== null && <ActivityRegistrations key={registrationsId} activityId={registrationsId} onClose={() => setRegistrationsId(null)} />}
     <div className="workspace-grid">{filtered.map(a => <article className="workspace-card" key={a.id}>
       <img className="management-cover" src={`/images/${a.content.image}.jpg`} alt="" />
-      <span className="account-status">{a.published ? 'Publiée' : 'Brouillon'}</span><h3>{a.content.title}</h3><p>{a.spaceName}{a.groupName ? ` · ${a.groupName}` : ' · Sans groupe'}</p>
+      <span className="account-status">{a.cancelled ? 'Annulée' : a.published ? 'Publiée' : 'Brouillon'}</span><h3>{a.content.title}</h3><p>{a.spaceName}{a.groupName ? ` · ${a.groupName}` : ' · Sans groupe'}</p>
       <p>{displayDate(a.content.startsAt)} (Bruxelles) · {a.content.city}</p><p>{a.content.capacity} places · {a.content.price === 0 ? 'Gratuit' : `${a.content.price} €`} · {a.content.visibility === 'PUBLIQUE' ? 'Publique' : 'Privée'}</p><p>Clôture : {displayDate(a.content.closesAt)}</p>
       <button className="button outline workspace-resume" disabled={registrationsId === a.id} onClick={() => setRegistrationsId(a.id)}>Voir les inscriptions</button>
-      {a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
+      {a.cancelled ? <p className="account-notice">Activité annulée. Les inscriptions sont conservées dans l’historique.</p> : a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
         {a.published && <a className="text-link" href={`/activites/${a.slug}`}>Voir la fiche de l’activité</a>}
         <p className="management-hint">{a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'}. {a.published ? 'Pour modifier, retirez d’abord la publication. Le retrait est bloqué si des inscriptions sont confirmées.' : 'Enregistrez vos modifications avant de publier.'}</p>
         {confirm?.id === a.id ? <div className="group-role-confirm"><p>{a.published ? 'Retirer cette activité du catalogue ? Elle redeviendra un brouillon.' : `Publier « ${a.content.title} » et ouvrir ses inscriptions ${a.content.visibility === 'PRIVEE' ? 'aux membres autorisés' : 'aux comptes Belconnect'} ?`}</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={publish}>{busy ? 'Traitement…' : 'Confirmer'}</button><button className="button outline" disabled={busy} onClick={() => setConfirm(null)}>Annuler</button></div></div> : <div className="management-actions">
-          {!a.published && <button className="button outline" disabled={editing !== null || busy || confirm !== null} onClick={() => setEditing(a)}>Modifier le brouillon</button>}
-          <button className="button outline" disabled={editing !== null || busy || confirm !== null || (a.published && a.bookings > 0)} onClick={() => { setError(''); setConfirm(a); }}>{a.published ? 'Retirer la publication' : 'Publier l’activité'}</button>
+          {!a.published && <button className="button outline" disabled={editing !== null || busy || confirm !== null || cancelId !== null} onClick={() => setEditing(a)}>Modifier le brouillon</button>}
+          <button className="button outline" disabled={editing !== null || busy || confirm !== null || cancelId !== null || (a.published && a.bookings > 0)} onClick={() => { setError(''); setConfirm(a); }}>{a.published ? 'Retirer la publication' : 'Publier l’activité'}</button>
+          {a.published && new Date(a.content.startsAt).getTime() > now && <button className="text-link" disabled={editing !== null || busy || confirm !== null || cancelId !== null} onClick={() => { setError(''); setCancelId(a.id); }}>Annuler l’activité</button>}
         </div>}
+        {cancelId === a.id && <div className="group-role-confirm"><p>Annuler « {a.content.title} » ? L’activité disparaîtra du catalogue et les {a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'} seront annulée{a.bookings === 1 ? '' : 's'}. Cette action est définitive.</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={() => cancelActivity(a)}>{busy ? 'Annulation…' : 'Confirmer l’annulation'}</button><button className="button outline" disabled={busy} onClick={() => setCancelId(null)}>Garder l’activité</button></div></div>}
       </>}
     </article>)}</div>
   </section>;

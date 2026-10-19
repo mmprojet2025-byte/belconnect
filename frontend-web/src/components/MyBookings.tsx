@@ -51,11 +51,11 @@ export function MyBookings() {
     {!notice && new URLSearchParams(window.location.search).get("inscription") === "confirmee" && <p className="account-notice" role="status">Votre inscription a bien été enregistrée.</p>}
     {error ? <p role="alert">{error} <button className="text-link" onClick={() => {setError(""); setAttempt(v => v + 1);}}>Réessayer</button></p> : !bookings ? <p role="status">Chargement…</p> : visible?.length === 0 ? <div className="account-empty"><span><Icon name="calendar" /></span><h3>{filter === "all" ? "Votre prochaine sortie vous attend" : "Aucune inscription dans cette catégorie"}</h3><p>{filter === "all" ? "Un atelier créatif ou une balade au grand air ? Trouvez une activité qui vous ressemble." : "Vos inscriptions apparaîtront ici au fil de vos découvertes."}</p><a className="button navy" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> : visible?.map(b => <article key={b.id} className={`account-booking-card ${b.status === "ANNULEE" ? "is-cancelled" : ""}`}>
       <div className="account-booking-top">
-      <a className="account-booking-image" href={`/activites/${b.activityId}`} tabIndex={-1} aria-hidden="true">{activities.find(a => a.id === b.activityId)?.image ? <img src={`/images/${activities.find(a => a.id === b.activityId)?.image}.jpg`} alt="" /> : <Icon name="ticket" />}</a>
-      <div className="account-booking-info"><div className="account-card-meta"><span className={`account-status status-${group(b)}`}>{b.status === "ANNULEE" ? "Annulée" : group(b) === "past" ? "Passée" : "Confirmée"}</span><span className="account-reference">Réf. #{b.id}</span></div>
-      <h3><a href={`/activites/${b.activityId}`}>{b.title}</a></h3>
+      <span className="account-booking-image" aria-hidden="true">{activities.find(a => a.id === b.activityId)?.image ? <img src={`/images/${activities.find(a => a.id === b.activityId)?.image}.jpg`} alt="" /> : <Icon name="ticket" />}</span>
+      <div className="account-booking-info"><div className="account-card-meta"><span className={`account-status status-${group(b)}`}>{b.activityCancelled ? "Activité annulée" : b.status === "ANNULEE" ? "Annulée" : group(b) === "past" ? "Passée" : "Confirmée"}</span><span className="account-reference">Réf. #{b.id}</span></div>
+      <h3>{b.activityCancelled ? b.title : <a href={`/activites/${b.activityId}`}>{b.title}</a>}</h3>
       <p className="account-booking-date"><Icon name="calendar" /> {new Intl.DateTimeFormat("fr-BE", {dateStyle:"medium", timeStyle:"short", timeZone:"Europe/Brussels"}).format(new Date(b.startsAt))} · {b.location}</p>
-      <p>{b.quantity} place{b.quantity > 1 ? "s" : ""} · Gratuit · {b.status === "ANNULEE" ? "Inscription annulée" : "Inscription confirmée"}</p>
+      <p>{b.quantity} place{b.quantity > 1 ? "s" : ""} · Gratuit · {b.activityCancelled ? "L’organisateur a annulé cette activité" : b.status === "ANNULEE" ? "Inscription annulée" : "Inscription confirmée"}</p>
       </div></div><details className="account-booking-contact"><summary>Coordonnées de l’inscription</summary><p>Contact : {b.firstName} {b.lastName} · {b.email}{b.phone ? ` · ${b.phone}` : ""}</p>
       </details>
       {b.status === "CONFIRMEE" && new Date(b.startsAt).getTime() > now && (
@@ -76,7 +76,7 @@ export function MyBookings() {
           <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(b.id); setEditId(null); setActionError("");}}>Annuler mon inscription</button>
         </div>
       )}
-      {b.status === "ANNULEE" && new Date(b.startsAt).getTime() > now && <p><a href={`/activites/${b.activityId}`}>Revoir l’activité pour se réinscrire</a></p>}
+      {b.status === "ANNULEE" && !b.activityCancelled && new Date(b.startsAt).getTime() > now && <p><a href={`/activites/${b.activityId}`}>Revoir l’activité pour se réinscrire</a></p>}
     </article>)}
   </section>;
 }

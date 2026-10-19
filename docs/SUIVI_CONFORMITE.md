@@ -31,12 +31,12 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Désignation et permissions des référents | 03.10, 03.11 | Partiel | Rôle reconnu pour l'examen des projets ; désignation et permissions configurables absentes. |
 | Administration directe et déléguée | 03.12 | Partiel | Intervention directe de l'administrateur sur les projets ; gestion complète des groupes restante. |
 | Suspension et archivage des groupes | 03.13 | Partiel | Certains contrôles d'activité existent ; cycle de gestion et historique consultable à compléter. |
-| Création et publication des activités | 03.14–03.17 | Partiel | Formulaire, galerie, dates, clôture, visibilité et publication gratuite par administrateur ; import, délégation et paiement restants. |
+| Création et publication des activités | 03.14–03.17 | Partiel | Formulaire, galerie, dates, clôture, visibilité, publication et annulation gratuite par administrateur ou référent autorisé ; import et paiement restants. |
 | Catalogue et détail des activités | 03.18 | Réalisé localement | Lecture API et filtres web ; contenu initial de démonstration. |
 | Inscriptions gratuites | 03.19 | Partiel | Création, modification, annulation et capacité ; limite actuelle de 1 à 4 places, capacité illimitée et échéance distincte du début non couvertes. |
 | Paiements des activités | 03.20–03.22 | À développer | Écran de simulation ; aucun encaissement réel ni confirmation serveur du prestataire. |
 | Liste organisateur des inscrits et export | 03.23 | À développer | L'utilisateur voit ses inscriptions ; ce n'est pas le registre organisateur. |
-| Annulation et remboursements | 03.24 | Partiel | Annulation gratuite avant le début ; politique définitive et remboursement payant à établir. |
+| Annulation et remboursements | 03.24 | Partiel | Annulation gratuite par le participant et annulation d’activité avant le début par l’organisateur ; politique définitive et remboursement payant à établir. |
 | Brouillon de projet | 03.25 | Partiel | Titre, description, objectif, dates et groupe ; images et types d'aide recherchée manquants. |
 | Soumission et suivi des statuts | 03.26 | Réalisé localement | Soumission du contenu sauvegardé et contrôle des droits. |
 | Examen et corrections | 03.27 | Réalisé localement | Avis du référent, corrections et nouvelle soumission avec même projet et historique. |
@@ -182,3 +182,12 @@ Les contrôles navigateur utilisent des données fictives isolées ; aucun droit
 Recette web : compilation et lint réussis ; parcours administrateur et référent vérifiés avec des données fictives, affichage mobile à 390 px sans débordement horizontal.
 
 Validation backend : suite de 30 tests exécutée ; une régression du code de refus (409 au lieu de 403 pour une appartenance retirée) corrigée, puis les 14 tests SpaceManagementApiTests relancés avec succès. Les 16 autres tests étaient réussis. Migration V17 appliquée en local ; serveur sain et accès anonyme aux activités organisées refusé (401).
+
+
+### Annulation simple d’une activité — 19 octobre 2026
+
+Depuis « Mon espace → Mes activités », un administrateur ou un référent autorisé peut annuler une activité publiée avant son début. Une confirmation indique le nombre d’inscriptions concernées. L’action est définitive : l’activité disparaît du catalogue, les inscriptions confirmées deviennent annulées et les places sont libérées. Les participants voient « Activité annulée » dans « Mes inscriptions » ; l’organisateur conserve le registre et son export comme historique. Aucun e-mail automatique n’est envoyé.
+
+La migration V18 ajoute l’état et la date d’annulation de l’activité. `POST /api/managed-activities/{id}/cancel` vérifie le rôle, le groupe, la version et le début, puis met à jour l’activité et ses inscriptions dans une transaction sous verrou. Une activité annulée ne peut être ni republiée ni réservée. Les activités déjà commencées sont refusées.
+
+Validation : 31 tests backend réussis, compilation et lint web réussis. Migration V18 appliquée sur la base locale ; serveur opérationnel.

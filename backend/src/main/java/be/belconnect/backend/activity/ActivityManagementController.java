@@ -38,7 +38,7 @@ public class ActivityManagementController {
     public record Update(@NotNull @Min(0) Long version,@NotNull @Valid Content content) {}
     public record Publication(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
     public record Activity(long id,String slug,long spaceId,Long groupId,String spaceName,String groupName,
-      boolean published,long version,int bookings,Content content) {}
+      boolean published,boolean cancelled,long version,int bookings,Content content) {}
     private ResponseStatusException error(HttpStatus code,String text) { return new ResponseStatusException(code,text); }
     private long user(Authentication auth) {
       return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName()).stream().findFirst()
@@ -68,7 +68,7 @@ public class ActivityManagementController {
         SELECT a.*,e.nom AS espace_nom,g.nom AS groupe_nom,
         (SELECT count(*) FROM inscription_activite i WHERE i.activite_id=a.id AND i.statut='CONFIRMEE') AS inscriptions
         FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id LEFT JOIN groupe g ON g.id=a.groupe_id
-        """+where+" ORDER BY a.date_creation DESC,a.id DESC",(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getLong("version"),r.getInt("inscriptions"),
+        """+where+" ORDER BY a.date_creation DESC,a.id DESC",(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getLong("version"),r.getInt("inscriptions"),
           new Content(r.getString("titre"),r.getString("categorie"),r.getString("ville"),r.getString("lieu"),r.getBigDecimal("prix"),r.getString("image"),r.getObject("debut",OffsetDateTime.class),r.getObject("cloture_inscriptions",OffsetDateTime.class),r.getString("description"),r.getString("duree"),r.getInt("capacite"),r.getString("public_cible"),r.getString("rendez_vous"),r.getString("preparation"),r.getString("visibilite"))),args);
     }
     private Activity activity(long id) { return read("WHERE a.id=?",id).stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Activité introuvable.")); }
@@ -102,7 +102,7 @@ public class ActivityManagementController {
     @PostMapping("/{id}") @Transactional
     public Activity edit(Authentication auth,@PathVariable long id,@Valid @RequestBody Update body) {
       long u=user(auth);var a=lock(u,id);version(a,body.version());
-      if(a.published() || a.bookings()>0) throw error(HttpStatus.CONFLICT,"Seul un brouillon sans inscription confirmée peut être modifié.");
+      if(a.cancelled() || a.published() || a.bookings()>0) throw error(HttpStatus.CONFLICT,"Seul un brouillon sans inscription confirmée peut être modifié.");
       var c=body.content();dates(c);
       jdbc.update("""
         UPDATE activite SET titre=?,categorie=?,ville=?,lieu=?,prix=?,image=?,debut=?,description=?,duree=?,capacite=?,places_disponibles=?,
@@ -113,6 +113,7 @@ public class ActivityManagementController {
     @PostMapping("/{id}/publication") @Transactional
     public Activity publish(Authentication auth,@PathVariable long id,@Valid @RequestBody Publication body) {
       long u=user(auth);var a=lock(u,id);version(a,body.version());
+      if(a.cancelled()) throw error(HttpStatus.CONFLICT,"Cette activité est annulée et ne peut plus être publiée.");
       if(a.published()==body.published()) return a;
       if(body.published()) {
         dates(a.content());
@@ -120,6 +121,17 @@ public class ActivityManagementController {
       } else if(a.bookings()>0) throw error(HttpStatus.CONFLICT,"Cette activité a des inscriptions confirmées. Le retrait nécessite un parcours d’annulation qui n’est pas encore disponible.");
       jdbc.update("UPDATE activite SET publiee=?,version=version+1 WHERE id=?",body.published(),id);
       audit(id,u,body.published()?"ACTIVITE_PUBLIEE":"PUBLICATION_RETIREE",a.version()+1);return activity(id);
+    }
+    public record Cancellation(@NotNull @Min(0) Long version) {}
+    @PostMapping("/{id}/cancel") @Transactional
+    public Activity cancel(Authentication auth,@PathVariable long id,@Valid @RequestBody Cancellation body) {
+      long u=user(auth);var a=lock(u,id);version(a,body.version());
+      if(a.cancelled() || !a.published()) throw error(HttpStatus.CONFLICT,"Cette activité ne peut pas être annulée.");
+      if(!a.content().startsAt().isAfter(OffsetDateTime.now())) throw error(HttpStatus.CONFLICT,"Cette activité a déjà commencé.");
+      jdbc.update("UPDATE activite SET annulee=true,publiee=false,date_annulation=now(),places_disponibles=capacite,version=version+1 WHERE id=?",id);
+      jdbc.update("UPDATE inscription_activite SET statut='ANNULEE',date_annulation=now(),version=version+1 WHERE activite_id=? AND statut='CONFIRMEE'",id);
+      audit(id,u,"ACTIVITE_ANNULEE",a.version()+1);
+      return activity(id);
     }
     public record Registration(long id,String firstName,String lastName,String email,String phone,int quantity,
       String status,OffsetDateTime registeredAt,OffsetDateTime cancelledAt) {}

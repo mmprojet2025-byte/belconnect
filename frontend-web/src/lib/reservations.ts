@@ -10,5 +10,6 @@ export type Booking = {
   email: string;
   phone: string;
   status: "CONFIRMEE" | "ANNULEE";
+  activityCancelled: boolean;
   version: number;
 };
