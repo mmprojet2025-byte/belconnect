@@ -1,3 +1,4 @@
+import { ActivityRegistrations } from './ActivityRegistrations';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
@@ -66,6 +67,7 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
   const [confirm, setConfirm] = useState<Managed | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('ALL');
+  const [registrationsId, setRegistrationsId] = useState<number | null>(null);
   useEffect(() => {
     const abort = new AbortController();
     fetch('/api/managed-activities', { cache: 'no-store', signal: AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]) }).then(result).then(value => { setActivities(value); setLoaded(true); setError(''); }).catch(e => { if (!abort.signal.aborted) setError(errorText(e)); });
@@ -91,10 +93,12 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
     <div className="account-filters" aria-label="Filtrer les activités organisées">{[['ALL', 'Toutes'], ['DRAFT', 'Brouillons'], ['PUBLISHED', 'Publiées']].map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>
     {!loaded && !error && <p role="status">Chargement des activités…</p>}
     {loaded && !filtered.length && <p className="account-empty">Aucune activité dans cette catégorie.</p>}
+    {registrationsId !== null && <ActivityRegistrations key={registrationsId} activityId={registrationsId} onClose={() => setRegistrationsId(null)} />}
     <div className="workspace-grid">{filtered.map(a => <article className="workspace-card" key={a.id}>
       <img className="management-cover" src={`/images/${a.content.image}.jpg`} alt="" />
       <span className="account-status">{a.published ? 'Publiée' : 'Brouillon'}</span><h3>{a.content.title}</h3><p>{a.spaceName}{a.groupName ? ` · ${a.groupName}` : ' · Sans groupe'}</p>
       <p>{displayDate(a.content.startsAt)} (Bruxelles) · {a.content.city}</p><p>{a.content.capacity} places · {a.content.price === 0 ? 'Gratuit' : `${a.content.price} €`} · {a.content.visibility === 'PUBLIQUE' ? 'Publique' : 'Privée'}</p><p>Clôture : {displayDate(a.content.closesAt)}</p>
+      <button className="button outline workspace-resume" disabled={registrationsId === a.id} onClick={() => setRegistrationsId(a.id)}>Voir les inscriptions</button>
       {a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
         {a.published && <a className="text-link" href={`/activites/${a.slug}`}>Voir la fiche de l’activité</a>}
         <p className="management-hint">{a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'}. {a.published ? 'Pour modifier, retirez d’abord la publication. Le retrait est bloqué si des inscriptions sont confirmées.' : 'Enregistrez vos modifications avant de publier.'}</p>

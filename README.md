@@ -302,3 +302,17 @@ Les inscriptions respectent la clôture distincte du début. Une activité d’e
 Validation : 28 tests backend réussis, compilation et lint web réussis, diff sans erreur de format. Tests d’isolation, CSRF, visibilité privée, publication, dates, révocation, retrait concurrent avec inscription et non-régression. Parcours navigateur simulés de création, modification, publication et retrait ; formulaire mobile 390 px sans débordement. Aperçu fictif : `docs/images/activites-organisateur-mobile-demo.png`. Aucun compte ni activité de démonstration de cette recette n’a été ajouté à la base applicative.
 
 Limites : galerie d’images fournie uniquement, sans import ; pas encore de gestion des activités par les référents, de paiement réel, de capacité illimitée, de registre détaillé des participants ni de notifications. Les tâches 03.14, 03.15 et 03.17 restent partielles ; la reproduction complète des tableaux de bord Stitch n’est pas déclarée terminée.
+
+### Registre des inscriptions et export CSV — livraison du 19 octobre 2026
+
+Dans **Mon espace → Mes espaces et projets → Activités de mes espaces → Voir les inscriptions**, l’administrateur actif consulte les réservations de l’activité. Une réservation indique les coordonnées fournies par la personne ayant réservé, le nombre de places, le statut et les dates d’inscription/annulation. Les accompagnants ne sont pas nommés individuellement par le modèle actuel. Les totaux distinguent places réservées, places restantes, inscriptions confirmées et annulées ; seules les réservations confirmées occupent des places. Les totaux restent globaux quel que soit le filtre.
+
+Filtres Toutes / Confirmées / Annulées, état vide, actualisation et export CSV du filtre courant. Le CSV est généré à partir de la base au moment du téléchargement : UTF-8 avec BOM, séparateur point-virgule, cellules entre guillemets, guillemets internes échappés et valeurs susceptibles d’être interprétées comme formules préfixées par une apostrophe. Les dates sont en heure de Bruxelles.
+
+API : `GET /api/managed-activities/{id}/registrations?status=ALL|CONFIRMEE|ANNULEE` et même chemin avec `registrations.csv`. Contrôle d’un compte actif, de l’espace actif et de l’appartenance administrative active à chaque lecture et export ; le propriétaire global seul, les référents, les participants et les administrateurs d’un autre espace sont refusés. Réponses sans cache. Les inscriptions d’un groupe suspendu ou archivé restent consultables par l’administrateur de l’espace pour le suivi historique. Le verrou partagé de l’activité garantit la cohérence des totaux pendant la lecture. Aucune nouvelle migration de schéma.
+
+Validation : 29 tests backend réussis ; contrôles du registre vide, des quantités, des annulations, des filtres, de l’isolation, de la révocation et du CSV (accents, guillemets, retours à la ligne, neutralisation de formules). Compilation et lint web réussis. Recette navigateur isolée du registre et du téléchargement CSV filtré. Les données fictives de recette ne sont pas ajoutées à la base applicative.
+
+Limites : pas encore d’accès référent délégué, de pointage des présences ou d’annulation par l’organisateur. Ce lot ne transmet aucun e-mail et ne modifie aucune inscription. La tâche 03.23 reste partielle pour l’accès référent.
+
+Contrôle mobile : panneau et filtres vérifiés à 390 px, sans débordement horizontal. Aperçu avec données fictives : `docs/images/inscriptions-organisateur-mobile-demo.png`.

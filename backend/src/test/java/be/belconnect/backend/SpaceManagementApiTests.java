@@ -472,4 +472,43 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
 
+ @Test void activityRegisterAndCsvAreScopedAccurateAndSafe() throws Exception {
+  try {
+   var admin=actor();var participant=actor();var other=actor();var referent=actor();var platform=actor();owner(platform);
+   long space=setupSpace(admin);setupSpace(other);long group=setupGroup(space,"Registre des activités",false,"PUBLIQUE");addMember(referent,space,group,"REFERENT");
+   String managed="/api/managed-activities";
+   var a=ok(admin.post(managed,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",activityContent()),true),201);
+   long id=a.get("id").asLong();String slug=a.get("slug").asText(),path=managed+"/"+id+"/registrations";
+   var empty=ok(admin.get(path),200);assertEquals(0,empty.get("registrations").size());assertEquals(4,empty.get("remaining").asInt());
+   var emptyCsv=admin.get(path+".csv");assertEquals(200,emptyCsv.statusCode());assertEquals(1,emptyCsv.body().lines().count());
+   assertEquals(400,admin.get(path+"?status=INVALID").statusCode());assertEquals(400,admin.get(path+".csv?status=INVALID").statusCode());
+   for(var denied:List.of(new Actor(),participant,other,referent,platform)) {
+    int code=denied.id==0?401:403;
+    assertEquals(code,denied.get(path).statusCode());assertEquals(code,denied.get(path+".csv").statusCode());
+   }
+   ok(admin.post(managed+"/"+id+"/publication",Map.of("version",0,"published",true),true),200);
+   var details=new HashMap<String,Object>(booking(slug));details.put("quantity",2);details.put("firstName","=SUM(1;1)");details.put("lastName","Du\"pont;Été\nSuite");details.put("phone","+32000000000");
+   long first=ok(participant.post("/api/bookings",details,true),201).get("id").asLong();
+   ok(other.post("/api/bookings",booking(slug),true),201);
+   var all=ok(admin.get(path),200);assertEquals(2,all.get("confirmed").asInt());assertEquals(3,all.get("reserved").asInt());assertEquals(1,all.get("remaining").asInt());
+   assertTrue(admin.get(path).headers().firstValue("Cache-Control").orElse("").contains("no-store"));
+   var csv=admin.get(path+".csv?status=CONFIRMEE");assertEquals(200,csv.statusCode());
+   assertTrue(csv.headers().firstValue("Content-Type").orElse("").contains("text/csv"));assertTrue(csv.headers().firstValue("Content-Disposition").orElse("").contains("attachment;"));
+   assertTrue(csv.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
+   assertTrue(csv.body().startsWith("\uFEFFIdentifiant;"));assertTrue(csv.body().contains("\"'=SUM(1;1)\""));
+   assertTrue(csv.body().contains("\"Du\"\"pont;Été\nSuite\""));assertTrue(csv.body().contains("\"'+32000000000\""));
+   assertEquals(204,participant.post("/api/bookings/"+first+"/cancel",Map.of(),true).statusCode());
+   var confirmed=ok(admin.get(path+"?status=CONFIRMEE"),200);assertEquals(1,confirmed.get("registrations").size());assertEquals(1,confirmed.get("reserved").asInt());assertEquals(3,confirmed.get("remaining").asInt());assertEquals(1,confirmed.get("cancelled").asInt());
+   var cancelled=ok(admin.get(path+"?status=ANNULEE"),200);assertEquals(first,cancelled.get("registrations").get(0).get("id").asLong());assertFalse(cancelled.get("registrations").get(0).get("cancelledAt").isNull());
+   assertFalse(admin.get(path+".csv?status=CONFIRMEE").body().contains("SUM"));assertTrue(admin.get(path+".csv?status=ANNULEE").body().contains("SUM"));
+   jdbc.update("UPDATE groupe SET statut='ARCHIVE' WHERE id=?",group);assertEquals(200,admin.get(path).statusCode());assertEquals(200,admin.get(path+".csv").statusCode());
+   jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
+   assertEquals(403,admin.get(path).statusCode());assertEquals(403,admin.get(path+".csv").statusCode());
+   jdbc.update("UPDATE appartenance_espace SET statut='ACTIF' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
+   jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",space);assertEquals(403,admin.get(path).statusCode());
+   jdbc.update("UPDATE espace_organisateur SET statut='ACTIF' WHERE id=?",space);
+   jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",admin.id);assertEquals(401,admin.get(path+".csv").statusCode());
+  } finally { cleanup(); }
+ }
+
 }

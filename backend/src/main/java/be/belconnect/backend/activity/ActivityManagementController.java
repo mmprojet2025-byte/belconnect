@@ -113,4 +113,55 @@ public class ActivityManagementController {
       jdbc.update("UPDATE activite SET publiee=?,version=version+1 WHERE id=?",body.published(),id);
       audit(id,u,body.published()?"ACTIVITE_PUBLIEE":"PUBLICATION_RETIREE",a.version()+1);return activity(id);
     }
+    public record Registration(long id,String firstName,String lastName,String email,String phone,int quantity,
+      String status,OffsetDateTime registeredAt,OffsetDateTime cancelledAt) {}
+    public record Register(long activityId,String title,int capacity,int reserved,int remaining,int confirmed,int cancelled,
+      List<Registration> registrations) {}
+    private Register register(long actor,long id,String status) {
+      if(!Set.of("ALL","CONFIRMEE","ANNULEE").contains(status)) throw error(HttpStatus.BAD_REQUEST,"Filtre d’inscriptions invalide.");
+      var activity=activity(id);
+      // Historical registrations remain available for an inactive group; only the space admin can read them.
+      if(jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? AND statut='ACTIF' FOR SHARE",activity.spaceId()).isEmpty()
+        || jdbc.queryForList("SELECT id FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? AND role='ADMINISTRATEUR' AND statut='ACTIF' FOR SHARE",activity.spaceId(),actor).isEmpty())
+        throw error(HttpStatus.FORBIDDEN,"Seul un administrateur actif de cet espace peut consulter les inscriptions.");
+      // Bookings, cancellations and edits all lock the activity before changing capacity or registrations.
+      var capacity=jdbc.queryForMap("SELECT capacite,places_disponibles FROM activite WHERE id=? FOR SHARE",id);
+      var all=jdbc.query("""
+        SELECT id,prenom,nom,email,telephone,quantite,statut,date_creation,date_annulation
+        FROM inscription_activite WHERE activite_id=? ORDER BY date_creation DESC,id DESC
+        """,(r,n)->new Registration(r.getLong("id"),r.getString("prenom"),r.getString("nom"),r.getString("email"),r.getString("telephone"),r.getInt("quantite"),r.getString("statut"),r.getObject("date_creation",OffsetDateTime.class),r.getObject("date_annulation",OffsetDateTime.class)),id);
+      int confirmed=(int)all.stream().filter(r->r.status().equals("CONFIRMEE")).count();
+      int reserved=all.stream().filter(r->r.status().equals("CONFIRMEE")).mapToInt(Registration::quantity).sum();
+      return new Register(id,activity.content().title(),((Number)capacity.get("capacite")).intValue(),reserved,((Number)capacity.get("places_disponibles")).intValue(),confirmed,all.size()-confirmed,
+        all.stream().filter(r->status.equals("ALL") || r.status().equals(status)).toList());
+    }
+    @GetMapping("/{id}/registrations") @Transactional
+    public org.springframework.http.ResponseEntity<Register> registrations(Authentication auth,@PathVariable long id,
+        @RequestParam(defaultValue="ALL") String status) {
+      return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(register(user(auth),id,status));
+    }
+    private static String csv(String value) {
+      String safe=value==null?"":value;
+      String leading=safe.stripLeading();
+      if(!leading.isEmpty() && "=+-@".indexOf(leading.charAt(0))>=0 || safe.startsWith("\t") || safe.startsWith("\r") || safe.startsWith("\n")) safe="'"+safe;
+      return "\""+safe.replace("\"","\"\"")+"\"";
+    }
+    private static String date(OffsetDateTime value) {
+      return value==null?"":value.atZoneSameInstant(java.time.ZoneId.of("Europe/Brussels")).toOffsetDateTime().toString();
+    }
+    @GetMapping("/{id}/registrations.csv") @Transactional
+    public org.springframework.http.ResponseEntity<byte[]> exportRegistrations(Authentication auth,@PathVariable long id,
+        @RequestParam(defaultValue="ALL") String status) {
+      var data=register(user(auth),id,status);
+      var output=new StringBuilder("\uFEFFIdentifiant;Prénom;Nom;E-mail;Téléphone;Places;Statut;Inscription (Bruxelles);Annulation (Bruxelles)\r\n");
+      for(var r:data.registrations()) {
+        output.append(java.util.stream.Stream.of(Long.toString(r.id()),r.firstName(),r.lastName(),r.email(),r.phone(),Integer.toString(r.quantity()),
+          r.status().equals("CONFIRMEE")?"Confirmée":"Annulée",date(r.registeredAt()),date(r.cancelledAt())).map(ActivityManagementController::csv).collect(java.util.stream.Collectors.joining(";"))).append("\r\n");
+      }
+      return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+        .header("Content-Type","text/csv; charset=UTF-8")
+        .header("Content-Disposition","attachment; filename=\"inscriptions-activite-"+id+"-"+status.toLowerCase(java.util.Locale.ROOT)+".csv\"")
+        .body(output.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
 }

@@ -64,7 +64,7 @@
 | 03.20 | Préparer compte organisateur prestataire de paiement | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.21 | Créer paiement activité et suivi de session | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
 | 03.22 | Vérifier paiement serveur, idempotence, expiration | À développer | Simulation visuelle seulement ; aucun paiement réel ni webhook serveur. |
-| 03.23 | Créer liste des inscrits et accès du référent | À développer | Registre organisateur des participants et export absents. |
+| 03.23 | Créer liste des inscrits et accès du référent | Partiel | Registre administrateur et export CSV filtré disponibles ; accès délégué aux référents restant. |
 | 03.24 | Gérer annulation selon politique finalisée | Partiel | Annulation gratuite disponible ; politique définitive et remboursements payants restants. |
 | 03.25 | Créer brouillon projet avec objectifs, images et aide | Partiel | Brouillons présents ; images et types d’aide recherchée manquants. |
 | 03.26 | Soumettre projets et gérer leurs statuts | Réalisé localement | Soumission sauvegardée, statuts et permissions contrôlés. |

@@ -189,3 +189,15 @@
 
 .activity-editor-cover { width: 100%; max-width: 400px; height: 180px; object-fit: cover; border-radius: 16px; margin: 12px 0; }
 .activity-editor input[type="datetime-local"] { min-width: 0; max-width: 100%; }
+
+.activity-register { margin: 24px 0; }
+.registration-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.registration-totals > div { background: white; border: 1px solid #dce6e8; border-radius: 12px; padding: 16px; }
+.registration-totals dt { font-size: .85rem; color: #526b77; }
+.registration-totals dd { margin: 8px 0 0; font-size: 1.4rem; font-weight: 700; }
+.registration-list { list-style: none; padding: 0; display: grid; gap: 16px; }
+.registration-list h4 { margin: 0; overflow-wrap: anywhere; }
+.registration-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.registration-list dt { color: #526b77; font-size: .85rem; }
+.registration-list dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .registration-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .registration-list dl { grid-template-columns: 1fr; } }
