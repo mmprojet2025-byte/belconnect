@@ -1,5 +1,7 @@
 # Belconnect
 
+[Périmètre de lancement proposé pour le site web](docs/PERIMETRE_V1_WEB.md) : fonctions incluses, reports, critères de fin et préparations hors code.
+
 Projet indépendant de BX-Connect. Le frontend React est dans `frontend-web/`, l'application mobile Expo dans `mobile/`, le backend Spring Boot (Java 25) dans `backend/`, et PostgreSQL est lancé avec Docker Compose.
 
 ## Démarrer la base et le backend
