@@ -147,6 +147,7 @@
 .draft-editor label { display:grid; gap:8px; min-width:0; font-size:13px; font-weight:600; }
 .draft-editor input,.draft-editor select,.draft-editor textarea { width:100%; min-width:0; padding:12px; border:1px solid #cbd9e1; border-radius:8px; background:#f9fbfd; color:var(--navy); font:inherit; font-weight:400; }
 .draft-editor textarea { resize:vertical; }
+.draft-cover-preview { display:block; width:min(100%,420px); max-height:230px; object-fit:cover; border-radius:12px; }
 .draft-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .draft-editor input:focus-visible,.draft-editor select:focus-visible,.draft-editor textarea:focus-visible { outline:2px solid #158d91; outline-offset:2px; }
 .draft-editor > .text-link { margin-top:20px; }

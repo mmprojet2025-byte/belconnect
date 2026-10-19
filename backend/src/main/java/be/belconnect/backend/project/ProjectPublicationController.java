@@ -16,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProjectPublicationController {
  private final JdbcTemplate jdbc;
  public ProjectPublicationController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
- public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,OffsetDateTime publishedAt) {}
+ public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,OffsetDateTime publishedAt) {}
  public record Managed(long id,String title,String spaceName,String visibility,boolean published,long version) {}
  public record Change(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
  private Long user(Authentication auth) {
@@ -34,7 +34,7 @@ public class ProjectPublicationController {
     WHERE ag.groupe_id=p.groupe_id AND ag.espace_id=p.espace_id AND ag.utilisateur_id=?
      AND ag.statut='ACTIF' AND ae.statut='ACTIF')))
   """;
- private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getObject("date_publication",OffsetDateTime.class));
+ private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),r.getObject("date_publication",OffsetDateTime.class));
  @GetMapping("/api/projects") @Transactional(readOnly=true)
  public ResponseEntity<List<Published>> list(Authentication auth) {
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query(PUBLIC_SELECT+" ORDER BY p.date_publication DESC,p.id DESC",publicMapper,user(auth)));

@@ -3,7 +3,7 @@ import { ReviewHistory } from './ReviewHistory';
 import type { Review } from './ReviewHistory';
 import { postJson, result } from '../lib/auth';
 
-export type Draft = { id: number; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; title: string; description: string; objective: string; startsOn: string | null; endsOn: string | null; version: number; status: string; reviews: Review[] };
+export type Draft = { id: number; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; title: string; description: string; objective: string; startsOn: string | null; endsOn: string | null; imageUrl: string | null; version: number; status: string; reviews: Review[] };
 type Props = {
   id: number | 'new';
   spaces: { id: number; name: string }[];
@@ -21,6 +21,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
   const [objective, setObjective] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(id !== 'new');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -39,7 +40,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
       .then(result).then((value: Draft) => {
         setDraft(value); setSpace(String(value.spaceId)); setGroup(value.groupId === null ? '' : String(value.groupId));
         setTitle(value.title); setDescription(value.description); setObjective(value.objective);
-        setStartsOn(value.startsOn ?? ''); setEndsOn(value.endsOn ?? ''); setLoading(false);
+        setStartsOn(value.startsOn ?? ''); setEndsOn(value.endsOn ?? ''); setImageUrl(value.imageUrl ?? ''); setLoading(false);
       }).catch(e => { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : 'Brouillon indisponible.'); setLoading(false); } });
     return () => controller.abort();
   }, [id, retry]);
@@ -51,11 +52,11 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
   }, [dirty]);
   async function save(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
-    const content = { title: title.trim(), description: description.trim(), objective: objective.trim(), startsOn: startsOn || null, endsOn: endsOn || null };
+    const content = { title: title.trim(), description: description.trim(), objective: objective.trim(), startsOn: startsOn || null, endsOn: endsOn || null, imageUrl: imageUrl.trim() || null };
     try {
       const saved: Draft = draft ? await postJson(`/api/project-drafts/${draft.id}`, { version: draft.version, content }) : await postJson('/api/project-drafts', { spaceId: Number(space), groupId: group ? Number(group) : null, requestId: requestId.current, content });
       setDraft(saved); setDirty(false);
-      setTitle(saved.title); setDescription(saved.description); setObjective(saved.objective); setStartsOn(saved.startsOn ?? ''); setEndsOn(saved.endsOn ?? '');
+      setTitle(saved.title); setDescription(saved.description); setObjective(saved.objective); setStartsOn(saved.startsOn ?? ''); setEndsOn(saved.endsOn ?? ''); setImageUrl(saved.imageUrl ?? '');
       setNotice(saved.status === 'A_CORRIGER' ? 'Corrections enregistrées. Soumettez à nouveau le projet lorsque vous êtes prêt.' : 'Brouillon enregistré. Il reste privé et n’a pas été soumis.'); onSaved(saved);
     } catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible. Vos saisies sont conservées.'); }
     finally { setBusy(false); }
@@ -80,6 +81,9 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
           <label>Titre du projet<input required minLength={5} maxLength={180} value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Un atelier cuisine pour se rencontrer" /></label>
           <label>Description (facultative au stade du brouillon)<textarea rows={5} maxLength={10000} value={description} onChange={e => setDescription(e.target.value)} /></label>
           <label>Objectif (facultatif au stade du brouillon)<textarea rows={3} maxLength={3000} value={objective} onChange={e => setObjective(e.target.value)} placeholder="Que souhaitez-vous réaliser ?" /></label>
+          <label>Image de couverture (facultative)<input type="url" maxLength={2048} pattern="https://.*" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemple.be/photo.jpg" /></label>
+          <small>Utilisez une image HTTPS que vous avez le droit de publier. Aucun fichier n’est importé.</small>
+          {imageUrl.startsWith('https://') && <img className="draft-cover-preview" src={imageUrl} alt="Aperçu de la couverture du projet" referrerPolicy="no-referrer" />}
           <div className="draft-columns"><label>Début prévu (facultatif)<input type="date" value={startsOn} onChange={e => setStartsOn(e.target.value)} /></label><label>Fin prévue (facultative)<input type="date" min={startsOn || undefined} value={endsOn} onChange={e => setEndsOn(e.target.value)} /></label></div>
           <button type="submit" className="button coral" disabled={busy || (!!draft && !dirty)}>{busy ? 'Enregistrement…' : draft?.status === 'A_CORRIGER' ? 'Enregistrer les corrections' : 'Enregistrer le brouillon'}</button>
         </fieldset>
