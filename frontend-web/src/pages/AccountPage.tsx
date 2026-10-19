@@ -1,5 +1,7 @@
 import { ProjectParticipations } from '../components/ProjectParticipations';
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { postJson } from "../lib/auth";
 import type { UserProfile } from "../lib/auth";
 import { MyWorkspace } from "../components/MyWorkspace";
 import { MyBookings } from "../components/MyBookings";
@@ -12,7 +14,7 @@ import { navigate, useLocation } from "../lib/navigation";
 import "./Enrollment.css";
 import "./AccountPage.css";
 
-export function AccountPage({ user, onLogout }: { user: UserProfile; onLogout: () => Promise<void> }) {
+export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProfile; onLogout: () => Promise<void>; onProfileSaved: (profile: UserProfile) => void }) {
   const location = useLocation();
   const hash = location.split('#')[1];
   const section = hash === 'espaces' ? 'workspace' : hash === 'aides-projets' ? 'help' : hash === 'mes-inscriptions' ? 'personal' : new URLSearchParams(location.split('?')[1]?.split('#')[0]).has('stripe') ? 'workspace' : 'personal';
@@ -26,6 +28,23 @@ export function AccountPage({ user, onLogout }: { user: UserProfile; onLogout: (
   }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [firstName, setFirstName] = useState(user.firstName);
+  const [lastName, setLastName] = useState(user.lastName);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileNotice, setProfileNotice] = useState("");
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (profileBusy) return;
+    setProfileBusy(true); setProfileError(""); setProfileNotice("");
+    try {
+      const profile: UserProfile = await postJson('/api/auth/profile', { firstName: firstName.trim(), lastName: lastName.trim() });
+      onProfileSaved(profile);
+      setFirstName(profile.firstName); setLastName(profile.lastName);
+      setProfileNotice('Vos coordonnées ont été enregistrées.');
+    } catch (cause) { setProfileError(cause instanceof Error ? cause.message : 'Enregistrement impossible. Réessayez.'); }
+    finally { setProfileBusy(false); }
+  }
   async function logout() {
     setBusy(true); setError("");
     try { await onLogout(); }
@@ -43,7 +62,7 @@ export function AccountPage({ user, onLogout }: { user: UserProfile; onLogout: (
             <h2>{user.firstName} {user.lastName}</h2><p>{user.email}</p><span className="account-member">Compte Belconnect</span>
             <div className="account-side-divider" />
             <a className="account-side-link" href="#mes-inscriptions" onClick={() => openSection("personal")}><Icon name="ticket" /> Mes inscriptions <Icon name="arrow" /></a>
-            <details className="account-details"><summary>Mes coordonnées</summary><dl><dt>Prénom</dt><dd>{user.firstName}</dd><dt>Nom</dt><dd>{user.lastName}</dd><dt>Adresse e-mail</dt><dd>{user.email}</dd></dl><p>Pour une activité, les coordonnées de contact se modifient depuis son inscription.</p></details>
+            <details className="account-details"><summary>Mes coordonnées</summary><form className="account-profile-form" onSubmit={saveProfile}><label>Prénom<input required maxLength={80} value={firstName} onChange={event => setFirstName(event.target.value)} /></label><label>Nom<input required maxLength={80} value={lastName} onChange={event => setLastName(event.target.value)} /></label><p>Adresse e-mail : {user.email}</p><button className="button outline" disabled={profileBusy || !firstName.trim() || !lastName.trim()}>{profileBusy ? 'Enregistrement…' : 'Enregistrer mes coordonnées'}</button></form>{profileError && <p role="alert">{profileError}</p>}{profileNotice && <p role="status">{profileNotice}</p>}<p>Les coordonnées d’une inscription existante se modifient depuis sa fiche.</p></details>
             <button className="account-signout" disabled={busy} onClick={logout}>{busy ? "Déconnexion…" : "Se déconnecter"}</button>
             {error && <p role="alert">{error}</p>}
           </section>

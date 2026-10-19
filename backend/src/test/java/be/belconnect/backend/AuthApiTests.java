@@ -43,6 +43,13 @@ class AuthApiTests {
    String hash=jdbc.queryForObject("SELECT mot_de_passe_hash FROM utilisateur WHERE email=?",String.class,email);
    assertNotEquals(password,hash); assertTrue(encoder.matches(password,hash));
    assertEquals(email,json.readTree(get("me").body()).get("email").asText());
+   assertEquals(403,post("profile",Map.of("firstName","Nora","lastName","Dupont"),false).statusCode());
+   assertEquals(400,post("profile",Map.of("firstName","  ","lastName","Dupont"),true).statusCode());
+   var profile=post("profile",Map.of("firstName"," Nora ","lastName"," Dupont "),true);
+   assertEquals(200,profile.statusCode(),profile.body());
+   assertEquals("Nora",json.readTree(profile.body()).get("firstName").asText());
+   assertEquals("Dupont",json.readTree(get("me").body()).get("lastName").asText());
+   assertEquals(email,json.readTree(profile.body()).get("email").asText());
    assertEquals(409,post("register",registration,true).statusCode());
    assertEquals(403,post("logout",Map.of(),false).statusCode());
    assertEquals(204,post("logout",Map.of(),true).statusCode());

@@ -68,7 +68,7 @@ export function AuthPage({
     finally { setBusy(false); }
   }
 
-  if (user && !activity) return <AccountPage user={user} onLogout={onLogout} />;
+  if (user && !activity) return <AccountPage user={user} onLogout={onLogout} onProfileSaved={onComplete} />;
 
   return (
     <section className="enrollment-shell auth-shell">

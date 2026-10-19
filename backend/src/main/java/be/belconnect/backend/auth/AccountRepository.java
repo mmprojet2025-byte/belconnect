@@ -18,4 +18,8 @@ public class AccountRepository {
         return jdbc.queryForObject("INSERT INTO utilisateur (prenom, nom, email, mot_de_passe_hash) VALUES (?, ?, ?, ?) RETURNING id, prenom, nom, email",
                 (row, index) -> new Profile(row.getLong("id"), row.getString("prenom"), row.getString("nom"), row.getString("email")), firstName, lastName, email, hash);
     }
+    public Optional<Profile> updateName(String email, String firstName, String lastName) {
+        return jdbc.query("UPDATE utilisateur SET prenom=?, nom=? WHERE email=? AND statut='ACTIF' RETURNING id, prenom, nom, email",
+                (row, index) -> new Profile(row.getLong("id"), row.getString("prenom"), row.getString("nom"), row.getString("email")), firstName, lastName, email).stream().findFirst();
+    }
 }

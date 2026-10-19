@@ -43,6 +43,9 @@ public class AuthController {
     public record Login(@NotBlank @Email @Size(max=254) String email, @NotBlank @Size(max=72) String password) {
         public Login { email = normalizedEmail(email); }
     }
+    public record ProfileUpdate(@NotBlank @Size(max=80) String firstName, @NotBlank @Size(max=80) String lastName) {
+        public ProfileUpdate { firstName = firstName == null ? null : firstName.strip(); lastName = lastName == null ? null : lastName.strip(); }
+    }
     @GetMapping("/csrf")
     public Map<String,String> csrf(CsrfToken token) { return Map.of("token",token.getToken(),"headerName",token.getHeaderName()); }
 
@@ -75,6 +78,12 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter.");
         }
         return account.profile();
+    }
+
+    @PostMapping("/profile")
+    public AccountRepository.Profile updateProfile(Authentication authentication, @Valid @RequestBody ProfileUpdate body) {
+        return accounts.updateName(authentication.getName(), body.firstName(), body.lastName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter."));
     }
 
     private void establishSession(AccountRepository.Profile profile, HttpServletRequest request, HttpServletResponse response) {
