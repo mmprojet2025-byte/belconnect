@@ -64,6 +64,8 @@ class DraftApiTests {
    assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
    invalid.put("content",Map.of("title","Image invalide","description","","objective","","imageUrl","javascript:alert(1)"));
    assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
+   invalid.put("content",Map.of("title","Aide invalide","description","","objective","","helpTypes",List.of()));
+   assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
    var created=author.post("/api/project-drafts",body,true);assertEquals(201,created.statusCode(),created.body());
    long id=json.readTree(created.body()).get("id").asLong();
    assertEquals(id,json.readTree(author.post("/api/project-drafts",body,true).body()).get("id").asLong());
@@ -73,7 +75,7 @@ class DraftApiTests {
    assertEquals("BROUILLON",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
    assertEquals(404,other.get("/api/project-drafts/"+id).statusCode());
    assertEquals(401,anonymous.get("/api/project-drafts/"+id).statusCode());
-   var update=Map.of("version",0,"content",Map.of("title","Titre modifié du brouillon","description","","objective","","imageUrl","https://example.com/projet.jpg"));
+   var update=Map.of("version",0,"content",Map.of("title","Titre modifié du brouillon","description","","objective","","imageUrl","https://example.com/projet.jpg","helpTypes",List.of("BENEVOLAT","PARTAGE")));
    assertEquals(403,author.post("/api/project-drafts/"+id,update,false).statusCode());
    assertEquals(404,other.post("/api/project-drafts/"+id,update,true).statusCode());
    var saved=author.post("/api/project-drafts/"+id,update,true);assertEquals(200,saved.statusCode(),saved.body());
@@ -81,6 +83,7 @@ class DraftApiTests {
    assertEquals(409,author.post("/api/project-drafts/"+id,update,true).statusCode());
    assertEquals("Titre modifié du brouillon",json.readTree(author.get("/api/project-drafts/"+id).body()).get("title").asText());
    assertEquals("https://example.com/projet.jpg",json.readTree(author.get("/api/project-drafts/"+id).body()).get("imageUrl").asText());
+   assertEquals(2,json.readTree(author.get("/api/project-drafts/"+id).body()).get("helpTypes").size());
    jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE')",uid,space,group);
    var grouped=author.post("/api/project-drafts",creation(space,group),true);assertEquals(201,grouped.statusCode(),grouped.body());
    long groupedId=json.readTree(grouped.body()).get("id").asLong();
@@ -375,6 +378,10 @@ class DraftApiTests {
    String root="/api/project-participations";
    assertEquals(401,anonymous.post(root,body,true).statusCode());assertEquals(403,member.post(root,body,false).statusCode());
    assertEquals(400,member.post(root,Map.of("projectId",project,"requestId",UUID.randomUUID(),"type","PAIEMENT"),true).statusCode());
+   jdbc.update("UPDATE projet SET types_aide=ARRAY['BENEVOLAT'] WHERE id=?",project);
+   assertEquals(1,json.readTree(anonymous.get("/api/projects/"+project).body()).get("helpTypes").size());
+   assertEquals(409,member.post(root,Map.of("projectId",project,"requestId",UUID.randomUUID(),"type","COMPETENCES"),true).statusCode());
+   jdbc.update("UPDATE projet SET types_aide=ARRAY['BENEVOLAT','COMPETENCES','PARTAGE','SOUTIEN_MORAL'] WHERE id=?",project);
    var one=java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return member.post(root,body,true);}catch(Exception e){throw new RuntimeException(e);}});
    var two=java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return member.post(root,body,true);}catch(Exception e){throw new RuntimeException(e);}});
    var first=one.get();var second=two.get();assertEquals(200,first.statusCode(),first.body());assertEquals(200,second.statusCode(),second.body());

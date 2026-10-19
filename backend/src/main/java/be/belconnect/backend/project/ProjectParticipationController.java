@@ -71,6 +71,8 @@ public class ProjectParticipationController {
   existing=jdbc.queryForList("SELECT * FROM participation_projet WHERE utilisateur_id=? AND creation_request=?",uid,body.requestId());
   if(!existing.isEmpty())return retry(existing.getFirst(),body);
   if(!Boolean.TRUE.equals(p.get("publie")) || !"APPROUVE".equals(p.get("statut")))throw error(HttpStatus.NOT_FOUND,"Ce projet n’accepte plus de propositions.");
+  if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT ? = ANY(types_aide) FROM projet WHERE id=?",Boolean.class,body.type(),body.projectId())))
+   throw error(HttpStatus.CONFLICT,"Ce projet ne recherche pas ce type d'aide.");
   if(jdbc.queryForObject("SELECT count(*) FROM participation_projet WHERE projet_id=? AND utilisateur_id=? AND type_aide=? AND statut IN ('PROPOSEE','ACCEPTEE')",Integer.class,body.projectId(),uid,body.type())>0)
    throw error(HttpStatus.CONFLICT,"Vous avez déjà proposé cette aide. Consultez vos participations.");
   long id=jdbc.queryForObject("INSERT INTO participation_projet(projet_id,utilisateur_id,type_aide,message,creation_request) VALUES (?,?,?,?,?) RETURNING id",Long.class,body.projectId(),uid,body.type(),body.message(),body.requestId());

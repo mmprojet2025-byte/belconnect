@@ -1,0 +1,7 @@
+ALTER TABLE projet ADD COLUMN types_aide TEXT[] NOT NULL
+    DEFAULT ARRAY['BENEVOLAT','COMPETENCES','PARTAGE','SOUTIEN_MORAL'];
+
+ALTER TABLE projet ADD CONSTRAINT projet_types_aide_valides CHECK (
+    cardinality(types_aide) BETWEEN 1 AND 4
+    AND types_aide <@ ARRAY['BENEVOLAT','COMPETENCES','PARTAGE','SOUTIEN_MORAL']::TEXT[]
+);
