@@ -24,20 +24,22 @@ public class DraftController {
     public record Content(@NotBlank @Size(min=5,max=180) String title,
             @NotNull @Size(max=10000) String description, @NotNull @Size(max=3000) String objective,
             LocalDate startsOn, LocalDate endsOn, @Size(max=2048) String imageUrl,
-            @Size(min=1,max=4) List<@NotBlank @Pattern(regexp="BENEVOLAT|COMPETENCES|PARTAGE|SOUTIEN_MORAL") String> helpTypes) {
+            @Size(min=1,max=4) List<@NotBlank @Pattern(regexp="BENEVOLAT|COMPETENCES|PARTAGE|SOUTIEN_MORAL") String> helpTypes,
+            @Pattern(regexp="PUBLIQUE|GROUPE") String visibility) {
         public Content {
             title = title == null ? null : title.strip();
             description = description == null ? null : description.strip();
             objective = objective == null ? null : objective.strip();
             imageUrl = imageUrl == null || imageUrl.isBlank() ? null : imageUrl.strip();
             helpTypes = helpTypes == null ? ALL_HELP_TYPES : new ArrayList<>(helpTypes);
+            visibility = visibility == null ? "PUBLIQUE" : visibility;
         }
     }
     public record Creation(@NotNull @Positive Long spaceId, @Positive Long groupId,
             @NotNull UUID requestId, @NotNull @Valid Content content) {}
     public record Update(@NotNull @Min(0) Long version, @NotNull @Valid Content content) {}
     public record Draft(long id, long spaceId, Long groupId, String spaceName, String groupName,
-            String title, String description, String objective, LocalDate startsOn, LocalDate endsOn, String imageUrl, List<String> helpTypes, long version, String status, java.util.List<Review> reviews) {}
+            String title, String description, String objective, LocalDate startsOn, LocalDate endsOn, String imageUrl, List<String> helpTypes, String visibility, long version, String status, java.util.List<Review> reviews) {}
     public record Review(String decision,String comment,String reviewer,java.time.OffsetDateTime date) {}
     private long user(Authentication auth) {
         return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",
@@ -77,6 +79,10 @@ public class DraftController {
         if (new HashSet<>(c.helpTypes()).size() != c.helpTypes().size())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choisissez chaque type d'aide une seule fois.");
     }
+    private void visibility(Content c, Long groupId) {
+        if ("GROUPE".equals(c.visibility()) && groupId == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choisissez un groupe pour réserver ce projet à ses membres.");
+    }
     private Draft read(long id, long userId) {
         return jdbc.query("""
             SELECT p.*, e.nom AS espace_nom, g.nom AS groupe_nom FROM projet p
@@ -84,7 +90,7 @@ public class DraftController {
             WHERE p.id=? AND p.auteur_id=? AND p.statut IN ('BROUILLON','A_CORRIGER')
             """,(r,n)->new Draft(r.getLong("id"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),
                 r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("titre"),r.getString("description"),
-                r.getString("objectif"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getLong("version"),r.getString("statut"),reviews(id)),id,userId)
+                r.getString("objectif"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getString("visibilite"),r.getLong("version"),r.getString("statut"),reviews(id)),id,userId)
             .stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Brouillon introuvable."));
     }
     private java.util.List<Review> reviews(long id) {
@@ -98,31 +104,31 @@ public class DraftController {
 
     @PostMapping @Transactional @ResponseStatus(HttpStatus.CREATED)
     public Draft create(Authentication auth,@Valid @RequestBody Creation body) {
-        long userId=user(auth); access(userId,body.spaceId(),body.groupId()); dates(body.content()); image(body.content()); helpTypes(body.content());
+        long userId=user(auth); access(userId,body.spaceId(),body.groupId()); dates(body.content()); image(body.content()); helpTypes(body.content()); visibility(body.content(),body.groupId());
         var c=body.content();
         var ids=jdbc.query("""
-            INSERT INTO projet(espace_id,groupe_id,auteur_id,titre,description,objectif,debut_prevu,fin_prevue,image_url,types_aide,creation_request)
-            VALUES (?,?,?,?,?,?,?,?,?,string_to_array(?,','),?) ON CONFLICT (auteur_id,creation_request) DO NOTHING RETURNING id
-            """,(r,n)->r.getLong(1),body.spaceId(),body.groupId(),userId,c.title(),c.description(),c.objective(),c.startsOn(),c.endsOn(),c.imageUrl(),String.join(",",c.helpTypes()),body.requestId());
+            INSERT INTO projet(espace_id,groupe_id,auteur_id,titre,description,objectif,debut_prevu,fin_prevue,image_url,types_aide,visibilite,creation_request)
+            VALUES (?,?,?,?,?,?,?,?,?,string_to_array(?,','),?,?) ON CONFLICT (auteur_id,creation_request) DO NOTHING RETURNING id
+            """,(r,n)->r.getLong(1),body.spaceId(),body.groupId(),userId,c.title(),c.description(),c.objective(),c.startsOn(),c.endsOn(),c.imageUrl(),String.join(",",c.helpTypes()),c.visibility(),body.requestId());
         long id=ids.isEmpty()?jdbc.queryForObject("SELECT id FROM projet WHERE auteur_id=? AND creation_request=?",Long.class,userId,body.requestId()):ids.getFirst();
         // A retry retrieves the original draft instead of creating a duplicate.
         var draft=read(id,userId);
         if(ids.isEmpty() && (draft.spaceId()!=body.spaceId() || !java.util.Objects.equals(draft.groupId(),body.groupId())
                 || !draft.title().equals(c.title()) || !draft.description().equals(c.description()) || !draft.objective().equals(c.objective())
                 || !java.util.Objects.equals(draft.startsOn(),c.startsOn()) || !java.util.Objects.equals(draft.endsOn(),c.endsOn())
-                || !java.util.Objects.equals(draft.imageUrl(),c.imageUrl()) || !draft.helpTypes().equals(c.helpTypes())))
+                || !java.util.Objects.equals(draft.imageUrl(),c.imageUrl()) || !draft.helpTypes().equals(c.helpTypes()) || !draft.visibility().equals(c.visibility())))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Un brouillon a déjà été enregistré avec cette demande. Fermez ce formulaire et actualisez vos projets pour le rouvrir.");
         return draft;
     }
     @PostMapping("/{id}") @Transactional
     public Draft update(Authentication auth,@PathVariable long id,@Valid @RequestBody Update body) {
         long userId=user(auth);
-        var draft=read(id,userId); access(userId,draft.spaceId(),draft.groupId()); dates(body.content()); image(body.content()); helpTypes(body.content());
+        var draft=read(id,userId); access(userId,draft.spaceId(),draft.groupId()); dates(body.content()); image(body.content()); helpTypes(body.content()); visibility(body.content(),draft.groupId());
         var c=body.content();
         int changed=jdbc.update("""
-            UPDATE projet SET titre=?,description=?,objectif=?,debut_prevu=?,fin_prevue=?,image_url=?,types_aide=string_to_array(?,','),version=version+1,date_modification=now()
+            UPDATE projet SET titre=?,description=?,objectif=?,debut_prevu=?,fin_prevue=?,image_url=?,types_aide=string_to_array(?,','),visibilite=?,version=version+1,date_modification=now()
             WHERE id=? AND auteur_id=? AND statut IN ('BROUILLON','A_CORRIGER') AND version=?
-            """,c.title(),c.description(),c.objective(),c.startsOn(),c.endsOn(),c.imageUrl(),String.join(",",c.helpTypes()),id,userId,body.version());
+            """,c.title(),c.description(),c.objective(),c.startsOn(),c.endsOn(),c.imageUrl(),String.join(",",c.helpTypes()),c.visibility(),id,userId,body.version());
         if(changed!=1) throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Rechargez le brouillon avant de réessayer.");
         return read(id,userId);
     }

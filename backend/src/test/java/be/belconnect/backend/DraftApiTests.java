@@ -66,6 +66,10 @@ class DraftApiTests {
    assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
    invalid.put("content",Map.of("title","Aide invalide","description","","objective","","helpTypes",List.of()));
    assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
+   invalid.put("content",Map.of("title","Projet de groupe","description","","objective","","visibility","GROUPE"));
+   assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
+   invalid.put("content",Map.of("title","Audience invalide","description","","objective","","visibility","PRIVEE"));
+   assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
    var created=author.post("/api/project-drafts",body,true);assertEquals(201,created.statusCode(),created.body());
    long id=json.readTree(created.body()).get("id").asLong();
    assertEquals(id,json.readTree(author.post("/api/project-drafts",body,true).body()).get("id").asLong());
@@ -85,8 +89,14 @@ class DraftApiTests {
    assertEquals("https://example.com/projet.jpg",json.readTree(author.get("/api/project-drafts/"+id).body()).get("imageUrl").asText());
    assertEquals(2,json.readTree(author.get("/api/project-drafts/"+id).body()).get("helpTypes").size());
    jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE')",uid,space,group);
-   var grouped=author.post("/api/project-drafts",creation(space,group),true);assertEquals(201,grouped.statusCode(),grouped.body());
+   var groupedRequest=creation(space,group);
+   groupedRequest.put("content",Map.of("title","Une idée de groupe","description","","objective","","visibility","GROUPE"));
+   var grouped=author.post("/api/project-drafts",groupedRequest,true);assertEquals(201,grouped.statusCode(),grouped.body());
    long groupedId=json.readTree(grouped.body()).get("id").asLong();
+   assertEquals("GROUPE",json.readTree(grouped.body()).get("visibility").asText());
+   assertEquals("GROUPE",jdbc.queryForObject("SELECT visibilite FROM projet WHERE id=?",String.class,groupedId));
+   assertEquals(200,author.post("/api/project-drafts/"+groupedId,Map.of("version",0,"content",Map.of("title","Une idée de groupe","description","","objective","","visibility","PUBLIQUE")),true).statusCode());
+   assertEquals("PUBLIQUE",jdbc.queryForObject("SELECT visibilite FROM projet WHERE id=?",String.class,groupedId));
    jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE utilisateur_id=?",uid);
    assertEquals(403,author.post("/api/project-drafts/"+groupedId,update,true).statusCode());
    jdbc.update("UPDATE projet SET statut='SOUMIS' WHERE id=?",id);

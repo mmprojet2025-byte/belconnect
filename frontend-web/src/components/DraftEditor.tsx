@@ -4,7 +4,7 @@ import type { Review } from './ReviewHistory';
 import { postJson, result } from '../lib/auth';
 import { helpTypes } from '../lib/helpTypes';
 
-export type Draft = { id: number; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; title: string; description: string; objective: string; startsOn: string | null; endsOn: string | null; imageUrl: string | null; helpTypes: string[]; version: number; status: string; reviews: Review[] };
+export type Draft = { id: number; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; title: string; description: string; objective: string; startsOn: string | null; endsOn: string | null; imageUrl: string | null; helpTypes: string[]; visibility: 'PUBLIQUE' | 'GROUPE'; version: number; status: string; reviews: Review[] };
 type Props = {
   id: number | 'new';
   spaces: { id: number; name: string }[];
@@ -17,6 +17,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [space, setSpace] = useState(spaces.length === 1 ? String(spaces[0].id) : '');
   const [group, setGroup] = useState('');
+  const [visibility, setVisibility] = useState<'PUBLIQUE' | 'GROUPE'>('PUBLIQUE');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [objective, setObjective] = useState('');
@@ -40,7 +41,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
     const controller = new AbortController();
     fetch(`/api/project-drafts/${id}`, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
       .then(result).then((value: Draft) => {
-        setDraft(value); setSpace(String(value.spaceId)); setGroup(value.groupId === null ? '' : String(value.groupId));
+        setDraft(value); setSpace(String(value.spaceId)); setGroup(value.groupId === null ? '' : String(value.groupId)); setVisibility(value.visibility);
         setTitle(value.title); setDescription(value.description); setObjective(value.objective);
         setStartsOn(value.startsOn ?? ''); setEndsOn(value.endsOn ?? ''); setImageUrl(value.imageUrl ?? ''); setSelectedHelp(value.helpTypes); setLoading(false);
       }).catch(e => { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : 'Brouillon indisponible.'); setLoading(false); } });
@@ -55,11 +56,11 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
   async function save(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     if (!selectedHelp.length) { setBusy(false); setError('Choisissez au moins une forme d’aide recherchée.'); return; }
-    const content = { title: title.trim(), description: description.trim(), objective: objective.trim(), startsOn: startsOn || null, endsOn: endsOn || null, imageUrl: imageUrl.trim() || null, helpTypes: selectedHelp };
+    const content = { title: title.trim(), description: description.trim(), objective: objective.trim(), startsOn: startsOn || null, endsOn: endsOn || null, imageUrl: imageUrl.trim() || null, helpTypes: selectedHelp, visibility };
     try {
       const saved: Draft = draft ? await postJson(`/api/project-drafts/${draft.id}`, { version: draft.version, content }) : await postJson('/api/project-drafts', { spaceId: Number(space), groupId: group ? Number(group) : null, requestId: requestId.current, content });
       setDraft(saved); setDirty(false);
-      setTitle(saved.title); setDescription(saved.description); setObjective(saved.objective); setStartsOn(saved.startsOn ?? ''); setEndsOn(saved.endsOn ?? ''); setImageUrl(saved.imageUrl ?? ''); setSelectedHelp(saved.helpTypes);
+      setTitle(saved.title); setDescription(saved.description); setObjective(saved.objective); setStartsOn(saved.startsOn ?? ''); setEndsOn(saved.endsOn ?? ''); setImageUrl(saved.imageUrl ?? ''); setSelectedHelp(saved.helpTypes); setVisibility(saved.visibility);
       setNotice(saved.status === 'A_CORRIGER' ? 'Corrections enregistrées. Soumettez à nouveau le projet lorsque vous êtes prêt.' : 'Brouillon enregistré. Il reste privé et n’a pas été soumis.'); onSaved(saved);
     } catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible. Vos saisies sont conservées.'); }
     finally { setBusy(false); }
@@ -80,7 +81,9 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
       <form onSubmit={save} onChange={() => { setDirty(true); setNotice(''); setConfirmSubmit(false); }}>
         {!editable && <p role="alert">Votre accès à l’espace ou au groupe n’est plus actif. Ce brouillon reste consultable, mais vous ne pouvez plus le modifier.</p>}
         <fieldset disabled={busy || !editable}>
-          {draft ? <p className="draft-context">{draft.spaceName}{draft.groupName ? ` · ${draft.groupName}` : ' · Sans groupe'}</p> : <div className="draft-columns"><label>Espace organisateur<select required value={space} onChange={e => { setSpace(e.target.value); setGroup(''); }}><option value="">Choisir un espace</option>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Groupe (facultatif)<select value={group} onChange={e => setGroup(e.target.value)} disabled={!space}><option value="">Sans groupe</option>{groups.filter(g => g.spaceId === Number(space)).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label></div>}
+          {draft ? <p className="draft-context">{draft.spaceName}{draft.groupName ? ` · ${draft.groupName}` : ' · Sans groupe'}</p> : <div className="draft-columns"><label>Espace organisateur<select required value={space} onChange={e => { setSpace(e.target.value); setGroup(''); setVisibility('PUBLIQUE'); }}><option value="">Choisir un espace</option>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Groupe (facultatif)<select value={group} onChange={e => { setGroup(e.target.value); if (!e.target.value) setVisibility('PUBLIQUE'); }} disabled={!space}><option value="">Sans groupe</option>{groups.filter(g => g.spaceId === Number(space)).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label></div>}
+          <label>Qui pourra voir le projet après publication ?<select value={visibility} onChange={e => setVisibility(e.target.value as 'PUBLIQUE' | 'GROUPE')}><option value="PUBLIQUE">Tout le monde</option>{(draft?.groupId || group) && <option value="GROUPE">Uniquement les membres du groupe</option>}</select></label>
+          <small>{visibility === 'GROUPE' ? 'Seuls les membres actifs du groupe pourront ouvrir la fiche et proposer leur aide.' : 'La fiche sera visible par tous une fois validée et publiée.'} Le brouillon reste privé avant publication.</small>
           <label>Titre du projet<input required minLength={5} maxLength={180} value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Un atelier cuisine pour se rencontrer" /></label>
           <label>Description (facultative au stade du brouillon)<textarea rows={5} maxLength={10000} value={description} onChange={e => setDescription(e.target.value)} /></label>
           <label>Objectif (facultatif au stade du brouillon)<textarea rows={3} maxLength={3000} value={objective} onChange={e => setObjective(e.target.value)} placeholder="Que souhaitez-vous réaliser ?" /></label>

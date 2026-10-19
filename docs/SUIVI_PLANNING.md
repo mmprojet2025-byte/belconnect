@@ -66,7 +66,7 @@
 | 03.22 | Vérifier paiement serveur, idempotence, expiration | Partiel | Webhook signé et reprise périodique des sessions enregistrées ; cas sans identifiant de session et recette Stripe de bout en bout encore à traiter. |
 | 03.23 | Créer liste des inscrits et accès du référent | Réalisé localement | Registre et export CSV filtré accessibles aux administrateurs et aux référents autorisés pour leur groupe. |
 | 03.24 | Gérer annulation selon politique finalisée | Partiel | Annulation gratuite déjà disponible. Pour le payant : aucun remboursement automatique si le participant annule ; remboursement intégral si l'organisateur annule. Implémentation des deux parcours restante. |
-| 03.25 | Créer brouillon projet avec objectifs, images et aide | Partiel | Brouillons, couverture par URL HTTPS et aides recherchées disponibles ; import de fichier restant. |
+| 03.25 | Créer brouillon projet avec objectifs, images et aide | Partiel | Brouillons, couverture par URL HTTPS, aides recherchées et visibilité publique/de groupe disponibles ; import de fichier restant. |
 | 03.26 | Soumettre projets et gérer leurs statuts | Réalisé localement | Soumission sauvegardée, statuts et permissions contrôlés. |
 | 03.27 | Examen projet par référent et demandes de correction | Réalisé localement | Avis, corrections et nouvelle soumission du même projet avec historique. |
 | 03.28 | Validation finale admin et publication projet | Réalisé localement | Décision administrative et publication explicite ; cas du propre projet administrateur à arbitrer. |
