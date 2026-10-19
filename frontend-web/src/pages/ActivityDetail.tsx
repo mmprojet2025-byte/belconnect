@@ -173,7 +173,7 @@ export function ActivityDetail({
                     ? "Activité gratuite"
                     : money(activity.price)}
                 </strong>
-                <span>Tarif et disponibilité de démonstration</span>
+                <span>{activity.demonstration ? "Tarif et disponibilité de démonstration" : "Tarif et disponibilité de l'activité"}</span>
               </span>
             </div>
           </section>
@@ -358,7 +358,7 @@ export function ActivityDetail({
             </>
           )}
           <p className="booking-demo">
-            Activités de démonstration. Les réservations gratuites sont enregistrées dans votre compte. Les inscriptions payantes restent simulées.
+            {activity.demonstration ? "Activité de démonstration. Les réservations gratuites sont enregistrées dans votre compte ; les paiements restent simulés." : activity.price === 0 ? "Votre réservation gratuite sera enregistrée dans Mon espace." : "Le paiement s'effectue sur Stripe en mode test. Votre inscription sera confirmée dans Mon espace après validation du paiement."}
           </p>
         </aside>
       </div>

@@ -174,7 +174,7 @@ export function EnrollmentPage({
                 <div className="demo-notice">
                   <strong>{activity.price === 0 ? "Confirmation avant réservation" : activity.demonstration ? "Une simulation, sans réservation" : "Paiement sécurisé par Stripe"}</strong>
                   <p>
-                    {activity.price === 0 ? "Votre inscription sera conservée dans Mon espace. Les activités du catalogue sont des exemples : aucun événement réel ni e-mail ne sont confirmés." : activity.demonstration ? "Aucun paiement, e-mail ou billet n’a été généré. Le paiement reste simulé." : "Les places sont retenues pendant le paiement. Le retour de Stripe ne confirme pas à lui seul l'inscription : vérifiez son état dans Mon espace."}
+                    {activity.price === 0 ? activity.demonstration ? "Votre inscription sera conservée dans Mon espace. Cette activité est un exemple : aucun événement réel ni e-mail ne sont confirmés." : "Votre inscription sera conservée dans Mon espace. Aucun e-mail n'est envoyé pour le moment." : activity.demonstration ? "Aucun paiement, e-mail ou billet n’a été généré. Le paiement reste simulé." : "Les places sont retenues pendant le paiement. Le retour de Stripe ne confirme pas à lui seul l'inscription : vérifiez son état dans Mon espace."}
                   </p>
                 </div>
                 {error && <p role="alert" className="inline-notice">{error} <a href="/connexion">Mon espace</a></p>}
@@ -208,8 +208,7 @@ export function EnrollmentPage({
                   <div>
                     <h2>Nombre de places</h2>
                     <p>
-                      {details.remaining} places disponibles dans cette
-                      démonstration.
+                      {details.remaining} places disponibles{activity.demonstration ? ' dans cette démonstration' : ' pour cette activité'}.
                     </p>
                   </div>
                   <div className="registration-quantity">
@@ -328,7 +327,7 @@ export function EnrollmentPage({
                       }
                     />
                     <span>
-                      {activity.price === 0 ? "Je confirme ces coordonnées et souhaite réserver les places après vérification du récapitulatif. *" : "J’ai compris que le parcours payant est une démonstration et ne réserve aucune place. *"}
+                      {activity.price === 0 ? "Je confirme ces coordonnées et souhaite réserver les places après vérification du récapitulatif. *" : activity.demonstration ? "J’ai compris que le parcours payant est une démonstration et ne réserve aucune place. *" : "Je confirme ces coordonnées et souhaite poursuivre vers le paiement sécurisé. L'inscription sera confirmée après validation du paiement. *"}
                     </span>
                   </label>
                   <button className="button coral flow-submit" type="submit">
@@ -373,11 +372,11 @@ export function EnrollmentPage({
               <p>
                 {activity.price === 0
                   ? "Aucun moyen de paiement n’est nécessaire pour une activité gratuite."
-                  : "Aucun paiement n’est demandé à cette étape. Le paiement de démonstration sera proposé après vérification de vos informations."}
+                  : activity.demonstration ? "Aucun paiement n’est demandé à cette étape. Le paiement de démonstration sera proposé après vérification de vos informations." : "Aucun paiement n’est demandé à cette étape. Vous serez redirigé vers Stripe après vérification de vos informations."}
               </p>
             </div>
             <p className="recap-demo">
-              Tarifs et disponibilités de démonstration.
+              {activity.demonstration ? "Tarifs et disponibilités de démonstration." : "Le montant et les places disponibles seront vérifiés avant l'ouverture du paiement."}
             </p>
             <hr />
             <h3>Organisé par</h3>

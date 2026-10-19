@@ -618,7 +618,7 @@ function App() {
             </a>
             <p>La Belgique, à vivre ensemble.</p>
             <span className="demo-label">
-              Première version · Données de démonstration
+              Première version · Certaines activités sont des exemples
             </span>
           </div>
           <div>
@@ -713,7 +713,7 @@ function App() {
               )}
               <p className="preview-note">
                 {preview.activity
-                  ? "Activité de démonstration. La fiche détaillée et les inscriptions seront ajoutées dans une prochaine étape."
+                  ? "Consultez la fiche de cette activité pour connaître ses modalités d'inscription."
                   : "Vous explorez la première version de Belconnect."}
               </p>
               <button className="button navy" onClick={closePreview}>

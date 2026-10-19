@@ -387,8 +387,7 @@ export function Catalogue({
             </div>
           )}
           <p className="catalogue-demo">
-            Sélection de démonstration · Les inscriptions seront disponibles
-            prochainement.
+            Certaines activités sont des exemples ; leur fiche précise si le paiement est simulé. Les inscriptions gratuites sont enregistrées dans votre compte.
           </p>
           {visible.length ? (
             <>

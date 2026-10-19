@@ -120,7 +120,7 @@ export function AuthPage({
                 ? "Connectez-vous pour poursuivre votre inscription."
                 : "Un compte pour vos activités et vos prochaines découvertes."}
           </p>
-          {activity && <p className="inline-notice">Compte réel · réservations gratuites enregistrées, paiement en démonstration.</p>}
+          {activity && <p className="inline-notice">Compte Belconnect · {activity.price === 0 ? "votre réservation gratuite sera enregistrée" : activity.demonstration ? "ce paiement est une démonstration, sans réservation" : "votre inscription sera confirmée après validation du paiement Stripe"}.</p>}
           {error && <p className="inline-notice" role="alert">{error}</p>}
           {user ? (
             <div className="demo-account">
