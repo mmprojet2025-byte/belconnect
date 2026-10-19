@@ -6,6 +6,7 @@ import { authenticate } from "../lib/auth";
 import type { UserProfile } from "../lib/auth";
 import { BookingSummary } from "../components/BookingSummary";
 import { Icon } from "../components/Icon";
+import { navigate } from "../lib/navigation";
 import "./Enrollment.css";
 export function AuthPage({
   activity,
@@ -22,7 +23,6 @@ export function AuthPage({
 }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
-  const [help, setHelp] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const locked = useRef(false);
@@ -121,6 +121,7 @@ export function AuthPage({
                 : "Un compte pour vos activités et vos prochaines découvertes."}
           </p>
           {activity && <p className="inline-notice">Compte Belconnect · {activity.price === 0 ? "votre réservation gratuite sera enregistrée" : activity.demonstration ? "ce paiement est une démonstration, sans réservation" : "votre inscription sera confirmée après validation du paiement Stripe"}.</p>}
+          {new URLSearchParams(window.location.search).get('motDePasse') === 'reinitialise' && <p className="inline-notice" role="status">Votre mot de passe a été modifié. Connectez-vous avec le nouveau mot de passe.</p>}
           {error && <p className="inline-notice" role="alert">{error}</p>}
           {user ? (
             <div className="demo-account">
@@ -155,7 +156,7 @@ export function AuthPage({
                   aria-pressed={mode === "login"}
                   onClick={() => {
                     setMode("login");
-                    setHelp(false); setError("");
+                    setError("");
                   }}
                 >
                   Se connecter
@@ -166,7 +167,7 @@ export function AuthPage({
                   aria-pressed={mode === "register"}
                   onClick={() => {
                     setMode("register");
-                    setHelp(false); setError("");
+                    setError("");
                   }}
                 >
                   Créer un compte
@@ -264,21 +265,7 @@ export function AuthPage({
                     />
                   </label>
                 )}
-                {mode === "login" && (
-                  <button
-                    className="forgot-password"
-                    type="button"
-                    onClick={() => setHelp(!help)}
-                    aria-expanded={help}
-                  >
-                    Mot de passe oublié ?
-                  </button>
-                )}
-                {help && (
-                  <p className="inline-notice" role="status">
-                    La réinitialisation par e-mail n’est pas encore disponible.
-                  </p>
-                )}
+                {mode === "login" && <button className="forgot-password" type="button" onClick={() => navigate('/reinitialiser-mot-de-passe')}>Mot de passe oublié ?</button>}
                 <button className="button coral flow-submit" type="submit" disabled={busy} aria-busy={busy}>
                   {mode === "login"
                     ? "Se connecter et continuer"

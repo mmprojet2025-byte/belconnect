@@ -45,7 +45,7 @@
 | 03.01 | Initialiser backend et migrations DB | Réalisé localement | Backend Spring Boot et migrations Flyway présents. |
 | 03.02 | Initialiser frontend responsive et navigation | Partiel | Socle React présent ; couverture responsive complète à recetter. |
 | 03.03 | Créer authentification, inscription et connexion | Réalisé localement | Inscription, connexion et déconnexion ; sessions avec cookies et CSRF. |
-| 03.04 | Créer récupération mot de passe et profil | Partiel | Profil affiché ; modification et réinitialisation de mot de passe absentes. |
+| 03.04 | Créer récupération mot de passe et profil | Partiel | Prénom et nom modifiables ; lien de récupération à usage unique préparé. Configuration SMTP et vérification de l'envoi réel restantes ; adresse e-mail non modifiable. |
 | 03.05 | Implémenter rôles et contrôle d'accès | Partiel | Désignation et retrait des référents, isolation des groupes et permission d’adhésion réalisés ; autres permissions à compléter. |
 | 03.06 | Créer espaces organisateurs et isolation multi-organisateur | Partiel | Demande d’ouverture, décision propriétaire, attribution initiale et modification de l’espace disponibles ; cycle de vie complet restant. |
 | 03.07 | Créer groupes et paramètres de visibilité | Partiel | Groupes actifs gérés, catalogue public/privé et modes d’adhésion opérationnels ; import de couverture restant. |

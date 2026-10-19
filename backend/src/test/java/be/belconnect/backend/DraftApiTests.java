@@ -338,7 +338,7 @@ class DraftApiTests {
    assertEquals(404,author.get(privatePath).statusCode());
    jdbc.update("UPDATE appartenance_groupe SET statut='ACTIF' WHERE utilisateur_id=?",uid);
    jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",uid);
-   assertEquals(404,author.get(privatePath).statusCode());
+   assertEquals(401,author.get(privatePath).statusCode());
    jdbc.update("UPDATE utilisateur SET statut='ACTIF' WHERE id=?",uid);
    jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",space);
    assertEquals(404,author.get(privatePath).statusCode());

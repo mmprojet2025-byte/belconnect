@@ -11,6 +11,7 @@ import { ActivityCard } from "./components/ActivityCard";
 import { Icon } from "./components/Icon";
 import "./App.css";
 import { AuthPage } from "./pages/AuthPage";
+import { PasswordRecoveryPage } from "./pages/PasswordRecoveryPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import type { PaymentAttempt } from "./pages/PaymentPage";
 import { EnrollmentPage } from "./pages/EnrollmentPage";
@@ -49,7 +50,8 @@ function App() {
       "echec",
     ].includes(step) &&
     selectedActivity.details.remaining > 0;
-  const isAuth = pathname === "/connexion" || pathname === "/mon-espace";
+  const isPasswordRecovery = pathname === "/reinitialiser-mot-de-passe";
+  const isAuth = pathname === "/connexion" || pathname === "/mon-espace" || isPasswordRecovery;
   const quantity = selectedActivity
     ? bookingQuantity(selectedActivity, location.split("?")[1] || "")
     : 1;
@@ -90,7 +92,7 @@ function App() {
   const detailTitle = selectedActivity?.title;
 
   useEffect(() => {
-    document.title = isGroups ? "Groupes — Belconnect" : isProject ? "Projets — Belconnect" : isAuth
+    document.title = isGroups ? "Groupes — Belconnect" : isProject ? "Projets — Belconnect" : isPasswordRecovery ? "Réinitialiser le mot de passe — Belconnect" : isAuth
       ? isSignedIn ? "Mon espace — Belconnect" : "Connexion — Belconnect"
       : isFlow
         ? `Inscription · ${detailTitle} — Belconnect`
@@ -111,7 +113,7 @@ function App() {
         .querySelector<HTMLElement>("main h1")
         ?.focus({ preventScroll: true });
     }
-  }, [isGroups, isProject, isCatalogue, isDetail, isAuth, isFlow, detailTitle, pathname, isSignedIn]);
+  }, [isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, pathname, isSignedIn]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
@@ -263,7 +265,7 @@ function App() {
       </header>
       <main id="contenu">
         {sessionError && <p className="container" role="alert">{sessionError}</p>}
-        {(isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isAuth ? (
+        {(isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isPasswordRecovery ? <PasswordRecoveryPage /> : isAuth ? (
           <AuthPage user={user} onLogout={logout} onComplete={profile => {
             acceptUser(profile);
             const target = new URLSearchParams(location.split('?')[1] || '').get('retour');

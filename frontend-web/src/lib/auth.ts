@@ -13,7 +13,7 @@ export async function postJson(path: string, payload?: object) {
     headers: { 'Content-Type': 'application/json', [token.headerName]: token.token },
     body: payload ? JSON.stringify(payload) : undefined,
   });
-  if (response.status === 204) return;
+  if (response.status === 204 || response.status === 202) return;
   return result(response);
 }
 export async function authenticate(mode: 'login' | 'register', payload: object): Promise<UserProfile> { const profile = await postJson(`/api/auth/${mode}`, payload); window.dispatchEvent(new Event("catalog-reset")); return profile; }

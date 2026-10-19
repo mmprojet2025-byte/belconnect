@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -21,12 +22,12 @@ public class SecurityConfig {
     }
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
     @Bean HttpSessionSecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository) throws Exception {
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts) throws Exception {
         return http
             .securityContext(context -> context.securityContextRepository(repository))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/groups", "/api/projects", "/api/projects/*", "/api/activities", "/api/activities/*", "/api/auth/csrf", "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/password/recovery", "/api/auth/password/reset").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/stripe/webhook", "/api/stripe/subscriptions/webhook").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
@@ -40,6 +41,7 @@ public class SecurityConfig {
             .logout(logout -> logout.logoutUrl("/api/auth/logout").invalidateHttpSession(true)
                 .clearAuthentication(true).deleteCookies("JSESSIONID")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
+            .addFilterAfter(new CredentialSessionFilter(accounts), SecurityContextHolderFilter.class)
             .build(); // Default CSRF protection remains enabled, including login and registration.
     }
 }

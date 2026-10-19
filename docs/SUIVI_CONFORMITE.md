@@ -23,7 +23,7 @@ Le cahier des charges et le planning originaux restent inchangés. Le planning c
 | Backend et migrations PostgreSQL | 03.01 | Réalisé localement | Spring Boot et Flyway ; exploitation et sauvegardes restent distinctes. |
 | Socle web responsive | 03.02, 03.40 | Partiel | React et pages fonctionnelles ; recette exhaustive mobile et accessibilité à faire. |
 | Inscription, connexion, déconnexion | 03.03 | Réalisé localement | Sessions serveur, mots de passe hachés, CSRF et limitation des tentatives. |
-| Profil et mot de passe oublié | 03.04 | Partiel | Profil affiché ; modification du profil et réinitialisation par e-mail absentes. |
+| Profil et mot de passe oublié | 03.04 | Partiel | Prénom et nom modifiables ; lien de récupération temporaire implémenté et testé avec un faux expéditeur. SMTP réel à configurer et vérifier. |
 | Rôles et isolation des données | 03.05, 02.13 | Partiel | Contrôles sur projets et espaces existants ; administration complète des rôles et permissions par groupe absente. |
 | Espaces organisateurs | 03.06 | Partiel | Demande d’ouverture, approbation/refus par le propriétaire, attribution initiale et modification de l’espace disponibles. Cycle de vie complet restant. |
 | Création, modification et visibilité des groupes | 03.07 | Partiel | Création/modification des groupes actifs, couverture par URL HTTPS, catalogue public/privé et modes d’adhésion disponibles. Import de fichiers restant. |

@@ -90,10 +90,14 @@ Ouvrir `/connexion` pour créer un compte ou se connecter. Les comptes sont enre
 - `POST /api/auth/login` : `email`, `password` ; ouvre une session (200).
 - `GET /api/auth/me` : profil courant, ou 401 sans session valide.
 - `POST /api/auth/logout` : ferme la session côté serveur (204).
+- `POST /api/auth/profile` : modifie le prénom et le nom du compte connecté ; l'adresse e-mail reste inchangée.
+- `POST /api/auth/password/recovery` : demande un lien temporaire sans révéler si le compte existe (202). `POST /api/auth/password/reset` définit un nouveau mot de passe avec ce lien, valable 30 minutes et utilisable une fois.
+
+La récupération par e-mail nécessite un serveur SMTP configuré avec `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` et `MAIL_FROM` ; définir aussi `APP_PUBLIC_URL` avec l'adresse publique du site et les paramètres TLS exigés par le fournisseur SMTP. Sans SMTP et adresse d'expéditeur, la demande répond 503 et aucun lien n'est annoncé comme envoyé. Ces secrets restent dans l'environnement du backend, jamais dans Git. Un changement de mot de passe invalide les anciennes sessions à leur prochaine requête. Le parcours a été testé avec un faux expéditeur local ; l'envoi vers une vraie boîte doit encore être vérifié avant le lancement.
 
 Cookie de session `JSESSIONID` HttpOnly et SameSite=Lax, identifiant renouvelé à la connexion. Aucune clé d’authentification ni mot de passe dans le stockage du navigateur. Session retrouvée à l’actualisation, expiration après 30 minutes d’inactivité. Les sessions sont en mémoire serveur : un redémarrage du backend demande une nouvelle connexion, sans supprimer les comptes. Limite locale de 20 tentatives par minute et par adresse IP sur connexion/création. Pour une exposition publique, prévoir une limitation partagée adaptée au proxy et à plusieurs instances.
 
-En HTTPS, définir `SESSION_COOKIE_SECURE=true` et conserver frontend/API sur la même origine. La vérification d’adresse e-mail et la réinitialisation du mot de passe ne sont pas encore implémentées ; aucun e-mail n’est envoyé. Les inscriptions gratuites sont persistantes ; les paiements restent simulés. L’application mobile reste à connecter.
+En HTTPS, définir `SESSION_COOKIE_SECURE=true` et conserver frontend/API sur la même origine. La vérification d’adresse e-mail et les autres e-mails métier ne sont pas encore implémentés. Les inscriptions gratuites sont persistantes ; les activités d'exemple conservent un paiement simulé. L’application mobile reste à connecter.
 
 Les tests d’authentification couvrent création, hash du mot de passe, adresse normalisée, doublon, validation, CSRF, renouvellement du cookie, connexion incorrecte, compte suspendu et déconnexion. Le profil de test utilise exclusivement le schéma `belconnect_test`.
 
