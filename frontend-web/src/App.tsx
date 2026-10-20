@@ -1,8 +1,12 @@
+import { PageBoundary } from "./components/PageBoundary";
+import { CatalogNotice } from "./components/CatalogNotice";
+import { NotFound } from "./pages/NotFound";
 import { Groups } from './pages/Groups';
 import { Projects } from './pages/Projects';
+import { LegalDrafts } from './pages/LegalDrafts';
 import { currentUser, signOut } from "./lib/auth";
 import type { UserProfile } from "./lib/auth";
-import { useActivities } from "./context/catalogStore";
+import { useCatalog } from "./context/catalogStore";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { categories } from "./data/activities";
@@ -28,13 +32,15 @@ type Preview = {
   activity?: Activity;
 };
 function App() {
-  const activities = useActivities();
+  const catalog = useCatalog();
+  const activities = catalog.activities;
   const location = useLocation();
   const pathname = location.split(/[?#]/)[0];
   const isGroups = pathname === "/groupes";
-  const isProject = pathname === "/projets" || pathname.startsWith("/projets/");
+  const isProject = /^\/projets(?:\/[1-9]\d*)?$/.test(pathname);
+  const isLegalDraft = import.meta.env.DEV && pathname === "/informations-legales";
   const isCatalogue = pathname === "/activites";
-  const isDetail = pathname.startsWith("/activites/");
+  const isDetail = /^\/activites\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/(?:connexion|inscription|recapitulatif|paiement|confirmation|echec))?$/.test(pathname);
   const selectedActivity = activities.find(
     (a) => a.id === pathname.split("/")[2],
   );
@@ -52,6 +58,8 @@ function App() {
     selectedActivity.details.remaining > 0;
   const isPasswordRecovery = pathname === "/reinitialiser-mot-de-passe";
   const isAuth = pathname === "/connexion" || pathname === "/mon-espace" || isPasswordRecovery;
+  const isNotFound = !(pathname === "/" || isGroups || isProject || isLegalDraft || isCatalogue || isDetail || isAuth);
+  const needsCatalog = isCatalogue || isDetail;
   const quantity = selectedActivity
     ? bookingQuantity(selectedActivity, location.split("?")[1] || "")
     : 1;
@@ -92,7 +100,7 @@ function App() {
   const detailTitle = selectedActivity?.title;
 
   useEffect(() => {
-    document.title = isGroups ? "Groupes — Belconnect" : isProject ? "Projets — Belconnect" : isPasswordRecovery ? "Réinitialiser le mot de passe — Belconnect" : isAuth
+    document.title = isNotFound ? "Page introuvable — Belconnect" : isLegalDraft ? "Informations légales (brouillons) — Belconnect" : isGroups ? "Groupes — Belconnect" : isProject ? "Projets — Belconnect" : isPasswordRecovery ? "Réinitialiser le mot de passe — Belconnect" : isAuth
       ? isSignedIn ? "Mon espace — Belconnect" : "Connexion — Belconnect"
       : isFlow
         ? `Inscription · ${detailTitle} — Belconnect`
@@ -113,7 +121,7 @@ function App() {
         .querySelector<HTMLElement>("main h1")
         ?.focus({ preventScroll: true });
     }
-  }, [isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, pathname, isSignedIn]);
+  }, [isNotFound, isLegalDraft, isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, pathname, isSignedIn]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
@@ -264,8 +272,10 @@ function App() {
         )}
       </header>
       <main id="contenu">
+        <PageBoundary key={pathname}>
         {sessionError && <p className="container" role="alert">{sessionError}</p>}
-        {(isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isPasswordRecovery ? <PasswordRecoveryPage /> : isAuth ? (
+        {needsCatalog && catalog.loaded && <CatalogNotice />}
+        {isNotFound ? <NotFound /> : needsCatalog && !catalog.loaded ? <CatalogNotice heading /> : (isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isLegalDraft ? <LegalDrafts /> : isPasswordRecovery ? <PasswordRecoveryPage /> : isAuth ? (
           <AuthPage user={user} onLogout={logout} onComplete={profile => {
             acceptUser(profile);
             const target = new URLSearchParams(location.split('?')[1] || '').get('retour');
@@ -366,6 +376,7 @@ function App() {
           <Catalogue card={card} location={location} />
         ) : (
           <>
+            <CatalogNotice />
             <section className="hero">
               <div className="container hero-inner">
                 <span className="eyebrow-pill">
@@ -606,6 +617,7 @@ function App() {
             </section>
           </>
         )}
+        </PageBoundary>
       </main>
       <footer className="site-footer">
         <div className="container footer-grid">
@@ -648,6 +660,7 @@ function App() {
             <h3>Ensemble</h3>
             <a href="/projets">Les projets locaux</a>
             <a href="/mon-espace#espaces">Organiser une activité</a>
+            {import.meta.env.DEV && <><a href="/informations-legales#confidentialite">Confidentialité (brouillon)</a><a href="/informations-legales#cookies">Autres informations légales</a></>}
             <button
               onClick={() =>
                 upcoming(

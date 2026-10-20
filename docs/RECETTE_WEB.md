@@ -1,5 +1,20 @@
 # Recette du site web — état du 20 octobre 2026
 
+## Lot 1 — Résistance aux erreurs
+
+Validé localement le 20 octobre 2026. Le catalogue rend maintenant ses états de chargement/erreur aux pages concernées, sans masquer la navigation, la connexion, la récupération du mot de passe, les projets ou les brouillons légaux. Les entrées invalides sont isolées ; si aucune entrée reçue n’est exploitable, une erreur est affichée plutôt qu’un faux catalogue vide. Un échec d’actualisation conserve les données et formulaires déjà affichés avec un avertissement ; un changement d’identité efface le catalogue précédent.
+
+Une route inconnue affiche une page dédiée. Les erreurs HTTP distinguent droits, session, absence, conflit, limitation et indisponibilité. Une interruption après envoi avertit que l’opération peut avoir été enregistrée, sans relancer automatiquement la demande. Une erreur de rendu dans le contenu de page affiche un recours et laisse la navigation accessible.
+
+Preuves :
+
+- `cd frontend-web && npm test` : 24 tests réussis dans `src/resilience.test.tsx`, avec réponses réseau simulées.
+- Scénarios : catalogue 503, attente sans réponse, timeout à 10 secondes, entrée invalide isolée, catalogue entièrement invalide, reprise au réessai, accès indépendant connexion/récupération/projets/informations légales, route inconnue, fiche directe puis remontée, saisie conservée après interruption ou rafraîchissement échoué, effacement au changement de session, statuts HTTP et erreur de rendu.
+- `npm run lint` et `npm run build` : réussis.
+- Navigateur sur le serveur local réel : catalogue de sept activités chargé ; route inexistante avec navigation conservée, titre approprié et retour accueil.
+
+Les pannes sont simulées dans les tests React, sans arrêter le serveur utilisé par le fondateur. Aucun compte ni paiement réel n’a été modifié. Le backend n’a pas changé ; sa suite n’a pas été relancée pour ce lot. La page introuvable est une réponse de l’interface SPA : le statut HTTP servi par l’hébergeur et les liens directs restent à vérifier au lot de déploiement. Les pages légales définitives restent au lot 4.
+
 ## Parcours visiteur vérifié en local
 
 - L'accueil charge les activités de démonstration et les liens de navigation.

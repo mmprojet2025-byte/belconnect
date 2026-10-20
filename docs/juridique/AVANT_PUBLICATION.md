@@ -2,6 +2,8 @@
 
 **État au 20 octobre 2026 : brouillons internes, aucun texte de ce dossier ne doit être présenté comme une politique en vigueur.** Belconnect n'a pas encore de structure enregistrée. Les documents ci-dessous servent à préparer les décisions et la revue professionnelle, pas à créer une protection juridique par simple affichage.
 
+Une synthèse est consultable dans le site **uniquement en mode développement local** à `/informations-legales`, avec des liens dans le pied de page et un avertissement « brouillon ». Elle est exclue de la compilation de production tant que les informations manquantes ne sont pas validées.
+
 ## Documents préparés
 
 - [Politique de confidentialité](POLITIQUE_CONFIDENTIALITE_BROUILLON.md) : données, finalités, destinataires, conservation et droits.

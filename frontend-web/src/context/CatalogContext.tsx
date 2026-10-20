@@ -71,78 +71,49 @@ function parseActivity(value: unknown): Activity {
 }
 
 export function CatalogProvider({ children }: { children: ReactNode }) {
-  const [activities, setActivities] = useState<Activity[] | null>(null);
-  const [error, setError] = useState(false);
+  const [state, setState] = useState<{ activities: Activity[]; loaded: boolean; loading: boolean; error: boolean; partial: boolean }>({ activities: [], loaded: false, loading: true, error: false, partial: false });
   const [attempt, setAttempt] = useState(0);
+  function retry() {
+    setState(current => ({ ...current, loading: true, error: false }));
+    setAttempt(value => value + 1);
+  }
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
     const timer = setTimeout(() => controller.abort(), 10000);
-    fetch("/api/activities", {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
+    fetch("/api/activities", { signal: controller.signal, headers: { Accept: "application/json" } })
+      .then(async response => {
         if (!response.ok) throw Error("Catalogue indisponible");
         const data: unknown = await response.json();
         if (!Array.isArray(data)) throw Error("Réponse invalide");
-        return data.map(parseActivity);
-      })
-      .then((data) => {
-        if (active) setActivities(data);
+        const activities: Activity[] = [];
+        for (const value of data) {
+          try { activities.push(parseActivity(value)); } catch { /* Isolate malformed entries from other pages and activities. */ }
+        }
+        if (data.length && !activities.length) throw Error("Catalogue invalide");
+        if (active) setState({ activities, loaded: true, loading: false, error: false, partial: activities.length !== data.length });
       })
       .catch(() => {
-        if (active) setError(true);
+        if (active) setState(current => ({ ...current, loading: false, error: true }));
       })
       .finally(() => clearTimeout(timer));
-    return () => {
-      active = false;
-      clearTimeout(timer);
-      controller.abort();
-    };
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [attempt]);
   useEffect(() => {
-    const refresh = () => setAttempt(v => v + 1);
-    const reset = () => { setActivities([]); refresh(); };
+    const refresh = () => setAttempt(value => value + 1);
+    const reset = () => {
+      // Never retain a previous account's private catalogue after an auth change.
+      setState({ activities: [], loaded: false, loading: true, error: false, partial: false });
+      refresh();
+    };
     window.addEventListener("catalog-refresh", refresh);
     window.addEventListener("catalog-reset", reset);
     window.addEventListener("focus", refresh);
-    return () => { window.removeEventListener("catalog-refresh", refresh); window.removeEventListener("catalog-reset", reset); window.removeEventListener("focus", refresh); };
+    return () => {
+      window.removeEventListener("catalog-refresh", refresh);
+      window.removeEventListener("catalog-reset", reset);
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
-  if (!activities)
-    return (
-      <main className="catalog-service-state">
-        <a className="brand" href="/">
-          Bel<span>connect</span>
-        </a>
-        <div role={error ? "alert" : "status"}>
-          <h1>
-            {error
-              ? "Les activités sont momentanément indisponibles"
-              : "Vos prochaines découvertes arrivent…"}
-          </h1>
-          <p>
-            {error
-              ? "Impossible de charger le catalogue. Vérifiez que le serveur Belconnect est démarré, puis réessayez."
-              : "Chargement du catalogue Belconnect."}
-          </p>
-          {error && (
-            <button
-              className="button navy"
-              onClick={() => {
-                setError(false);
-                setAttempt((v) => v + 1);
-              }}
-            >
-              Réessayer
-            </button>
-          )}
-        </div>
-      </main>
-    );
-  return (
-    <CatalogContext.Provider value={activities}>
-      {children}
-    </CatalogContext.Provider>
-  );
+  return <CatalogContext.Provider value={{ ...state, retry }}>{children}</CatalogContext.Provider>;
 }

@@ -1416,3 +1416,8 @@ h2 {
 .card-photo > a:focus-visible {
   outline-offset: -4px;
 }
+/* Service failures must remain readable without replacing site navigation. */
+.service-notice { padding-block: 2rem; overflow-wrap: anywhere; }
+.service-notice p { max-width: 65ch; margin-block: 1rem; }
+.service-notice h1 { font-size: clamp(1.6rem, 4vw, 2.5rem); }
+.service-notice h2 { font-size: 1.25rem; }
