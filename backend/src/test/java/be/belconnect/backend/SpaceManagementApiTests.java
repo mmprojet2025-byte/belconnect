@@ -51,6 +51,7 @@ class SpaceManagementApiTests {
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
  void cleanup() {
   for(long user:users) for(long space:jdbc.queryForList("SELECT id FROM espace_organisateur WHERE createur_id=?",Long.class,user)) {
+   jdbc.update("DELETE FROM moderation_plateforme WHERE espace_id=?",space);
    jdbc.update("DELETE FROM abonnement_espace WHERE espace_id=?",space);
    jdbc.update("DELETE FROM annonce_groupe WHERE groupe_id IN (SELECT id FROM groupe WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM notification_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
@@ -668,6 +669,53 @@ class SpaceManagementApiTests {
    assertEquals(403,ref.post(path,Map.of("requestId",UUID.randomUUID(),"groupId",group,"content","Essai"),true).statusCode());
    jdbc.update("UPDATE groupe SET statut='SUSPENDU' WHERE id=?",group);
    assertEquals(0,ok(ref.get(path),200).size());
+  } finally { cleanup(); }
+ }
+
+ @Test void replacementAndScopedModerationPreservePublishedState() throws Exception {
+  try {
+   var admin=actor();var member=actor();var platform=actor();var outsider=actor();
+   long space=setupSpace(admin);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE')",member.id,space);
+   owner(platform);
+   String admins="/api/workspace/spaces/"+space+"/administrators";
+   assertEquals(403,outsider.get(admins).statusCode());
+   assertEquals(403,member.post(admins,Map.of("memberId",member.id,"reason","Remplacement prévu"),true).statusCode());
+   assertEquals(403,platform.post(admins,Map.of("memberId",member.id,"reason","Récupération prématurée"),true).statusCode());
+   var roster=ok(admin.post(admins,Map.of("memberId",member.id,"reason","Continuité de cet espace"),true),200);
+   assertEquals(2,roster.size());
+   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM appartenance_espace WHERE espace_id=? AND role='ADMINISTRATEUR'",Integer.class,space));
+   assertEquals(200,admin.post(admins+"/leave",Map.of(),true).statusCode());
+   assertEquals(409,member.post(admins+"/leave",Map.of(),true).statusCode());
+   long project=jdbc.queryForObject("""
+     INSERT INTO projet(espace_id,auteur_id,titre,description,objectif,statut,publie,date_publication)
+     VALUES (?,?,'Projet de modération','Description','Objectif','APPROUVE',true,now()) RETURNING id
+     """,Long.class,space,member.id);
+   long privateDraft=jdbc.queryForObject("""
+     INSERT INTO projet(espace_id,auteur_id,titre,description,objectif)
+     VALUES (?,?,'Brouillon secret','Description','Objectif') RETURNING id
+     """,Long.class,space,member.id);
+   assertEquals(200,outsider.get("/api/projects/"+project).statusCode());
+   String moderation="/api/workspace/owner/moderation/spaces/"+space;
+   assertEquals(404,platform.post(moderation+"/projects/"+privateDraft+"/hide",Map.of("reason","Ne doit pas accéder au brouillon"),true).statusCode());
+   assertEquals(403,admin.post(moderation+"/projects/"+project+"/hide",Map.of("reason","Contenu à vérifier avant publication"),true).statusCode());
+   assertEquals(204,platform.post(moderation+"/projects/"+project+"/hide",Map.of("reason","Contenu à vérifier avant publication"),true).statusCode());
+   assertEquals(404,outsider.get("/api/projects/"+project).statusCode());
+   assertEquals(true,jdbc.queryForObject("SELECT publie FROM projet WHERE id=?",Boolean.class,project));
+   assertEquals(204,platform.post(moderation+"/projects/"+project+"/restore",Map.of("reason","Vérification terminée et conforme"),true).statusCode());
+   assertEquals(200,outsider.get("/api/projects/"+project).statusCode());
+   assertEquals(204,platform.post(moderation+"/suspend",Map.of("reason","Examen nécessaire des contenus de l’espace"),true).statusCode());
+   assertEquals(404,outsider.get("/api/projects/"+project).statusCode());
+   assertTrue(ok(member.get("/api/workspace"),200).get("suspendedSpaces").toString().contains("Examen nécessaire"));
+   assertEquals(204,platform.post(moderation+"/reactivate",Map.of("reason","Examen terminé, espace conforme"),true).statusCode());
+   assertEquals(200,outsider.get("/api/projects/"+project).statusCode());
+   String replacement=jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,outsider.id);
+   assertEquals(409,platform.post(admins+"/recovery",Map.of("email",replacement,"reason","Vérification préalable"),true).statusCode());
+   jdbc.update("UPDATE appartenance_espace SET statut='SUSPENDU' WHERE espace_id=? AND utilisateur_id=?",space,member.id);
+   String suspendedEmail=jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,member.id);
+   assertEquals(409,platform.post(admins+"/recovery",Map.of("email",suspendedEmail,"reason","Nouvelle désignation envisagée"),true).statusCode());
+   assertEquals(200,platform.post(admins+"/recovery",Map.of("email",replacement,"reason","Identité et représentation vérifiées"),true).statusCode());
+   assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?",String.class,space,outsider.id));
   } finally { cleanup(); }
  }
 

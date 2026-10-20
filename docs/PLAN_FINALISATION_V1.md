@@ -86,7 +86,7 @@ Constats : F09, F13 à F17.
 3. Rendre les demandes d’accès/export/effacement traitables et traçables ; définir purge et conservation.
 4. Finaliser confidentialité, cookies, mentions, conditions et remboursements avec les informations de l’exploitant.
 5. Publier les pages définitives en production ; les lier aux points de collecte et d’engagement.
-6. Ajouter contact/support et signalement simples ; prévoir restriction d’un contenu problématique et procédure de contestation.
+6. Ajouter contact/support et signalement simples ; la restriction ciblée avec motif et historique est préparée, mais la procédure de contestation et la revue des réservations/paiements existants restent à terminer avant lancement.
 7. Vérifier les contrats des prestataires, les droits sur les images et la politique des mineurs.
 
 **Terminé quand :** un compte ne peut agir hors de ses droits, les informations légales sont accessibles sans session, une demande RGPD fictive a été traitée de bout en bout et le fondateur sait traiter une réclamation. Les brouillons avec champs manquants ne sont pas publiés.
@@ -133,7 +133,7 @@ Constats : F08, F10 à F13, F25.
 | Contributeur | Proposition d’aide, réponse, suivi ; don et participation payante clairement distincts |
 | Administrateur | Demande d’espace, approbation reçue, publication activité/projet, inscriptions, annulation/remboursement |
 | Référent | Voir et exercer uniquement les fonctions déléguées ; perdre l’accès après révocation |
-| Propriétaire | Approuver/refuser l’ouverture, traiter un signalement et agir sans accéder indûment aux fonctions locales |
+| Propriétaire | Compte de pilotage distinct : approuver/refuser l’ouverture d’un espace, suivre les indicateurs globaux ; aucun parcours participant, membre, auteur de projet ou administrateur local. La gestion du business plan et des aspects techniques reste à définir et à construire avant de la présenter comme disponible. |
 | Utilisateur d’un autre espace | Échec des tentatives d’accès aux données et actions qui ne lui appartiennent pas |
 
 1. Remplacer les exemples uniquement dans la base de lancement par des offres réelles validées.

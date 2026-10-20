@@ -107,6 +107,10 @@ public class SpaceManagementController {
             long applicant=((Number)row.get("demandeur_id")).longValue();
             if(jdbc.query("SELECT id FROM utilisateur WHERE id=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),applicant).isEmpty())
                 throw error(HttpStatus.CONFLICT,"Le compte du demandeur n’est plus actif.");
+            if(Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",
+                Boolean.class,applicant)))
+                throw error(HttpStatus.CONFLICT,"Le propriétaire de Belconnect ne peut pas administrer un espace organisateur.");
             space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,description,createur_id) VALUES (?,?,?,?) RETURNING id",
                 Long.class,d.name(),d.type(),d.description(),applicant);
             jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",applicant,space);

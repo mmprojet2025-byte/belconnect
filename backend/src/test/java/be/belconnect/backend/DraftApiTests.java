@@ -81,7 +81,7 @@ class DraftApiTests {
    assertEquals(401,anonymous.get("/api/project-drafts/"+id).statusCode());
    var update=Map.of("version",0,"content",Map.of("title","Titre modifié du brouillon","description","","objective","","imageUrl","https://example.com/projet.jpg","helpTypes",List.of("BENEVOLAT","PARTAGE")));
    assertEquals(403,author.post("/api/project-drafts/"+id,update,false).statusCode());
-   assertEquals(404,other.post("/api/project-drafts/"+id,update,true).statusCode());
+   assertEquals(403,other.post("/api/project-drafts/"+id,update,true).statusCode());
    var saved=author.post("/api/project-drafts/"+id,update,true);assertEquals(200,saved.statusCode(),saved.body());
    assertEquals(1,json.readTree(saved.body()).get("version").asLong());
    assertEquals(409,author.post("/api/project-drafts/"+id,update,true).statusCode());
@@ -266,7 +266,7 @@ class DraftApiTests {
    assertEquals(401,new Session().post(path,approve,true).statusCode());
    assertEquals(403,admin.post(path,approve,false).statusCode());
    assertEquals(403,author.post(path,approve,true).statusCode());
-   assertEquals(404,outsider.post(path,approve,true).statusCode());
+   assertEquals(403,outsider.post(path,approve,true).statusCode());
    jdbc.update("UPDATE appartenance_espace SET role='MEMBRE' WHERE utilisateur_id=?",bid);
    assertEquals(404,second.post(path,approve,true).statusCode());
    jdbc.update("UPDATE appartenance_espace SET role='ADMINISTRATEUR' WHERE utilisateur_id=?",bid);
@@ -321,7 +321,7 @@ class DraftApiTests {
    var publish=Map.of("version",0,"published",true);
    assertEquals(401,anonymous.post(path,publish,true).statusCode());
    assertEquals(403,admin.post(path,publish,false).statusCode());
-   assertEquals(404,author.post(path,publish,true).statusCode());assertEquals(404,other.post(path,publish,true).statusCode());
+   assertEquals(404,author.post(path,publish,true).statusCode());assertEquals(403,other.post(path,publish,true).statusCode());
    assertEquals(409,admin.post(path,publish,true).statusCode());
    assertEquals(404,anonymous.get(publicPath).statusCode());
    jdbc.update("UPDATE projet SET statut='APPROUVE' WHERE id=?",id);
@@ -403,12 +403,12 @@ class DraftApiTests {
    assertFalse(anonymous.get("/api/projects/"+project).body().contains("samedi"));
    String decision=root+"/"+id+"/decision",cancel=root+"/"+id+"/cancel";
    var accepted=Map.of("version",0,"status","ACCEPTEE","reason","Merci pour votre aide.");
-   assertEquals(404,outsider.post(decision,accepted,true).statusCode());assertEquals(404,member.post(decision,accepted,true).statusCode());
+   assertEquals(403,outsider.post(decision,accepted,true).statusCode());assertEquals(404,member.post(decision,accepted,true).statusCode());
    assertEquals(403,admin.post(decision,accepted,false).statusCode());
    assertEquals(400,admin.post(decision,Map.of("version",0,"status","REFUSEE","reason","  "),true).statusCode());
    assertEquals(200,admin.post(decision,accepted,true).statusCode());assertEquals(200,admin.post(decision,accepted,true).statusCode());
    assertEquals("ACCEPTEE",json.readTree(member.get(root).body()).get(0).get("status").asText());
-   assertEquals(404,outsider.post(cancel,Map.of("version",1),true).statusCode());
+   assertEquals(403,outsider.post(cancel,Map.of("version",1),true).statusCode());
    assertEquals(409,member.post(cancel,Map.of("version",0),true).statusCode());
    jdbc.update("UPDATE projet SET publie=false WHERE id=?",project);
    assertEquals(200,member.post(cancel,Map.of("version",1),true).statusCode());assertEquals(200,member.post(cancel,Map.of("version",1),true).statusCode());

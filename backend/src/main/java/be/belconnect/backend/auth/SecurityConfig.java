@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 public class SecurityConfig {
@@ -22,7 +23,7 @@ public class SecurityConfig {
     }
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
     @Bean HttpSessionSecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts) throws Exception {
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts, JdbcTemplate jdbc) throws Exception {
         return http
             .securityContext(context -> context.securityContextRepository(repository))
             .authorizeHttpRequests(auth -> auth
@@ -42,6 +43,7 @@ public class SecurityConfig {
                 .clearAuthentication(true).deleteCookies("JSESSIONID")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
             .addFilterAfter(new CredentialSessionFilter(accounts), SecurityContextHolderFilter.class)
+            .addFilterAfter(new PlatformOwnerWorkflowFilter(jdbc), CredentialSessionFilter.class)
             .build(); // Default CSRF protection remains enabled, including login and registration.
     }
 }

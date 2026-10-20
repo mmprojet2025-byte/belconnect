@@ -20,6 +20,12 @@ class WorkspaceApiTests {
  HttpResponse<String> get(String path) throws Exception {
   return client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).GET().build(),HttpResponse.BodyHandlers.ofString());
  }
+ HttpResponse<String> post(String path) throws Exception {
+  var token=json.readTree(get("/api/auth/csrf").body());
+  return client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path))
+   .header("Content-Type","application/json").header(token.get("headerName").asText(),token.get("token").asText())
+   .POST(HttpRequest.BodyPublishers.ofString("{}")) .build(),HttpResponse.BodyHandlers.ofString());
+ }
  long register(String email) throws Exception {
   var token=json.readTree(get("/api/auth/csrf").body());
   var response=client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/register"))
@@ -35,6 +41,7 @@ class WorkspaceApiTests {
    assertEquals(401,get("/api/workspace").statusCode());
    long other=register(prefix+"-other@example.com"); users.add(other);
    long me=register(prefix+"@example.com"); users.add(me);
+   assertEquals("false",get("/api/workspace/owner/access").body());
    var empty=json.readTree(get("/api/workspace").body());
    assertFalse(empty.get("owner").asBoolean());
    for(String field:List.of("spaces","groups","projects","managedSpaces")) assertEquals(0,empty.get(field).size());
@@ -58,9 +65,14 @@ class WorkspaceApiTests {
    var revoked=json.readTree(get("/api/workspace").body());
    assertEquals(0,revoked.get("spaces").size()); assertEquals(0,revoked.get("groups").size());
    jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",me);
+   assertEquals("true",get("/api/workspace/owner/access").body());
    var owner=json.readTree(get("/api/workspace").body());
    assertTrue(owner.get("owner").asBoolean()); assertTrue(owner.get("managedSpaces").toString().contains(prefix+" hidden"));
-   assertEquals(1,owner.get("projects").size());
+   assertEquals(0,owner.get("projects").size());
+   assertEquals(0,owner.get("spaces").size());
+   assertEquals(0,owner.get("groups").size());
+   for(String path:List.of("/api/project-drafts","/api/groups/"+group+"/join","/api/bookings","/api/workspace/requests"))
+    assertEquals(403,post(path).statusCode(),path);
    jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",hidden);
    assertFalse(json.readTree(get("/api/workspace").body()).get("managedSpaces").toString().contains(prefix+" hidden"));
    jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",me);

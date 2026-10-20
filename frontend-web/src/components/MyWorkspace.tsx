@@ -14,6 +14,7 @@ import { stageLabel } from '../lib/projects';
 import { DraftEditor } from './DraftEditor';
 import { Icon } from './Icon';
 import { OwnerFinanceSummary } from './OwnerFinanceSummary';
+import { OwnerModeration } from './OwnerModeration';
 
 type Space = { id: number; name: string; role: string };
 type Overview = {
@@ -22,6 +23,8 @@ type Overview = {
   groups: { id: number; spaceId: number; name: string; role: string; canManageMemberships: boolean; canManageActivities: boolean }[];
   projects: { id: number; title: string; status: string; spaceName: string; reviewStage?: string | null }[];
   managedSpaces: Space[];
+  suspendedSpaces: { id: number; name: string; reason: string }[];
+  moderationNotices: { spaceName: string; action: string; contentName: string; reason: string }[];
 };
 const statuses: Record<string, string> = { BROUILLON: 'Brouillon privé', SOUMIS: 'Soumis', A_CORRIGER: 'À corriger', APPROUVE: 'Approuvé', REFUSE: 'Refusé' };
 
@@ -51,9 +54,11 @@ export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
     <div className="workspace-intro"><h2>{view === 'spaces' ? 'Mes espaces et groupes' : view === 'projects' ? 'Mes projets' : view === 'requests' ? 'Mes demandes' : 'Suivi de Belconnect'}</h2><p>{view === 'owner' ? 'Supervision globale de la plateforme.' : 'Retrouvez ici les informations et actions liées à cette rubrique.'}</p></div>
     <div className="workspace-panel" hidden={view !== 'spaces'}>
+    {data.suspendedSpaces?.map(space => <div className="account-notice" role="status" key={space.id}><strong>{space.name} : espace suspendu par Belconnect.</strong> Les nouveaux accès publics, inscriptions et paiements sont arrêtés. {space.reason && <>Motif : {space.reason}</>} Contactez l’assistance pour demander un réexamen. Les réservations déjà payées restent à traiter.</div>)}
+    {data.moderationNotices?.map((notice, index) => <div className="account-notice" role="status" key={`${notice.spaceName}-${notice.contentName}-${index}`}><strong>{notice.contentName} est masqué par Belconnect.</strong> Espace : {notice.spaceName}. Motif : {notice.reason}. Les réservations déjà payées restent à traiter ; contactez l’assistance pour demander un réexamen.</div>)}
     <section aria-labelledby="workspace-title">
       <div className="account-section-heading"><h2 id="workspace-title">Mes espaces et groupes</h2><span>{data.spaces.length} espace{data.spaces.length > 1 ? 's' : ''}</span></div>
-      {!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>Votre aventure commence ici</h3><p>Votre compte vous permet de participer aux activités. Vous n’êtes pas encore rattaché à un espace organisateur ou à un groupe.</p><a className="button coral" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> :
+      {!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>{data.suspendedSpaces?.length ? 'Aucun espace actif' : 'Votre aventure commence ici'}</h3><p>{data.suspendedSpaces?.length ? 'Un espace suspendu figure ci-dessus. Vous pouvez consulter son motif et contacter l’assistance.' : 'Votre compte vous permet de participer aux activités. Vous n’êtes pas encore rattaché à un espace organisateur ou à un groupe.'}</p>{!data.suspendedSpaces?.length && <a className="button coral" href="/activites">Découvrir les activités <Icon name="arrow" /></a>}</div> :
         <div className="workspace-grid">{data.spaces.map(space => <article className="workspace-card" key={space.id}>
           <span className="account-status">{space.role === 'ADMINISTRATEUR' ? 'Administrateur d’espace' : 'Membre de l’espace'}</span><h3>{space.name}</h3>
           <p>{space.role === 'ADMINISTRATEUR' ? 'Vous êtes désigné pour administrer cet espace.' : 'Vous faites partie de cet espace organisateur.'}</p>
@@ -69,8 +74,8 @@ export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces
     {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <div id="managed-activities"><ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} /></div>}
     </div>
     <div className="workspace-panel" hidden={view !== 'requests'}>
-      <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />
-      {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
+      {!data.owner && <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />}
+      {!data.owner && (data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
       <SpaceRequests owner={data.owner} onChanged={() => setAttempt(n => n + 1)} />
     </div>
     <div className="workspace-panel" hidden={view !== 'projects'}>
@@ -93,7 +98,7 @@ export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces
     <p className="account-demo-note">Les projets peuvent être enregistrés en brouillon privé. La soumission transmet la version enregistrée pour examen. Les référents peuvent demander des corrections ou transmettre un avis favorable. L’administrateur peut approuver ou refuser les projets soumis de son espace.</p>
     </div>
     <div className="workspace-panel" hidden={view !== 'owner'}>
-      {data.owner ? <><OwnerFinanceSummary /><section aria-labelledby="platform-title"><div className="account-section-heading"><h2 id="platform-title">Vue propriétaire</h2><span>{data.managedSpaces.length} espaces actifs</span></div><p className="workspace-description">Vue globale des espaces organisateurs de Belconnect.</p><div className="workspace-grid">{data.managedSpaces.map(space => <article className="workspace-card" key={space.id}><h3>{space.name}</h3><span className="account-status">Espace actif</span></article>)}</div>{!data.managedSpaces.length && <p>Aucun espace actif pour le moment.</p>}</section></> : <p className="account-empty">Ce suivi est réservé au propriétaire de Belconnect.</p>}
+      {data.owner ? <><OwnerFinanceSummary /><OwnerModeration /><section aria-labelledby="platform-title"><div className="account-section-heading"><h2 id="platform-title">Vue propriétaire</h2><span>{data.managedSpaces.filter(space => space.role !== 'DEMO').length} espaces actifs hors démo</span></div><p className="workspace-description">Vue globale des espaces organisateurs actifs de Belconnect. L’espace de démonstration est indiqué séparément.</p><div className="workspace-grid">{data.managedSpaces.map(space => <article className="workspace-card" key={space.id}><h3>{space.name}</h3><span className="account-status">{space.role === 'DEMO' ? 'Espace de démonstration' : 'Espace actif'}</span></article>)}</div>{!data.managedSpaces.length && <p>Aucun espace actif pour le moment.</p>}</section></> : <p className="account-empty">Ce suivi est réservé au propriétaire de Belconnect.</p>}
     </div>
   </div>;
 }

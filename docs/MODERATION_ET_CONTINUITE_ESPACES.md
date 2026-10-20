@@ -1,0 +1,9 @@
+# Continuité des espaces et modération ciblée
+
+Un administrateur actif peut désigner comme second administrateur un membre actif de son espace. Il peut ensuite quitter son propre rôle seulement si un autre administrateur actif reste en place. Chaque désignation conserve l'acteur, la cible, le motif et la date dans l'historique de gestion.
+
+Si aucun administrateur actif ne reste, le propriétaire de Belconnect peut rétablir l'administration après avoir vérifié hors de l'application l'identité et la qualité du représentant. Il désigne un compte Belconnect actif, indique la vérification effectuée dans le motif et n'obtient lui-même aucun droit local. Cette récupération est bloquée dès qu'un administrateur actif existe. Un compte propriétaire ne peut jamais être désigné administrateur d'espace.
+
+Le propriétaire peut masquer une activité ou un projet publié, ou suspendre un espace, avec un motif de 10 à 1 000 caractères. L'action et son annulation sont historisées. Le masquage est distinct du choix de publication de l'organisateur : rétablir un contenu ne publie pas un brouillon. Un contenu masqué disparaît des catalogues et des fiches publiques et n'accepte plus de nouvelle réservation, participation ou don. Suspendre l'espace bloque ses contenus et ses nouvelles transactions. Les administrateurs voient le motif dans « Mon espace ».
+
+Ces mesures ne suppriment ni les comptes ni les réservations ou paiements existants. **Avant le lancement public**, il reste à définir et tester le traitement opérationnel des séances et participations déjà payées, le signalement par les utilisateurs, la contestation par l'organisateur, le contact support et les notifications e-mail. Une intervention ne déclenche aucun remboursement automatique ; les remboursements suivent les parcours dédiés existants.

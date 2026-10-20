@@ -1,4 +1,5 @@
 import { GroupMembers } from './GroupMembers';
+import { SpaceAdministrators } from './SpaceAdministrators';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
@@ -68,20 +69,20 @@ export function SpaceRequests({ owner, onChanged }: { owner: boolean; onChanged:
   useEffect(() => {
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
-    Promise.all([load('/requests', signal), owner ? load('/opening-requests', signal) : Promise.resolve([])])
+    Promise.all([owner ? Promise.resolve([]) : load('/requests', signal), owner ? load('/opening-requests', signal) : Promise.resolve([])])
       .then(([own, all]) => { setMine(own); setQueue(all); setLoaded(true); setError(''); })
       .catch(e => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
   }, [owner, attempt]);
   const refresh = () => { setAttempt(n => n + 1); onChanged(); };
   return <section aria-labelledby="space-requests-title">
-    <div className="account-section-heading"><h2 id="space-requests-title">Ouvrir un espace</h2><button className="text-link" onClick={refresh}>Actualiser les demandes</button></div>
-    <p className="workspace-description">Un espace rassemble vos groupes et vos projets. Son ouverture est approuvée par le propriétaire de Belconnect.</p>
+    <div className="account-section-heading"><h2 id="space-requests-title">{owner ? 'Demandes d’ouverture d’espace' : 'Ouvrir un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser les demandes</button></div>
+    <p className="workspace-description">{owner ? 'Examinez les demandes. L’approbation désigne le demandeur comme administrateur du nouvel espace.' : 'Un espace rassemble vos groupes et vos projets. Son ouverture est approuvée par le propriétaire de Belconnect.'}</p>
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
     {!loaded && !error && <p role="status">Chargement des demandes…</p>}
-    {editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Retrouvez sa réponse ici après actualisation.'); refresh(); }} /> : <button className="button outline workspace-create" onClick={() => setEditing(true)}>Demander un espace</button>}
-    {mine.length > 0 && <div className="workspace-grid">{mine.map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces et groupes ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>}
+    {!owner && (editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Retrouvez sa réponse ici après actualisation.'); refresh(); }} /> : <button className="button outline workspace-create" onClick={() => setEditing(true)}>Demander un espace</button>)}
+    {!owner && mine.length > 0 && <div className="workspace-grid">{mine.map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces et groupes ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>}
     {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <article className="workspace-card" key={request.id}><span className="account-status">En attente</span><h3>{request.name}</h3><p>{request.applicant} · {spaceTypes[request.type as keyof typeof spaceTypes]}</p><p className="management-copy">{request.description || 'Aucune présentation renseignée.'}</p><RequestDecision request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} /></article>)}</div>}
   </section>;
 }
@@ -160,6 +161,7 @@ export function SpaceManagement({ spaceId, onChanged, onClose }: { spaceId: numb
       {notice && <p className="account-notice" role="status">{notice}</p>}
       {editingSpace ? <SpaceEditor space={data.space} onCancel={() => { setEditingSpace(false); reload(); }} onSaved={space => { setData({ ...data, space }); setEditingSpace(false); setNotice('Les informations de l’espace sont enregistrées.'); onChanged(); }} /> : <div className="management-actions"><button className="button outline" disabled={editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingSpace(true); }}>Modifier l’espace</button><button className="button coral" disabled={editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup('new'); }}>Créer un groupe</button></div>}
       {editingGroup !== null && <GroupEditor key={editingGroup === 'new' ? 'new' : editingGroup.id} group={editingGroup === 'new' ? null : editingGroup} spaceId={spaceId} onCancel={() => { setEditingGroup(null); reload(); }} onSaved={group => { setData({ ...data, groups: [...data.groups.filter(g => g.id !== group.id), group].sort((a, b) => a.name.localeCompare(b.name)) }); setEditingGroup(null); setNotice('Le groupe est enregistré.'); onChanged(); }} />}
+      <SpaceAdministrators spaceId={spaceId} onChanged={() => { onChanged(); reload(); }} />
       {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => { setAttempt(n => n + 1); onChanged(); }} onClose={() => { setMembersGroup(null); reload(); }} />}
       <h3 className="management-groups-title">Groupes de l’espace <span>({data.groups.length})</span></h3>
       {!data.groups.length ? <div className="account-empty"><h3>Votre premier groupe</h3><p>Créez un groupe pour rassembler votre communauté autour d’un thème ou d’un projet.</p></div> : <div className="workspace-grid">{data.groups.map(group => <article className="workspace-card" key={group.id}>

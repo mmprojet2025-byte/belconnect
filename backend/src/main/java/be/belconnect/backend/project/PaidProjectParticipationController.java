@@ -64,7 +64,7 @@ public class PaidProjectParticipationController {
   }
   private Offer offer(long id, boolean onlyPublished, Long uid) {
     var rows=jdbc.queryForList("""
-      SELECT p.id,p.publie,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
+      SELECT p.id,p.publie,p.masque_moderation,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
       o.description,o.prix_centimes,o.capacite,o.active,o.debut_action,o.lieu_action,
       (SELECT count(*) FROM inscription_payante_projet i WHERE i.projet_id=p.id AND
         i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE')) AS reservees
@@ -75,7 +75,7 @@ public class PaidProjectParticipationController {
     if(rows.isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Offre indisponible.");
     var r=rows.getFirst();
     if(onlyPublished) {
-      boolean visible=Boolean.TRUE.equals(r.get("publie")) && "APPROUVE".equals(r.get("statut")) && "ACTIF".equals(r.get("espace_statut"));
+      boolean visible=Boolean.TRUE.equals(r.get("publie")) && !Boolean.TRUE.equals(r.get("masque_moderation")) && "APPROUVE".equals(r.get("statut")) && "ACTIF".equals(r.get("espace_statut"));
       if(r.get("groupe_id")!=null) {
         visible &= !jdbc.queryForList("SELECT id FROM groupe WHERE id=? AND statut='ACTIF'",r.get("groupe_id")).isEmpty();
         if("GROUPE".equals(r.get("visibilite"))) visible &= uid!=null && !jdbc.queryForList("""

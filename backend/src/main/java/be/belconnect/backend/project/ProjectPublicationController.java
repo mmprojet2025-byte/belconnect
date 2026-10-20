@@ -28,7 +28,7 @@ public class ProjectPublicationController {
   SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom,o.prix_centimes AS participation_prix_centimes FROM projet p
   JOIN espace_organisateur e ON e.id=p.espace_id LEFT JOIN groupe g ON g.id=p.groupe_id
   LEFT JOIN offre_participation_projet o ON o.projet_id=p.id AND o.active
-  WHERE p.publie AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
+  WHERE p.publie AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
    AND (p.visibilite='PUBLIQUE' OR (p.visibilite='GROUPE' AND EXISTS (
     SELECT 1 FROM appartenance_groupe ag JOIN appartenance_espace ae
      ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id

@@ -70,7 +70,7 @@ public class ProjectParticipationController {
   // Serialize with publication changes and other proposals on this project.
   existing=jdbc.queryForList("SELECT * FROM participation_projet WHERE utilisateur_id=? AND creation_request=?",uid,body.requestId());
   if(!existing.isEmpty())return retry(existing.getFirst(),body);
-  if(!Boolean.TRUE.equals(p.get("publie")) || !"APPROUVE".equals(p.get("statut")))throw error(HttpStatus.NOT_FOUND,"Ce projet n’accepte plus de propositions.");
+  if(!Boolean.TRUE.equals(p.get("publie")) || Boolean.TRUE.equals(p.get("masque_moderation")) || !"APPROUVE".equals(p.get("statut")))throw error(HttpStatus.NOT_FOUND,"Ce projet n’accepte plus de propositions.");
   if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT ? = ANY(types_aide) FROM projet WHERE id=?",Boolean.class,body.type(),body.projectId())))
    throw error(HttpStatus.CONFLICT,"Ce projet ne recherche pas ce type d'aide.");
   if(jdbc.queryForObject("SELECT count(*) FROM participation_projet WHERE projet_id=? AND utilisateur_id=? AND type_aide=? AND statut IN ('PROPOSEE','ACCEPTEE')",Integer.class,body.projectId(),uid,body.type())>0)
@@ -118,7 +118,7 @@ public class ProjectParticipationController {
   long version=((Number)p.get("version")).longValue();
   if(body.status().equals(p.get("statut")) && body.reason().equals(p.get("motif")) && version==body.version()+1 && p.get("examinateur_id")!=null && ((Number)p.get("examinateur_id")).longValue()==uid)return read(id);
   if(!"PROPOSEE".equals(p.get("statut")) || version!=body.version())throw error(HttpStatus.CONFLICT,"Cette proposition a changé. Actualisez la liste.");
-  if("ACCEPTEE".equals(body.status()) && (!Boolean.TRUE.equals(project.get("publie")) || !"APPROUVE".equals(project.get("statut"))))throw error(HttpStatus.CONFLICT,"Le projet doit être publié pour accepter une proposition.");
+  if("ACCEPTEE".equals(body.status()) && (!Boolean.TRUE.equals(project.get("publie")) || Boolean.TRUE.equals(project.get("masque_moderation")) || !"APPROUVE".equals(project.get("statut"))))throw error(HttpStatus.CONFLICT,"Le projet doit être publié pour accepter une proposition.");
   if("REFUSEE".equals(body.status()) && body.reason().isBlank())throw error(HttpStatus.BAD_REQUEST,"Précisez le motif du refus.");
   jdbc.update("UPDATE participation_projet SET statut=?,motif=?,examinateur_id=?,version=version+1,date_modification=now() WHERE id=?",body.status(),body.reason(),uid,id);
   history(id,uid,body.status(),body.reason());return read(id);

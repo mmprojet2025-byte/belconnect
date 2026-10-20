@@ -18,9 +18,18 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
   const location = useLocation();
   const hash = location.split('#')[1];
   const workspaceHashes = ['espaces', 'mes-projets', 'demandes', 'suivi-belconnect'];
-  const section = workspaceHashes.includes(hash) ? 'workspace' : hash === 'aides-projets' ? 'help' : hash === 'mon-profil' ? 'profile' : new URLSearchParams(location.split('?')[1]?.split('#')[0]).has('stripe') ? 'workspace' : 'personal';
-  const [isOwner, setIsOwner] = useState(false);
+  const [isOwner, setIsOwner] = useState<boolean | null>(null);
+  const section = isOwner ? hash === 'mon-profil' ? 'profile' : 'workspace' : workspaceHashes.includes(hash) ? 'workspace' : hash === 'aides-projets' ? 'help' : hash === 'mon-profil' ? 'profile' : new URLSearchParams(location.split('?')[1]?.split('#')[0]).has('stripe') ? 'workspace' : 'personal';
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsOwner(null);
+    fetch('/api/workspace/owner/access', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(response => response.ok ? response.json() : false)
+      .then(value => { if (!controller.signal.aborted) setIsOwner(value === true); })
+      .catch(() => { if (!controller.signal.aborted) setIsOwner(false); });
+    return () => controller.abort();
+  }, [user.id]);
   useEffect(() => {
     requestAnimationFrame(() => document.querySelector('.account-heading')?.scrollIntoView?.());
   }, [hash]);
@@ -56,29 +65,29 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
   return <section className="account-page">
     <div className="container">
       <div className="account-breadcrumb"><a href="/">Accueil</a><span aria-hidden="true">/</span><span>Mon espace</span></div>
-      <div className="account-heading"><div><p className="eyebrow teal">VOTRE COIN BELCONNECT</p><h1 tabIndex={-1}>Bonjour {user.firstName || user.lastName} <span className="account-dot">!</span></h1><p>Vos prochaines découvertes commencent ici.</p></div><a className="button coral" href="/activites">Trouver une activité <Icon name="arrow" /></a></div>
+      <div className="account-heading"><div><p className="eyebrow teal">{isOwner ? 'PILOTAGE BELCONNECT' : 'VOTRE COIN BELCONNECT'}</p><h1 tabIndex={-1}>Bonjour {user.firstName || user.lastName} <span className="account-dot">!</span></h1><p>{isOwner ? 'Suivez la plateforme et examinez les demandes d’ouverture d’espace.' : 'Vos prochaines découvertes commencent ici.'}</p></div>{isOwner === false && <a className="button coral" href="/activites">Trouver une activité <Icon name="arrow" /></a>}</div>
       <div className="account-layout">
-        <div className="account-main"><PaidActivityReturn userId={user.id} /><AccountNotifications key={user.id} onOpenBookings={() => openSection('mes-inscriptions')} />{section === "help" && <div id="aides-projets"><ProjectParticipations key={user.id} /></div>}{section === "workspace" && <div id="espaces"><MyWorkspace key={user.id} view={hash === 'mes-projets' ? 'projects' : hash === 'demandes' ? 'requests' : hash === 'suivi-belconnect' ? 'owner' : 'spaces'} onOwnerChange={setIsOwner} /></div>}{section === "profile" && <div className="account-welcome"><div><h2>Mon profil</h2><p>Modifiez vos coordonnées dans la carte de compte à gauche.</p></div></div>}{section === "personal" && <div id="mes-inscriptions"><div className="account-welcome"><span className="account-welcome-icon"><Icon name="calendar" /></span><div><h2>Mes participations</h2><p>Retrouvez vos réservations, vos actions payantes et vos dons.</p></div></div><MyBookings key={`bookings-${user.id}`} /><MyPaidProjectParticipations key={`paid-projects-${user.id}`} /><MyDonations key={`donations-${user.id}`} /><p className="account-demo-note"><Icon name="ticket" /> Certaines activités du catalogue sont des exemples. Leur fiche indique quand le paiement est une simulation.</p></div>}</div>
+        <div className="account-main">{isOwner === null ? <p role="status">Chargement de vos accès…</p> : <>{!isOwner && <><PaidActivityReturn userId={user.id} /><AccountNotifications key={user.id} onOpenBookings={() => openSection('mes-inscriptions')} /></>}{section === "help" && <div id="aides-projets"><ProjectParticipations key={user.id} /></div>}{section === "workspace" && <div id="espaces"><MyWorkspace key={user.id} view={isOwner ? hash === 'demandes' ? 'requests' : 'owner' : hash === 'mes-projets' ? 'projects' : hash === 'demandes' ? 'requests' : 'spaces'} onOwnerChange={setIsOwner} /></div>}{section === "profile" && <div className="account-welcome"><div><h2>Mon profil</h2><p>Modifiez vos coordonnées dans la carte de compte à gauche.</p></div></div>}{section === "personal" && <div id="mes-inscriptions"><div className="account-welcome"><span className="account-welcome-icon"><Icon name="calendar" /></span><div><h2>Mes participations</h2><p>Retrouvez vos réservations, vos actions payantes et vos dons.</p></div></div><MyBookings key={`bookings-${user.id}`} /><MyPaidProjectParticipations key={`paid-projects-${user.id}`} /><MyDonations key={`donations-${user.id}`} /><p className="account-demo-note"><Icon name="ticket" /> Certaines activités du catalogue sont des exemples. Leur fiche indique quand le paiement est une simulation.</p></div>}</>}</div>
         <aside className="account-sidebar" aria-label="Votre compte">
           <section className="account-profile" id="mon-profil">
             <div className="account-avatar" aria-hidden="true">{user.firstName.slice(0,1)}{user.lastName.slice(0,1)}</div>
-            <h2>{user.firstName} {user.lastName}</h2><p>{user.email}</p><span className="account-member">Compte Belconnect</span>
+            <h2>{user.firstName} {user.lastName}</h2><p>{user.email}</p><span className="account-member">{isOwner ? 'Propriétaire de Belconnect' : 'Compte Belconnect'}</span>
             <div className="account-side-divider" />
             <button className="account-menu-toggle" aria-expanded={menuOpen} aria-controls="account-side-nav" onClick={() => setMenuOpen(open => !open)}>{menuOpen ? 'Fermer le menu' : 'Menu de mon espace'}</button>
             <nav id="account-side-nav" className="account-side-nav" data-open={menuOpen} aria-label="Navigation de mon espace">
-              <a href="#mes-inscriptions" aria-current={section === 'personal' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}><Icon name="ticket" /> Mes participations</a>
-              <a href="#espaces" aria-current={hash === 'espaces' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /> Mes espaces et groupes</a>
-              <a href="#mes-projets" aria-current={hash === 'mes-projets' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-projets'); }}>Mes projets</a>
-              <a href="#demandes" aria-current={hash === 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}>Mes demandes</a>
-              <a href="#aides-projets" aria-current={section === 'help' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('aides-projets'); }}>Mes aides</a>
-              {isOwner && <a href="#suivi-belconnect" aria-current={hash === 'suivi-belconnect' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('suivi-belconnect'); }}>Suivi de Belconnect</a>}
+              {isOwner === null ? <span role="status">Chargement du menu…</span> : isOwner ? <><a href="#suivi-belconnect" aria-current={section === 'workspace' && hash !== 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('suivi-belconnect'); }}>Suivi de Belconnect</a><a href="#demandes" aria-current={hash === 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}>Demandes d’ouverture</a></> : <>
+                <a href="#mes-inscriptions" aria-current={section === 'personal' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}><Icon name="ticket" /> Mes participations</a>
+                <a href="#espaces" aria-current={hash === 'espaces' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /> Mes espaces et groupes</a>
+                <a href="#mes-projets" aria-current={hash === 'mes-projets' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-projets'); }}>Mes projets</a>
+                <a href="#demandes" aria-current={hash === 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}>Mes demandes</a>
+                <a href="#aides-projets" aria-current={section === 'help' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('aides-projets'); }}>Mes aides</a></>}
               <a href="#mon-profil" aria-current={section === 'profile' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mon-profil'); }}>Mon profil</a>
             </nav>
-            <details className="account-details"><summary>Mes coordonnées</summary><form className="account-profile-form" onSubmit={saveProfile}><label>Prénom<input required maxLength={80} value={firstName} onChange={event => setFirstName(event.target.value)} /></label><label>Nom<input required maxLength={80} value={lastName} onChange={event => setLastName(event.target.value)} /></label><p>Adresse e-mail : {user.email}</p><button className="button outline" disabled={profileBusy || !firstName.trim() || !lastName.trim()}>{profileBusy ? 'Enregistrement…' : 'Enregistrer mes coordonnées'}</button></form>{profileError && <p role="alert">{profileError}</p>}{profileNotice && <p role="status">{profileNotice}</p>}<p>Les coordonnées d’une inscription existante se modifient depuis sa fiche.</p></details>
+            <details className="account-details"><summary>Mes coordonnées</summary><form className="account-profile-form" onSubmit={saveProfile}><label>Prénom<input required maxLength={80} value={firstName} onChange={event => setFirstName(event.target.value)} /></label><label>Nom<input required maxLength={80} value={lastName} onChange={event => setLastName(event.target.value)} /></label><p>Adresse e-mail : {user.email}</p><button className="button outline" disabled={profileBusy || !firstName.trim() || !lastName.trim()}>{profileBusy ? 'Enregistrement…' : 'Enregistrer mes coordonnées'}</button></form>{profileError && <p role="alert">{profileError}</p>}{profileNotice && <p role="status">{profileNotice}</p>}{!isOwner && <p>Les coordonnées d’une inscription existante se modifient depuis sa fiche.</p>}</details>
             <button className="account-signout" disabled={busy} onClick={logout}>{busy ? "Déconnexion…" : "Se déconnecter"}</button>
             {error && <p role="alert">{error}</p>}
           </section>
-          <div className="account-inspiration"><span className="account-inspiration-icon"><Icon name="leaf" /></span><h2>Et si on sortait<br/>de la routine ?</h2><p>Un atelier, une balade, une rencontre… La prochaine découverte est tout près.</p><a href="/activites">Explorer les activités <Icon name="arrow" /></a></div>
+          {isOwner === false && <div className="account-inspiration"><span className="account-inspiration-icon"><Icon name="leaf" /></span><h2>Et si on sortait<br/>de la routine ?</h2><p>Un atelier, une balade, une rencontre… La prochaine découverte est tout près.</p><a href="/activites">Explorer les activités <Icon name="arrow" /></a></div>}
         </aside>
       </div>
     </div>

@@ -98,6 +98,10 @@ public class GroupMembershipController {
     }
 
     private void admit(long user,long space,long group) {
+        if(Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",
+            Boolean.class,user)))
+            throw error(HttpStatus.CONFLICT,"Le propriétaire de Belconnect ne peut pas devenir membre d’un groupe.");
         activeMemberships(user,space,group);
         jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE') ON CONFLICT(utilisateur_id,espace_id) DO NOTHING",user,space);
         activeMemberships(user,space,group);

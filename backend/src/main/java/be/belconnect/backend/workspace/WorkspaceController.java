@@ -16,10 +16,23 @@ public class WorkspaceController {
     public record Space(long id, String name, String role) {}
     public record Group(long id, long spaceId, String name, String role, boolean canManageMemberships, boolean canManageActivities) {}
     public record Project(long id, String title, String status, String spaceName, String reviewStage) {}
+    public record SuspendedSpace(long id,String name,String reason) {}
+    public record ModerationNotice(String spaceName,String action,String contentName,String reason) {}
     public record Overview(boolean owner, List<Space> spaces, List<Group> groups,
-                           List<Project> projects, List<Space> managedSpaces) {}
+                           List<Project> projects, List<Space> managedSpaces,List<SuspendedSpace> suspendedSpaces,
+                           List<ModerationNotice> moderationNotices) {}
     public record OwnerFinance(long activeSpaces, long proSpaces, long paidTransactions,
                                long confirmedCommissionCents, long pendingRefunds) {}
+
+    @GetMapping("/owner/access") @Transactional(readOnly = true)
+    public boolean ownerAccess(Authentication auth) {
+        long userId = jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",
+            (r,n) -> r.getLong(1), auth.getName()).stream().findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Veuillez vous reconnecter."));
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",
+            Boolean.class, userId));
+    }
 
     @GetMapping("/owner/finance") @Transactional(readOnly = true)
     public OwnerFinance ownerFinance(Authentication auth) {
@@ -60,13 +73,13 @@ public class WorkspaceController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Veuillez vous reconnecter."));
         boolean owner = Boolean.TRUE.equals(jdbc.queryForObject(
             "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')", Boolean.class, userId));
-        var spaces = jdbc.query("""
+        List<Space> spaces = owner ? List.of() : jdbc.query("""
             SELECT e.id, e.nom, a.role FROM appartenance_espace a
             JOIN espace_organisateur e ON e.id=a.espace_id
             WHERE a.utilisateur_id=? AND a.statut='ACTIF' AND e.statut='ACTIF'
             ORDER BY e.nom, e.id
             """, (r,n) -> new Space(r.getLong("id"), r.getString("nom"), r.getString("role")), userId);
-        var groups = jdbc.query("""
+        List<Group> groups = owner ? List.of() : jdbc.query("""
             SELECT g.id, g.espace_id, g.nom,
               COALESCE(ag.role,'ADMINISTRATEUR') AS role,
               (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_adhesions)) AS gestion_adhesions,
@@ -81,14 +94,35 @@ public class WorkspaceController {
             ORDER BY g.nom, g.id
             """, (r,n) -> new Group(r.getLong("id"), r.getLong("espace_id"), r.getString("nom"), r.getString("role"),r.getBoolean("gestion_adhesions"),r.getBoolean("gestion_activites")), userId);
         // Personal drafts stay private, including from administrators and the platform owner.
-        var projects = jdbc.query("""
+        List<Project> projects = owner ? List.of() : jdbc.query("""
             SELECT p.id, p.titre, p.statut, p.etape_validation, e.nom FROM projet p
             JOIN espace_organisateur e ON e.id=p.espace_id
             WHERE p.auteur_id=? ORDER BY p.date_modification DESC, p.id DESC
             """, (r,n) -> new Project(r.getLong("id"), r.getString("titre"), r.getString("statut"), r.getString("nom"), r.getString("etape_validation")), userId);
-        List<Space> managedSpaces = owner ? jdbc.query(
-            "SELECT id, nom FROM espace_organisateur WHERE statut='ACTIF' ORDER BY nom, id",
-            (r,n) -> new Space(r.getLong("id"), r.getString("nom"), "PROPRIETAIRE")) : List.of();
-        return new Overview(owner, spaces, groups, projects, managedSpaces);
+        List<Space> managedSpaces = owner ? jdbc.query("""
+            SELECT e.id, e.nom, u.email FROM espace_organisateur e
+            JOIN utilisateur u ON u.id=e.createur_id
+            WHERE e.statut='ACTIF' ORDER BY e.nom, e.id
+            """, (r,n) -> new Space(r.getLong("id"), r.getString("nom"),
+                "belconnect-demo-projects@example.invalid".equals(r.getString("email")) ? "DEMO" : "PROPRIETAIRE")) : List.of();
+        List<SuspendedSpace> suspendedSpaces = owner ? List.of() : jdbc.query("""
+            SELECT e.id,e.nom,COALESCE((SELECT m.motif FROM moderation_plateforme m
+              WHERE m.espace_id=e.id AND m.action='SUSPENDRE_ESPACE' ORDER BY m.id DESC LIMIT 1),'') AS motif
+            FROM espace_organisateur e JOIN appartenance_espace a ON a.espace_id=e.id
+            WHERE a.utilisateur_id=? AND a.role='ADMINISTRATEUR' AND a.statut='ACTIF' AND e.statut='SUSPENDU'
+            ORDER BY e.nom,e.id
+            """,(r,n)->new SuspendedSpace(r.getLong("id"),r.getString("nom"),r.getString("motif")),userId);
+        List<ModerationNotice> moderationNotices = owner ? List.of() : jdbc.query("""
+            SELECT e.nom AS espace_nom,m.action,COALESCE(ac.titre,p.titre,'') AS contenu,m.motif
+            FROM moderation_plateforme m JOIN espace_organisateur e ON e.id=m.espace_id
+            LEFT JOIN activite ac ON ac.id=m.activite_id LEFT JOIN projet p ON p.id=m.projet_id
+            WHERE m.action='MASQUER' AND EXISTS (
+              SELECT 1 FROM appartenance_espace a WHERE a.espace_id=m.espace_id AND a.utilisateur_id=?
+              AND a.role='ADMINISTRATEUR' AND a.statut='ACTIF')
+              AND NOT EXISTS (SELECT 1 FROM moderation_plateforme newer WHERE newer.id>m.id
+                AND newer.action='RETABLIR' AND (newer.activite_id=m.activite_id OR newer.projet_id=m.projet_id))
+            ORDER BY m.id DESC LIMIT 20
+            """,(r,n)->new ModerationNotice(r.getString("espace_nom"),r.getString("action"),r.getString("contenu"),r.getString("motif")),userId);
+        return new Overview(owner, spaces, groups, projects, managedSpaces,suspendedSpaces,moderationNotices);
     }
 }
