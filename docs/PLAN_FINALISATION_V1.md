@@ -1,6 +1,6 @@
 # Plan de finalisation de la V1 web Belconnect
 
-Référence de sortie au 20 octobre 2026. Fondé sur l’[audit critique](AUDIT_V1_2026_10_20.md). **Lot 1 validé localement le 20 octobre ; lots 2 à 8 à faire.** Les validations locales ne remplacent pas la recette sur l’hébergement cible.
+Référence de sortie au 20 octobre 2026. Fondé sur l’[audit critique](AUDIT_V1_2026_10_20.md). **Lot 1 validé localement ; lot 2 à vérifier avec Stripe test ; lot 3 en cours ; lots 4 à 8 à faire.** Les validations locales ne remplacent pas la recette sur l’hébergement cible.
 
 Objectif : permettre à des utilisateurs réels de découvrir, réserver, contribuer et organiser, avec des paiements exacts, des droits respectés et un service exploitable.
 
@@ -17,8 +17,8 @@ Objectif : permettre à des utilisateurs réels de découvrir, réserver, contri
 | Lot | Résultat attendu | Responsable principal | Dépendance |
 |---|---|---|---|
 | 1 — validé localement | Navigation et erreurs fiables, périmètre de sortie figé | Développement | Aucune |
-| 2 | Paiements cohérents même en cas d’incident | Développement | Lot 1 pour les retours UI |
-| 3 | Espace personnel et organisateur simple, informations précises | Développement + fondateur | Règles du lot 2 fixées |
+| 2 — à vérifier | Paiements cohérents même en cas d’incident | Développement | Lot 1 pour les retours UI |
+| 3 — en cours | Espace personnel et organisateur simple, informations précises | Développement + fondateur | Règles du lot 2 fixées |
 | 4 | Comptes, confidentialité, contrats et support prêts | Développement + fondateur + conseil juridique | Identité et décisions externes |
 | 5 | Site pilote HTTPS, e-mail, sauvegarde et supervision | Développement + fondateur | Choix hébergement/domaine |
 | 6 | Recette Stripe test complète sur le site pilote | Développement + fondateur | Lots 2, 4 et 5 |
@@ -43,6 +43,8 @@ Constats : F18, F22, F27.
 
 ## Lot 2 — Fermer les risques financiers
 
+**État : à vérifier.** Les correctifs locaux couvrent le rejeu d'abonnement résilié, la retenue de la dernière place, la reprise des dons et participations, les remboursements des offres de projet fermées, la visibilité publique des offres et le rendez-vous obligatoire. Le mode Stripe reste limité aux clés de test. La recette Stripe test avec un vrai compte Connect, puis la configuration live explicite et sa validation, restent ouvertes ; ne pas activer les paiements réels sur cette seule base.
+
 Constats : F01 à F07.
 
 1. Reproduire par tests le rejeu d’un abonnement annulé et la dernière place d’un projet payée avec webhook tardif.
@@ -58,6 +60,8 @@ Constats : F01 à F07.
 **À décider par le fondateur :** frais Stripe supportés par qui ; remboursement des dons ; plafond V1 ; règles précises de participation payante aux projets. Les droits légaux doivent être validés au lot 4.
 
 ## Lot 3 — Simplifier l’usage
+
+**État : en cours.** Les rubriques Participer / Organiser chargent maintenant seulement leur contenu visible ; les réglages d'abonnement et d'encaissement sont repliés. Les favoris éphémères ont été retirés. La fiche projet a un seul repère principal, un titre d'onglet spécifique, un intitulé de catalogue neutre et n'annonce une action payante dans son panneau principal que si elle est réellement ouverte. Les retours des dons et participations sont revérifiés automatiquement. Un visuel neutre remplace les images cassées. Le partage de fiche projet et l'ordre clavier de « Mon espace » sont corrigés ; catalogue Projets, fiche et connexion ont été vérifiés à 390 px. Restent à vérifier : recette complète par rôle sur appareil réel et au clavier, contraste et zoom, précision des contenus réels, vitesse sur réseau mobile et aperçu des liens partagés. Avec quatre projets V1, la pagination n'est pas nécessaire ; la réévaluer si le catalogue grandit.
 
 Constats : F06, F19 à F26.
 
@@ -162,4 +166,4 @@ Constats : F08, F10 à F13, F25.
 | Réunir de vraies offres et les droits des images | Catalogue de lancement |
 | Choisir comptes pilotes par rôle et contact support | Recette et exploitation |
 
-**Prochain travail concret : lot 2.** Reproduire puis corriger les défauts financiers avant de retoucher longuement l’apparence. Le lot 1 sera également revérifié sur l’environnement pilote au moment du déploiement.
+**Prochain contrôle concret : recette UX du lot 3**, avec un compte participant puis un administrateur sur ordinateur et téléphone. La recette Stripe test du lot 2 reste nécessaire avant validation financière. Le lot 1 sera également revérifié sur l'environnement pilote au moment du déploiement.

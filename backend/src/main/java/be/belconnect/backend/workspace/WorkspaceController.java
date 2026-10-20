@@ -18,6 +18,40 @@ public class WorkspaceController {
     public record Project(long id, String title, String status, String spaceName, String reviewStage) {}
     public record Overview(boolean owner, List<Space> spaces, List<Group> groups,
                            List<Project> projects, List<Space> managedSpaces) {}
+    public record OwnerFinance(long activeSpaces, long proSpaces, long paidTransactions,
+                               long confirmedCommissionCents, long pendingRefunds) {}
+
+    @GetMapping("/owner/finance") @Transactional(readOnly = true)
+    public OwnerFinance ownerFinance(Authentication auth) {
+        long userId = jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",
+            (r,n) -> r.getLong(1), auth.getName()).stream().findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Veuillez vous reconnecter."));
+        if (!Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",
+            Boolean.class, userId)))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cette vue est réservée au propriétaire de Belconnect.");
+        return jdbc.queryForObject("""
+            SELECT
+              (SELECT count(*) FROM espace_organisateur e JOIN utilisateur u ON u.id=e.createur_id
+                 WHERE e.statut='ACTIF' AND u.email<>'belconnect-demo-projects@example.invalid') AS active_spaces,
+              (SELECT count(*) FROM abonnement_espace a JOIN espace_organisateur e ON e.id=a.espace_id
+                 JOIN utilisateur u ON u.id=e.createur_id
+                 WHERE e.statut='ACTIF' AND u.email<>'belconnect-demo-projects@example.invalid'
+                   AND a.formule='PRO' AND a.statut='ACTIF') AS pro_spaces,
+              (SELECT count(*) FROM (
+                 SELECT id FROM reservation_payante_activite WHERE statut='PAYE'
+                 UNION ALL SELECT id FROM inscription_payante_projet WHERE statut='PAYE'
+                 UNION ALL SELECT id FROM don_projet WHERE statut='PAYE') paid) AS paid_transactions,
+              (SELECT COALESCE(sum(commission_centimes),0) FROM (
+                 SELECT commission_centimes FROM reservation_payante_activite WHERE statut='PAYE'
+                 UNION ALL SELECT commission_centimes FROM inscription_payante_projet WHERE statut='PAYE'
+                 UNION ALL SELECT commission_centimes FROM don_projet WHERE statut='PAYE') paid) AS confirmed_commission_cents,
+              ((SELECT count(*) FROM reservation_payante_activite WHERE statut='REMBOURSEMENT_EN_COURS')
+               +(SELECT count(*) FROM inscription_payante_projet WHERE statut='REMBOURSEMENT_EN_COURS')) AS pending_refunds
+            """, (r,n) -> new OwnerFinance(r.getLong("active_spaces"), r.getLong("pro_spaces"),
+                r.getLong("paid_transactions"), r.getLong("confirmed_commission_cents"),
+                r.getLong("pending_refunds")));
+    }
 
     @GetMapping @Transactional(readOnly = true)
     public Overview overview(Authentication auth) {

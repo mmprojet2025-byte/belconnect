@@ -74,4 +74,41 @@ class WorkspaceApiTests {
    for(long id:users) jdbc.update("DELETE FROM utilisateur WHERE id=?",id);
   }
  }
+
+ @Test void ownerFinanceIsPrivateAndCountsOnlyConfirmedPayments() throws Exception {
+  String prefix="owner-finance-"+UUID.randomUUID();
+  long ordinary=register(prefix+"-ordinary@example.com");
+  long owner=register(prefix+"-owner@example.com");
+  Long space=null,project=null;
+  try {
+   assertEquals(403,get("/api/workspace/owner/finance").statusCode());
+   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",owner);
+   var baseline=json.readTree(get("/api/workspace/owner/finance").body());
+   space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",Long.class,prefix,owner);
+   project=jdbc.queryForObject("INSERT INTO projet(espace_id,auteur_id,titre,description,objectif) VALUES (?,?,'Test finance','Description','Objectif') RETURNING id",Long.class,space,owner);
+   jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",space,owner);
+   jdbc.update("INSERT INTO don_projet(projet_id,donateur_id,demande,montant_centimes,commission_centimes,compte_stripe,statut,date_paiement) VALUES (?,?,?,1000,80,'acct_Test123','PAYE',now())",project,ordinary,UUID.randomUUID());
+   jdbc.update("INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite) VALUES (?,'Participation au projet',1000,4)",project);
+   jdbc.update("INSERT INTO inscription_payante_projet(projet_id,participant_id,demande,prix_centimes,commission_centimes,compte_stripe,statut,date_paiement) VALUES (?,?,?,1000,50,'acct_Test123','REMBOURSEMENT_EN_COURS',now())",project,ordinary,UUID.randomUUID());
+   var summary=json.readTree(get("/api/workspace/owner/finance").body());
+   assertEquals(baseline.get("activeSpaces").asLong()+1,summary.get("activeSpaces").asLong());
+   assertEquals(baseline.get("proSpaces").asLong()+1,summary.get("proSpaces").asLong());
+   assertEquals(baseline.get("paidTransactions").asLong()+1,summary.get("paidTransactions").asLong());
+   assertEquals(baseline.get("confirmedCommissionCents").asLong()+80,summary.get("confirmedCommissionCents").asLong());
+   assertEquals(baseline.get("pendingRefunds").asLong()+1,summary.get("pendingRefunds").asLong());
+  } finally {
+   if(project!=null) {
+    jdbc.update("DELETE FROM inscription_payante_projet WHERE projet_id=?",project);
+    jdbc.update("DELETE FROM offre_participation_projet WHERE projet_id=?",project);
+    jdbc.update("DELETE FROM don_projet WHERE projet_id=?",project);
+    jdbc.update("DELETE FROM projet WHERE id=?",project);
+   }
+   if(space!=null) {
+    jdbc.update("DELETE FROM abonnement_espace WHERE espace_id=?",space);
+    jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
+   }
+   jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",owner);
+   jdbc.update("DELETE FROM utilisateur WHERE id IN (?,?)",owner,ordinary);
+  }
+ }
 }

@@ -80,13 +80,14 @@ public class SpaceSubscriptionController {
     try {
       Price price=Price.retrieve(priceId,request);
       if(!"eur".equals(price.getCurrency()) || !Long.valueOf(1000).equals(price.getUnitAmount())
-          || price.getRecurring()==null || !"month".equals(price.getRecurring().getInterval()))
+          || price.getRecurring()==null || !"month".equals(price.getRecurring().getInterval())
+          || !Long.valueOf(1).equals(price.getRecurring().getIntervalCount()))
         throw fail(HttpStatus.CONFLICT,"Le tarif Stripe configuré ne correspond pas à 10 € par mois.");
       var params=SessionCreateParams.builder().setMode(SessionCreateParams.Mode.SUBSCRIPTION)
         .setClientReferenceId("space-subscription-"+spaceId)
         .setCustomerEmail(auth.getName())
-        .setSuccessUrl(publicUrl+"/mon-espace?abonnement=retour")
-        .setCancelUrl(publicUrl+"/mon-espace?abonnement=annule")
+        .setSuccessUrl(publicUrl+"/mon-espace?abonnement=retour#espaces")
+        .setCancelUrl(publicUrl+"/mon-espace?abonnement=annule#espaces")
         .addLineItem(SessionCreateParams.LineItem.builder().setPrice(priceId).setQuantity(1L).build())
         .build();
       Session session=Session.create(params,RequestOptions.builder().setApiKey(secret)
@@ -97,7 +98,7 @@ public class SpaceSubscriptionController {
         INSERT INTO abonnement_espace(espace_id,administrateur_id,session_stripe,demande)
         VALUES (?,?,?,?) ON CONFLICT(espace_id) DO UPDATE SET administrateur_id=excluded.administrateur_id,
           session_stripe=excluded.session_stripe,demande=excluded.demande,abonnement_stripe=NULL,
-          statut='EN_ATTENTE',date_modification=now()
+          statut='EN_ATTENTE',termine_definitivement=false,date_modification=now()
         """,spaceId,uid,session.getId(),body.requestId());
       return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Link(session.getUrl()));
     } catch(StripeException ex) { throw fail(HttpStatus.BAD_GATEWAY,"Stripe est temporairement indisponible."); }
@@ -111,7 +112,7 @@ public class SpaceSubscriptionController {
     if(customers.isEmpty()) throw fail(HttpStatus.CONFLICT,"Aucun abonnement Stripe à gérer.");
     try {
       var params=com.stripe.param.billingportal.SessionCreateParams.builder().setCustomer(customers.getFirst())
-        .setReturnUrl(publicUrl+"/mon-espace").build();
+        .setReturnUrl(publicUrl+"/mon-espace#espaces").build();
       var session=com.stripe.model.billingportal.Session.create(params,request);
       if(session.getUrl()==null || !session.getUrl().startsWith("https://billing.stripe.com/"))
         throw fail(HttpStatus.BAD_GATEWAY,"Lien Stripe invalide.");

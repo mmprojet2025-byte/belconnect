@@ -13,6 +13,7 @@ export function ProjectDonation({ projectId, signedIn }: { projectId: number; si
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [donation, setDonation] = useState<Donation | null>(null);
+  const [refresh, setRefresh] = useState(0);
   const returned = new URLSearchParams(window.location.search).get('donation');
   useEffect(() => {
     if (!signedIn) return;
@@ -20,13 +21,23 @@ export function ProjectDonation({ projectId, signedIn }: { projectId: number; si
     fetch(`/api/project-donations/availability?projectId=${projectId}`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
       .then(result).then(value => { if (!controller.signal.aborted) setAvailability(value); })
       .catch(cause => { if (!controller.signal.aborted) setError(errorMessage(cause)); });
-    if (returned && /^\d+$/.test(returned)) {
-      fetch(`/api/project-donations/${returned}`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
-        .then(result).then(value => { if (!controller.signal.aborted && value.projectId === projectId) setDonation(value); })
-        .catch(cause => { if (!controller.signal.aborted) setError(errorMessage(cause)); });
-    }
     return () => controller.abort();
-  }, [projectId, signedIn, returned]);
+  }, [projectId, signedIn]);
+  useEffect(() => {
+    if (!signedIn || !returned || !/^\d+$/.test(returned)) return;
+    const controller = new AbortController();
+    let timer: number | undefined;
+    let checks = 0;
+    const check = () => fetch(`/api/project-donations/${returned}`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(result).then((value: Donation) => {
+        if (controller.signal.aborted || value.projectId !== projectId) return;
+        setDonation(value); setError('');
+        if (value.status === 'EN_ATTENTE' && ++checks < 10) timer = window.setTimeout(check, 3000);
+      })
+      .catch(cause => { if (!controller.signal.aborted) setError(errorMessage(cause)); });
+    void check();
+    return () => { controller.abort(); if (timer !== undefined) window.clearTimeout(timer); };
+  }, [projectId, signedIn, returned, refresh]);
   async function send(event: FormEvent) {
     event.preventDefault(); setError('');
     const normalized = amount.trim().replace(',', '.');
@@ -47,7 +58,8 @@ export function ProjectDonation({ projectId, signedIn }: { projectId: number; si
     <h2 id="project-donation-title">Soutenir financièrement ce projet</h2>
     <p>Choisissez librement votre montant. Ce soutien ne réserve pas de place et ne crée pas d’adhésion.</p>
     {returned === 'annule' && <p role="status">Le paiement a été interrompu. Aucun don n’est confirmé.</p>}
-    {donation && <p role="status">{labels[donation.status] ?? donation.status} · {(donation.amountCents / 100).toLocaleString('fr-BE', { style: 'currency', currency: 'EUR' })}. {donation.status === 'EN_ATTENTE' && 'Actualisez cette page pour vérifier sa confirmation.'}</p>}
+    {donation && <p role="status">{labels[donation.status] ?? donation.status} · {(donation.amountCents / 100).toLocaleString('fr-BE', { style: 'currency', currency: 'EUR' })}. {donation.status === 'EN_ATTENTE' && 'Nous vérifions automatiquement sa confirmation.'}</p>}
+    {signedIn && returned && /^\d+$/.test(returned) && (donation?.status === 'EN_ATTENTE' || error) && <button className="text-link" onClick={() => { setError(''); setRefresh(value => value + 1); }}>Revérifier le don</button>}
     {!signedIn ? <p><a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour soutenir ce projet</a></p>
       : availability === null ? <p role="status">Vérification des dons…</p>
       : !availability.available ? <p>Les dons pour ce projet ne sont pas encore ouverts.</p>

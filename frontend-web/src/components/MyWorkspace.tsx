@@ -13,6 +13,7 @@ import { ProjectInbox, SubmittedDetail } from './SubmittedProjects';
 import { stageLabel } from '../lib/projects';
 import { DraftEditor } from './DraftEditor';
 import { Icon } from './Icon';
+import { OwnerFinanceSummary } from './OwnerFinanceSummary';
 
 type Space = { id: number; name: string; role: string };
 type Overview = {
@@ -24,7 +25,7 @@ type Overview = {
 };
 const statuses: Record<string, string> = { BROUILLON: 'Brouillon privé', SOUMIS: 'Soumis', A_CORRIGER: 'À corriger', APPROUVE: 'Approuvé', REFUSE: 'Refusé' };
 
-export function MyWorkspace() {
+export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces' | 'projects' | 'requests' | 'owner'; onOwnerChange?: (owner: boolean) => void }) {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -34,19 +35,22 @@ export function MyWorkspace() {
   const [membersGroup, setMembersGroup] = useState<number | null>(null);
   const [managedSpace, setManagedSpace] = useState<number | null>(null);
   const [filter, setFilter] = useState('ALL');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     const refresh = () => fetch('/api/workspace', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
-      .then(result).then(value => { setData(value); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Impossible de charger votre espace.'); });
+      .then(result).then(value => { setData(value); onOwnerChange?.(Boolean(value.owner)); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Impossible de charger votre espace.'); });
     refresh();
     window.addEventListener('focus', refresh);
     return () => { controller.abort(); window.removeEventListener('focus', refresh); };
-  }, [attempt]);
+  }, [attempt, onOwnerChange]);
   if (error && !data) return <div className="account-empty" role="alert"><h3>Votre espace est indisponible</h3><p>{error}</p><button className="button outline" onClick={() => { setError(''); setData(null); setAttempt(n => n + 1); }}>Réessayer</button></div>;
   if (!data) return <p role="status">Chargement de vos espaces et projets…</p>;
   const projects = data.projects.filter(p => filter === 'ALL' || p.status === filter);
   return <div className="workspace-sections">
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
+    <div className="workspace-intro"><h2>{view === 'spaces' ? 'Mes espaces et groupes' : view === 'projects' ? 'Mes projets' : view === 'requests' ? 'Mes demandes' : 'Suivi de Belconnect'}</h2><p>{view === 'owner' ? 'Supervision globale de la plateforme.' : 'Retrouvez ici les informations et actions liées à cette rubrique.'}</p></div>
+    <div className="workspace-panel" hidden={view !== 'spaces'}>
     <section aria-labelledby="workspace-title">
       <div className="account-section-heading"><h2 id="workspace-title">Mes espaces et groupes</h2><span>{data.spaces.length} espace{data.spaces.length > 1 ? 's' : ''}</span></div>
       {!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>Votre aventure commence ici</h3><p>Votre compte vous permet de participer aux activités. Vous n’êtes pas encore rattaché à un espace organisateur ou à un groupe.</p><a className="button coral" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> :
@@ -59,14 +63,17 @@ export function MyWorkspace() {
       {data.groups.some(g => g.role === 'REFERENT') && <p className="account-notice">En tant que référent, vous accompagnez les projets de vos groupes. La décision finale revient à l’administrateur de l’espace.</p>}
     </section>
     {managedSpace !== null && <SpaceManagement key={managedSpace} spaceId={managedSpace} onChanged={() => setAttempt(n => n + 1)} onClose={() => setManagedSpace(null)} />}
-    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <SpaceSubscriptions spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} />}
-    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <StripeConnectSetup spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} />}
+    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <section className="workspace-settings" aria-labelledby="workspace-settings-title"><div className="account-section-heading"><h2 id="workspace-settings-title">Réglages de l’organisation</h2></div><p>Abonnement et encaissement des activités, dons et projets.</p><button className="button outline" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(open => !open)}>{settingsOpen ? 'Masquer les réglages' : 'Gérer les paiements et l’abonnement'}</button>{settingsOpen && <div className="workspace-settings-content"><SpaceSubscriptions spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} /><StripeConnectSetup spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} /></div>}</section>}
     {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => setAttempt(n => n + 1)} onClose={() => setMembersGroup(null)} />}
     {data.groups.length > 0 && <GroupAnnouncements groups={data.groups} />}
-    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} />}
-    <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />
-    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
-    <SpaceRequests owner={data.owner} onChanged={() => setAttempt(n => n + 1)} />
+    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <div id="managed-activities"><ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} /></div>}
+    </div>
+    <div className="workspace-panel" hidden={view !== 'requests'}>
+      <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />
+      {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
+      <SpaceRequests owner={data.owner} onChanged={() => setAttempt(n => n + 1)} />
+    </div>
+    <div className="workspace-panel" hidden={view !== 'projects'}>
     <section aria-labelledby="my-projects-title">
       <div className="account-section-heading"><h2 id="my-projects-title">Mes projets</h2><span>{data.projects.length} projet{data.projects.length > 1 ? 's' : ''}</span></div>
       {submittedNotice && <p className="account-notice" role="status">{submittedNotice}</p>}
@@ -83,7 +90,10 @@ export function MyWorkspace() {
     </section>
     {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.role === 'REFERENT')) && <ProjectInbox />}
     {data.spaces.some(s => s.role === 'ADMINISTRATEUR') && <><ProjectPublications /><ProjectParticipations received /></>}
-    {data.owner && <section aria-labelledby="platform-title"><div className="account-section-heading"><h2 id="platform-title">Vue propriétaire</h2><span>{data.managedSpaces.length} espaces actifs</span></div><p className="workspace-description">Vue globale des espaces organisateurs de Belconnect.</p><div className="workspace-grid">{data.managedSpaces.map(space => <article className="workspace-card" key={space.id}><h3>{space.name}</h3><span className="account-status">Espace actif</span></article>)}</div>{!data.managedSpaces.length && <p>Aucun espace actif pour le moment.</p>}</section>}
-    <p className="account-demo-note">Vos appartenances et projets sont consultables ici. Les projets peuvent être enregistrés en brouillon privé. La soumission transmet la version enregistrée pour examen. Les référents peuvent demander des corrections ou transmettre un avis favorable. L’administrateur peut approuver ou refuser les projets soumis de son espace. Les décisions restent consultables dans Mes projets.</p>
+    <p className="account-demo-note">Les projets peuvent être enregistrés en brouillon privé. La soumission transmet la version enregistrée pour examen. Les référents peuvent demander des corrections ou transmettre un avis favorable. L’administrateur peut approuver ou refuser les projets soumis de son espace.</p>
+    </div>
+    <div className="workspace-panel" hidden={view !== 'owner'}>
+      {data.owner ? <><OwnerFinanceSummary /><section aria-labelledby="platform-title"><div className="account-section-heading"><h2 id="platform-title">Vue propriétaire</h2><span>{data.managedSpaces.length} espaces actifs</span></div><p className="workspace-description">Vue globale des espaces organisateurs de Belconnect.</p><div className="workspace-grid">{data.managedSpaces.map(space => <article className="workspace-card" key={space.id}><h3>{space.name}</h3><span className="account-status">Espace actif</span></article>)}</div>{!data.managedSpaces.length && <p>Aucun espace actif pour le moment.</p>}</section></> : <p className="account-empty">Ce suivi est réservé au propriétaire de Belconnect.</p>}
+    </div>
   </div>;
 }

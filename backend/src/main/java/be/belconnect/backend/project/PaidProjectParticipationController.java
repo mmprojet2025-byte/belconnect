@@ -2,15 +2,15 @@ package be.belconnect.backend.project;
 
 import com.stripe.exception.StripeException;
 import com.stripe.model.Account;
-import com.stripe.model.Refund;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.RequestOptions;
-import com.stripe.param.RefundCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import be.belconnect.backend.billing.SpaceCommission;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -26,15 +26,20 @@ public class PaidProjectParticipationController {
   private final JdbcTemplate jdbc;
   private final TransactionTemplate tx;
   private final SpaceCommission commissions;
+  private final PaidProjectCancellation cancellation;
   private final String key, webhook, publicUrl;
   public PaidProjectParticipationController(JdbcTemplate jdbc, TransactionTemplate tx,SpaceCommission commissions,
+      PaidProjectCancellation cancellation,
       @Value("${STRIPE_SECRET_KEY:}") String key,
       @Value("${STRIPE_WEBHOOK_SECRET:}") String webhook,
       @Value("${APP_PUBLIC_URL:http://localhost:5173}") String publicUrl) {
-    this.jdbc=jdbc; this.tx=tx; this.commissions=commissions; this.key=key; this.webhook=webhook; this.publicUrl=publicUrl.replaceAll("/+$", "");
+    this.jdbc=jdbc; this.tx=tx; this.commissions=commissions; this.cancellation=cancellation;
+    this.key=key; this.webhook=webhook; this.publicUrl=publicUrl.replaceAll("/+$", "");
   }
-  public record Offer(long projectId,String description,long priceCents,int capacity,int placesLeft,boolean active,boolean paymentReady,int commissionPercent) {}
-  public record OfferInput(@NotBlank @Size(min=10,max=500) String description,@Min(100) @Max(10000000) long priceCents,@Min(1) @Max(100000) int capacity) {}
+  public record Offer(long projectId,String description,long priceCents,int capacity,int placesLeft,boolean active,boolean paymentReady,int commissionPercent,
+      OffsetDateTime startsAt,String venue) {}
+  public record OfferInput(@NotBlank @Size(min=10,max=500) String description,@Min(100) @Max(10000000) long priceCents,
+      @Min(1) @Max(100000) int capacity,@NotNull LocalDateTime startsAt,@NotBlank @Size(min=5,max=240) String venue) {}
   public record Request(@NotNull UUID requestId,@NotNull Long projectId) {}
   public record Checkout(long id,String url,String status) {}
   public record Enrollment(long id,long projectId,String projectTitle,long priceCents,String status,OffsetDateTime createdAt) {}
@@ -60,9 +65,9 @@ public class PaidProjectParticipationController {
   private Offer offer(long id, boolean onlyPublished, Long uid) {
     var rows=jdbc.queryForList("""
       SELECT p.id,p.publie,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
-      o.description,o.prix_centimes,o.capacite,o.active,
+      o.description,o.prix_centimes,o.capacite,o.active,o.debut_action,o.lieu_action,
       (SELECT count(*) FROM inscription_payante_projet i WHERE i.projet_id=p.id AND
-        (i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS') OR (i.statut='EN_ATTENTE' AND i.expiration>now()))) AS reservees
+        i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE')) AS reservees
       FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id
       JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE p.id=?
@@ -73,7 +78,7 @@ public class PaidProjectParticipationController {
       boolean visible=Boolean.TRUE.equals(r.get("publie")) && "APPROUVE".equals(r.get("statut")) && "ACTIF".equals(r.get("espace_statut"));
       if(r.get("groupe_id")!=null) {
         visible &= !jdbc.queryForList("SELECT id FROM groupe WHERE id=? AND statut='ACTIF'",r.get("groupe_id")).isEmpty();
-        visible &= uid!=null && !jdbc.queryForList("""
+        if("GROUPE".equals(r.get("visibilite"))) visible &= uid!=null && !jdbc.queryForList("""
           SELECT ag.groupe_id FROM appartenance_groupe ag JOIN appartenance_espace ae
           ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id
           WHERE ag.groupe_id=? AND ag.utilisateur_id=? AND ag.statut='ACTIF' AND ae.statut='ACTIF'
@@ -82,10 +87,14 @@ public class PaidProjectParticipationController {
       if(!visible) throw fail(HttpStatus.NOT_FOUND,"Offre indisponible.");
     }
     int left=((Number)r.get("capacite")).intValue()-((Number)r.get("reservees")).intValue();
+    Object rawStart=r.get("debut_action");
+    OffsetDateTime startsAt=rawStart instanceof OffsetDateTime value?value
+      : rawStart instanceof java.sql.Timestamp timestamp?timestamp.toInstant().atOffset(java.time.ZoneOffset.UTC):null;
     return new Offer(id,(String)r.get("description"),((Number)r.get("prix_centimes")).longValue(),
       ((Number)r.get("capacite")).intValue(),Math.max(0,left),Boolean.TRUE.equals(r.get("active")),
-      r.get("stripe_account_id")!=null && key.startsWith("sk_test_") && webhook.startsWith("whsec_"),
-      commissions.percent(((Number)r.get("espace_id")).longValue()));
+      r.get("stripe_account_id")!=null && key.startsWith("sk_test_") && webhook.startsWith("whsec_")
+        && startsAt!=null && startsAt.isAfter(OffsetDateTime.now()) && r.get("lieu_action")!=null,
+      commissions.percent(((Number)r.get("espace_id")).longValue()),startsAt,(String)r.get("lieu_action"));
   }
   @GetMapping("/offer/{projectId}")
   public ResponseEntity<Offer> publicOffer(Authentication auth,@PathVariable long projectId) {
@@ -100,19 +109,22 @@ public class PaidProjectParticipationController {
   @PutMapping("/manage/{projectId}")
   public Offer saveOffer(Authentication auth,@PathVariable long projectId,@Valid @RequestBody OfferInput body) {
     long uid=user(auth);
+    OffsetDateTime startsAt=body.startsAt().atZone(ZoneId.of("Europe/Brussels")).toOffsetDateTime();
+    if(!startsAt.isAfter(OffsetDateTime.now())) throw fail(HttpStatus.BAD_REQUEST,"La séance doit se tenir à une date future.");
     return tx.execute(s->{
       admin(uid,projectId);
       jdbc.queryForList("SELECT id FROM projet WHERE id=? FOR UPDATE",projectId);
       var existing=jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",projectId);
       if(!existing.isEmpty() && !jdbc.queryForList("""
         SELECT id FROM inscription_payante_projet WHERE projet_id=? AND
-        (statut IN ('PAYE','REMBOURSEMENT_EN_COURS') OR (statut='EN_ATTENTE' AND expiration>now())) LIMIT 1
+        statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE') LIMIT 1
         """,projectId).isEmpty()) throw fail(HttpStatus.CONFLICT,"Des places sont réservées ou payées. L'offre ne peut plus être modifiée.");
       jdbc.update("""
-        INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite)
-        VALUES (?,?,?,?) ON CONFLICT(projet_id) DO UPDATE SET description=excluded.description,
-        prix_centimes=excluded.prix_centimes,capacite=excluded.capacite,active=true,date_modification=now()
-        """,projectId,body.description().trim(),body.priceCents(),body.capacity());
+        INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite,debut_action,lieu_action)
+        VALUES (?,?,?,?,?,?) ON CONFLICT(projet_id) DO UPDATE SET description=excluded.description,
+        prix_centimes=excluded.prix_centimes,capacite=excluded.capacite,debut_action=excluded.debut_action,
+        lieu_action=excluded.lieu_action,active=true,date_modification=now()
+        """,projectId,body.description().trim(),body.priceCents(),body.capacity(),startsAt,body.venue().trim());
       return offer(projectId,false,null);
     });
   }
@@ -121,7 +133,7 @@ public class PaidProjectParticipationController {
     var locked=jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",body.projectId());
     if(locked.isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Offre indisponible.");
     Offer offer=offer(body.projectId(),true,uid);
-    if(!offer.active()) throw fail(HttpStatus.CONFLICT,"Cette participation est fermée.");
+    if(!offer.active() || !offer.paymentReady()) throw fail(HttpStatus.CONFLICT,"Cette participation n'est pas encore ouverte ou sa séance est passée.");
     var existing=jdbc.queryForList("SELECT id,projet_id,prix_centimes,commission_centimes,compte_stripe,session_stripe,statut FROM inscription_payante_projet WHERE participant_id=? AND demande=?",uid,body.requestId());
     if(!existing.isEmpty()) {
       var r=existing.getFirst();
@@ -198,33 +210,11 @@ public class PaidProjectParticipationController {
   public Offer cancel(Authentication auth,@PathVariable long projectId) {
     long uid=user(auth);
     admin(uid,projectId);
-    options(null);
-    jdbc.update("UPDATE offre_participation_projet SET active=false,date_modification=now() WHERE projet_id=?",projectId);
-    // Retry is safe: a stable Stripe idempotency key is used for each refund.
-    var pending=jdbc.queryForList("SELECT id,session_stripe FROM inscription_payante_projet WHERE projet_id=? AND statut='EN_ATTENTE' AND session_stripe IS NOT NULL",projectId);
-    for(var row:pending) {
-      long id=((Number)row.get("id")).longValue();
-      try {
-        Session session=Session.retrieve((String)row.get("session_stripe"),options(null));
-        if("open".equals(session.getStatus())) session=session.expire(options(null));
-        if("complete".equals(session.getStatus()) && "paid".equals(session.getPaymentStatus()) && session.getPaymentIntent()!=null)
-          jdbc.update("UPDATE inscription_payante_projet SET statut='PAYE',paiement_stripe=?,date_paiement=now() WHERE id=? AND statut='EN_ATTENTE'",session.getPaymentIntent(),id);
-        else jdbc.update("UPDATE inscription_payante_projet SET statut='EXPIRE' WHERE id=? AND statut='EN_ATTENTE'",id);
-      } catch(StripeException ex) { throw fail(HttpStatus.BAD_GATEWAY,"Une session Stripe reste à fermer. Réessayez cette action."); }
-    }
-    var paid=jdbc.queryForList("SELECT id,paiement_stripe,remboursement_stripe FROM inscription_payante_projet WHERE projet_id=? AND statut IN ('PAYE','REMBOURSEMENT_EN_COURS') ORDER BY id",projectId);
-    for(var row:paid) {
-      long id=((Number)row.get("id")).longValue();
-      jdbc.update("UPDATE inscription_payante_projet SET statut='REMBOURSEMENT_EN_COURS' WHERE id=? AND statut='PAYE'",id);
-      try {
-        Refund refund=row.get("remboursement_stripe")==null
-          ? Refund.create(RefundCreateParams.builder().setPaymentIntent((String)row.get("paiement_stripe"))
-              .setReverseTransfer(true).setRefundApplicationFee(true).build(),options("belconnect-project-participation-refund-"+id+"-v1"))
-          : Refund.retrieve((String)row.get("remboursement_stripe"),options(null));
-        jdbc.update("UPDATE inscription_payante_projet SET remboursement_stripe=?,statut=? WHERE id=?",refund.getId(),
-          "succeeded".equals(refund.getStatus())?"REMBOURSE":"REMBOURSEMENT_EN_COURS",id);
-      } catch(StripeException ex) { throw fail(HttpStatus.BAD_GATEWAY,"Un remboursement Stripe reste à vérifier. Réessayez cette action."); }
-    }
+    tx.executeWithoutResult(s->{
+      jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",projectId);
+      jdbc.update("UPDATE offre_participation_projet SET active=false,date_modification=now() WHERE projet_id=?",projectId);
+    });
+    cancellation.process(projectId);
     return offer(projectId,false,null);
   }
 }

@@ -23,7 +23,7 @@ WITH exemples (creation_request, titre, description, objectif, debut_prevu, fin_
      '2026-11-07'::date, '2027-03-31'::date, ARRAY['BENEVOLAT','PARTAGE']::text[]),
     ('1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid,
      '[Démo] Accès numérique pour tous',
-     'Exemple fictif : des bénévoles aident les habitants à utiliser les outils numériques. Six ateliers à 12 € la place financent aussi des places solidaires ; un don libre soutient le projet.',
+     'Exemple fictif : des bénévoles aident les habitants à utiliser les outils numériques. Un atelier à 12 € la place finance aussi des places solidaires ; un don libre soutient le projet.',
      'Rendre le numérique accessible aux habitants du quartier, notamment aux personnes qui n’ont pas d’aide à proximité.',
      '2026-11-14'::date, '2027-02-28'::date, ARRAY['COMPETENCES','BENEVOLAT']::text[]),
     ('1c18f154-1fa1-435b-995e-7ffef93b0903'::uuid,
@@ -33,7 +33,7 @@ WITH exemples (creation_request, titre, description, objectif, debut_prevu, fin_
      '2026-11-21'::date, '2027-04-30'::date, ARRAY['COMPETENCES','PARTAGE']::text[]),
     ('1c18f154-1fa1-435b-995e-7ffef93b0904'::uuid,
      '[Démo] Mémoire vivante du quartier',
-     'Exemple fictif : des habitants recueillent les témoignages et les photos de leur quartier. Quatre balades à 18 € la place contribuent au financement ; un don libre aide à documenter les récits.',
+     'Exemple fictif : des habitants recueillent les témoignages et les photos de leur quartier. Une balade à 18 € la place contribue au financement ; un don libre aide à documenter les récits.',
      'Créer une archive locale ouverte à tous pour conserver et partager les histoires du quartier.',
      '2026-12-05'::date, '2027-05-31'::date, ARRAY['PARTAGE','COMPETENCES']::text[])
 )
@@ -53,11 +53,11 @@ UPDATE projet p SET titre = x.titre, description = x.description, objectif = x.o
 FROM (VALUES
   ('1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid,
    '[Démo] Accès numérique pour tous',
-   'Exemple fictif : des bénévoles aident les habitants à utiliser les outils numériques. Six ateliers à 12 € la place financent aussi des places solidaires ; un don libre soutient le projet.',
+   'Exemple fictif : des bénévoles aident les habitants à utiliser les outils numériques. Un atelier à 12 € la place finance aussi des places solidaires ; un don libre soutient le projet.',
    'Rendre le numérique accessible aux habitants du quartier, notamment aux personnes qui n’ont pas d’aide à proximité.'),
   ('1c18f154-1fa1-435b-995e-7ffef93b0904'::uuid,
    '[Démo] Mémoire vivante du quartier',
-   'Exemple fictif : des habitants recueillent les témoignages et les photos de leur quartier. Quatre balades à 18 € la place contribuent au financement ; un don libre aide à documenter les récits.',
+   'Exemple fictif : des habitants recueillent les témoignages et les photos de leur quartier. Une balade à 18 € la place contribue au financement ; un don libre aide à documenter les récits.',
    'Créer une archive locale ouverte à tous pour conserver et partager les histoires du quartier.')
 ) AS x(creation_request, titre, description, objectif)
 WHERE p.creation_request = x.creation_request;
@@ -78,14 +78,29 @@ WHERE p.auteur_id = u.id AND u.email = 'belconnect-demo-projects@example.invalid
     '1c18f154-1fa1-435b-995e-7ffef93b0904'::uuid
   ) AND p.image_url IS NULL;
 
-INSERT INTO offre_participation_projet (projet_id, description, prix_centimes, capacite)
-SELECT p.id, 'Une place pour un atelier numérique en petit groupe, au bénéfice du projet.', 1200, 16
+INSERT INTO offre_participation_projet (projet_id, description, prix_centimes, capacite, debut_action, lieu_action)
+SELECT p.id, 'Une place pour un atelier numérique en petit groupe, au bénéfice du projet.', 1200, 16,
+       now() + interval '14 days', 'Maison de quartier, Bruxelles'
 FROM projet p
 WHERE p.creation_request = '1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid
 ON CONFLICT (projet_id) DO NOTHING;
 
-INSERT INTO offre_participation_projet (projet_id, description, prix_centimes, capacite)
-SELECT p.id, 'Une place pour une balade guidée qui soutient la collecte des récits du quartier.', 1800, 24
+INSERT INTO offre_participation_projet (projet_id, description, prix_centimes, capacite, debut_action, lieu_action)
+SELECT p.id, 'Une place pour une balade guidée qui soutient la collecte des récits du quartier.', 1800, 24,
+       now() + interval '21 days', 'Grand-Place, Bruxelles'
 FROM projet p
 WHERE p.creation_request = '1c18f154-1fa1-435b-995e-7ffef93b0904'::uuid
 ON CONFLICT (projet_id) DO NOTHING;
+
+-- Complete only untouched demonstration offers created before these details existed.
+UPDATE offre_participation_projet o SET
+  debut_action = now() + CASE WHEN p.creation_request='1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid
+    THEN interval '14 days' ELSE interval '21 days' END,
+  lieu_action = CASE WHEN p.creation_request='1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid
+    THEN 'Maison de quartier, Bruxelles' ELSE 'Grand-Place, Bruxelles' END
+FROM projet p JOIN utilisateur u ON u.id=p.auteur_id
+WHERE o.projet_id=p.id AND u.email='belconnect-demo-projects@example.invalid'
+  AND p.creation_request IN ('1c18f154-1fa1-435b-995e-7ffef93b0902'::uuid,
+    '1c18f154-1fa1-435b-995e-7ffef93b0904'::uuid)
+  AND o.debut_action IS NULL AND o.lieu_action IS NULL
+  AND NOT EXISTS (SELECT 1 FROM inscription_payante_projet i WHERE i.projet_id=p.id);

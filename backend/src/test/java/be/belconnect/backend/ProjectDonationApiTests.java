@@ -238,6 +238,60 @@ class ProjectDonationApiTests {
       assertEquals(0,json.readTree(participant.get("/api/project-paid-participations/offer/"+project).body()).get("placesLeft").asInt());
     } finally { cleanup(); }
   }
+  @Test void aPendingStripeProjectPaymentKeepsTheLastPlaceAfterTheLocalDeadline() throws Exception {
+    try {
+      var participant=actor(); setupData();
+      jdbc.update("INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite) VALUES (?,'Une séance de quartier à confirmer',2000,1)",project);
+      long booking=jdbc.queryForObject("""
+        INSERT INTO inscription_payante_projet(projet_id,participant_id,demande,prix_centimes,commission_centimes,
+          compte_stripe,session_stripe,expiration)
+        VALUES (?,?,?,2000,160,'acct_testExample123','cs_test_lateproject123',now()-interval '1 minute') RETURNING id
+        """,Long.class,project,users.getFirst(),UUID.randomUUID());
+      assertEquals(0,json.readTree(participant.get("/api/project-paid-participations/offer/"+project).body()).get("placesLeft").asInt(),
+        "Une place ne doit pas être revendue tant que Stripe n'a pas confirmé l'expiration ou l'échec.");
+      String paid=event("checkout.session.completed",2000,"paid")
+        .replace("cs_test_donation123","cs_test_lateproject123")
+        .replace("\"client_reference_id\":\""+donation+"\"","\"client_reference_id\":\"project-participation-"+booking+"\"");
+      assertEquals(204,webhook(paid,true).statusCode());
+      assertEquals("PAYE",jdbc.queryForObject("SELECT statut FROM inscription_payante_projet WHERE id=?",String.class,booking));
+      assertEquals(0,json.readTree(participant.get("/api/project-paid-participations/offer/"+project).body()).get("placesLeft").asInt());
+    } finally { cleanup(); }
+  }
+  @Test void aPublicProjectLinkedToAGroupKeepsItsPaidOfferPublic() throws Exception {
+    long group=0;
+    try {
+      actor(); setupData();
+      group=jdbc.queryForObject("INSERT INTO groupe(espace_id,nom) VALUES (?,'Groupe pilote') RETURNING id",Long.class,space);
+      jdbc.update("UPDATE projet SET groupe_id=? WHERE id=?",group,project);
+      jdbc.update("INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite) VALUES (?,'Une séance du projet ouverte au public',2000,2)",project);
+      var visitor=new Actor();
+      assertEquals(200,visitor.get("/api/projects/"+project).statusCode());
+      assertEquals(200,visitor.get("/api/project-paid-participations/offer/"+project).statusCode());
+      jdbc.update("UPDATE projet SET visibilite='GROUPE' WHERE id=?",project);
+      assertEquals(404,visitor.get("/api/projects/"+project).statusCode());
+      assertEquals(404,visitor.get("/api/project-paid-participations/offer/"+project).statusCode());
+    } finally {
+      if(group>0) jdbc.update("UPDATE projet SET visibilite='PUBLIQUE',groupe_id=NULL WHERE id=?",project);
+      if(group>0) jdbc.update("DELETE FROM groupe WHERE id=?",group);
+      cleanup();
+    }
+  }
+  @Test void aPaymentConfirmedAfterTheOfferClosesRemainsQueuedForFullRefund() throws Exception {
+    try {
+      actor(); setupData();
+      jdbc.update("INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite,active) VALUES (?,'Séance annulée mais payée',2000,1,false)",project);
+      long booking=jdbc.queryForObject("""
+        INSERT INTO inscription_payante_projet(projet_id,participant_id,demande,prix_centimes,commission_centimes,
+          compte_stripe,session_stripe,statut)
+        VALUES (?,?,?,2000,160,'acct_testExample123','cs_test_cancelledproject123','EN_ATTENTE') RETURNING id
+        """,Long.class,project,users.getFirst(),UUID.randomUUID());
+      String paid=event("checkout.session.completed",2000,"paid")
+        .replace("cs_test_donation123","cs_test_cancelledproject123")
+        .replace("\"client_reference_id\":\""+donation+"\"","\"client_reference_id\":\"project-participation-"+booking+"\"");
+      assertEquals(204,webhook(paid,true).statusCode());
+      assertEquals("REMBOURSEMENT_EN_COURS",jdbc.queryForObject("SELECT statut FROM inscription_payante_projet WHERE id=?",String.class,booking));
+    } finally { cleanup(); }
+  }
   String event(String type,long amount,String paymentStatus) {
     return """
       {"id":"evt_test_donation","object":"event","created":%d,"livemode":false,"type":"%s",

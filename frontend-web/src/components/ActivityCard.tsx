@@ -2,12 +2,8 @@ import type { Activity } from "../data/activities";
 import { Icon } from "./Icon";
 export function ActivityCard({
   activity,
-  saved,
-  onSave,
 }: {
   activity: Activity;
-  saved: boolean;
-  onSave: () => void;
 }) {
   return (
     <article className="activity-card">
@@ -16,7 +12,7 @@ export function ActivityCard({
           href={`/activites/${activity.id}`}
           aria-label={`Découvrir : ${activity.title}`}
         >
-          <img src={`/images/${activity.image}.jpg`} alt="" loading="lazy" />
+          <img src={`/images/${activity.image}.jpg`} alt="" loading="lazy" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/visuel-indisponible.svg'; }} />
         </a>
         {(activity.details.remaining === 0 ||
           activity.price === 0 ||
@@ -29,14 +25,6 @@ export function ActivityCard({
                 : activity.badge}
           </span>
         )}
-        <button
-          className={`save-button ${saved ? "saved" : ""}`}
-          aria-label={`${saved ? "Retirer des" : "Ajouter aux"} favoris : ${activity.title}`}
-          aria-pressed={saved}
-          onClick={onSave}
-        >
-          <Icon name="heart" />
-        </button>
       </div>
       <div className="card-content">
         <span className="card-date">{activity.date}</span>

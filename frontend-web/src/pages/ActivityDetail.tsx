@@ -8,14 +8,10 @@ import "./ActivityDetail.css";
 
 export function ActivityDetail({
   activity,
-  saved,
-  onSave,
   onRegister,
   card,
 }: {
   activity: Activity | undefined;
-  saved: boolean;
-  onSave: () => void;
   onRegister: (quantity: number) => void;
   card: (activity: Activity) => ReactNode;
 }) {
@@ -108,14 +104,6 @@ export function ActivityDetail({
             <Icon name="arrow" />
             Partager
           </button>
-          <button
-            aria-pressed={saved}
-            onClick={onSave}
-            className={saved ? "is-saved" : ""}
-          >
-            <Icon name="heart" />
-            {saved ? "Enregistrée" : "Sauvegarder"}
-          </button>
         </div>
       </div>
       <p className="share-feedback" role="status">
@@ -124,7 +112,7 @@ export function ActivityDetail({
       <div className="detail-layout">
         <div className="detail-content">
           <div className="detail-hero">
-            <img src={`/images/${activity.image}.jpg`} alt={activity.title} />
+            <img src={`/images/${activity.image}.jpg`} alt={activity.title} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/visuel-indisponible.svg'; }} />
             <span>
               {category.label} · {activity.city}
             </span>

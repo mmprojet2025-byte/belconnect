@@ -126,7 +126,6 @@ function App() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
   const [period, setPeriod] = useState("");
-  const [saved, setSaved] = useState<string[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -158,20 +157,7 @@ function App() {
     setCity("");
     setPeriod("");
   };
-  const card = (activity: Activity) => (
-    <ActivityCard
-      key={activity.id}
-      activity={activity}
-      saved={saved.includes(activity.id)}
-      onSave={() =>
-        setSaved((current) =>
-          current.includes(activity.id)
-            ? current.filter((id) => id !== activity.id)
-            : [...current, activity.id],
-        )
-      }
-    />
-  );
+  const card = (activity: Activity) => <ActivityCard key={activity.id} activity={activity} />;
 
   return (
     <div
@@ -351,15 +337,6 @@ function App() {
           <ActivityDetail
             key={pathname}
             activity={selectedActivity}
-            saved={!!selectedActivity && saved.includes(selectedActivity.id)}
-            onSave={() => {
-              if (selectedActivity)
-                setSaved((current) =>
-                  current.includes(selectedActivity.id)
-                    ? current.filter((id) => id !== selectedActivity.id)
-                    : [...current, selectedActivity.id],
-                );
-            }}
             onRegister={(quantity) => {
               if (selectedActivity)
                 navigate(

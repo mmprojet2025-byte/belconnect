@@ -35,7 +35,7 @@ describe("Pages indépendantes du catalogue", () => {
   it.each([
     ["/connexion", "Heureux de vous retrouver"],
     ["/reinitialiser-mot-de-passe", "Mot de passe oublié ?"],
-    ["/projets", "Les projets près de vous"],
+    ["/projets", "Découvrez les projets"],
     ["/informations-legales", "Confidentialité et règles de Belconnect"],
     ["/adresse-inconnue", "Cette page n’existe pas ou a été déplacée"],
     ["/projets/2/extra", "Cette page n’existe pas ou a été déplacée"],

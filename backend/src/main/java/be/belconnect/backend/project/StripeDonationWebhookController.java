@@ -7,7 +7,6 @@ import com.stripe.net.Webhook;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,13 +17,15 @@ import tools.jackson.databind.ObjectMapper;
 public class StripeDonationWebhookController {
   private static final Set<String> EVENTS=Set.of("checkout.session.completed",
     "checkout.session.async_payment_succeeded","checkout.session.async_payment_failed","checkout.session.expired");
-  private final JdbcTemplate jdbc;
   private final ObjectMapper json;
   private final String webhookSecret;
   private final PaidActivitySettlement activitySettlement;
-  public StripeDonationWebhookController(JdbcTemplate jdbc,ObjectMapper json,
-      @Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret,PaidActivitySettlement activitySettlement) {
-    this.jdbc=jdbc; this.json=json; this.webhookSecret=webhookSecret; this.activitySettlement=activitySettlement;
+  private final ProjectPaymentSettlement projectSettlement;
+  public StripeDonationWebhookController(ObjectMapper json,
+      @Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret,PaidActivitySettlement activitySettlement,
+      ProjectPaymentSettlement projectSettlement) {
+    this.json=json; this.webhookSecret=webhookSecret; this.activitySettlement=activitySettlement;
+    this.projectSettlement=projectSettlement;
   }
   @PostMapping("/api/stripe/webhook") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
   public void receive(@RequestBody String payload,@RequestHeader(value="Stripe-Signature",required=false) String signature) {
@@ -53,27 +54,8 @@ public class StripeDonationWebhookController {
     long id;
     try { id=Long.parseLong(text(object,"client_reference_id")); }
     catch(Exception ex) { return; }
-    var rows=jdbc.queryForList("SELECT id,montant_centimes,devise,session_stripe,statut FROM don_projet WHERE id=? FOR UPDATE",id);
-    if(rows.isEmpty()) return;
-    var donation=rows.getFirst();
-    String sessionId=text(object,"id");
-    if(!sessionId.startsWith("cs_test_")) return;
-    if(donation.get("session_stripe")!=null && !sessionId.equals(donation.get("session_stripe"))) return;
-    if(((Number)donation.get("montant_centimes")).longValue()!=number(object,"amount_total")
-        || !donation.get("devise").equals(text(object,"currency"))) return;
-    String current=(String)donation.get("statut");
-    if("PAYE".equals(current) || "REMBOURSE".equals(current)) return;
-    String type=event.getType();
-    if(("checkout.session.completed".equals(type) || "checkout.session.async_payment_succeeded".equals(type))
-        && "paid".equals(text(object,"payment_status")) && text(object,"payment_intent").startsWith("pi_")) {
-      jdbc.update("""
-        UPDATE don_projet SET session_stripe=?,paiement_stripe=?,statut='PAYE',date_paiement=now()
-        WHERE id=? AND statut<>'PAYE'
-        """,sessionId,text(object,"payment_intent"),id);
-    } else if("checkout.session.async_payment_failed".equals(type) || "checkout.session.expired".equals(type)) {
-      jdbc.update("UPDATE don_projet SET session_stripe=?,statut=? WHERE id=? AND statut='EN_ATTENTE'",
-        sessionId,"checkout.session.expired".equals(type)?"EXPIRE":"ECHOUE",id);
-    }
+    projectSettlement.donation(id,text(object,"id"),number(object,"amount_total"),text(object,"currency"),
+      text(object,"payment_status"),text(object,"payment_intent"),event.getType());
   }
   private void paidActivity(String reference,JsonNode object,String type) {
     long id;
@@ -86,22 +68,8 @@ public class StripeDonationWebhookController {
     long id;
     try { id=Long.parseLong(reference.substring("project-participation-".length())); }
     catch(NumberFormatException ex) { return; }
-    var rows=jdbc.queryForList("SELECT id,prix_centimes,session_stripe,statut FROM inscription_payante_projet WHERE id=? FOR UPDATE",id);
-    if(rows.isEmpty()) return;
-    var booking=rows.getFirst();
-    String session=text(object,"id");
-    if(!session.startsWith("cs_test_") || booking.get("session_stripe")!=null && !session.equals(booking.get("session_stripe"))) return;
-    if(((Number)booking.get("prix_centimes")).longValue()!=number(object,"amount_total") || !"eur".equals(text(object,"currency"))) return;
-    String status=(String)booking.get("statut");
-    if(!"EN_ATTENTE".equals(status)) return;
-    if(("checkout.session.completed".equals(type) || "checkout.session.async_payment_succeeded".equals(type))
-        && "paid".equals(text(object,"payment_status")) && text(object,"payment_intent").startsWith("pi_")) {
-      jdbc.update("UPDATE inscription_payante_projet SET session_stripe=?,paiement_stripe=?,statut='PAYE',date_paiement=now() WHERE id=? AND statut='EN_ATTENTE'",
-        session,text(object,"payment_intent"),id);
-    } else if("checkout.session.expired".equals(type) || "checkout.session.async_payment_failed".equals(type)) {
-      jdbc.update("UPDATE inscription_payante_projet SET session_stripe=?,statut=? WHERE id=? AND statut='EN_ATTENTE'",
-        session,"checkout.session.expired".equals(type)?"EXPIRE":"ECHOUE",id);
-    }
+    projectSettlement.paidParticipation(id,text(object,"id"),number(object,"amount_total"),text(object,"currency"),
+      text(object,"payment_status"),text(object,"payment_intent"),type);
   }
   private static String text(JsonNode node,String key) {
     JsonNode value=node==null?null:node.get(key);
