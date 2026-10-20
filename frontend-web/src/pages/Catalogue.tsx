@@ -353,8 +353,7 @@ export function Catalogue({
         >
           <div className="results-toolbar">
             <h2 role="status">
-              {matches.length} activité{matches.length > 1 ? "s" : ""} trouvée
-              {matches.length > 1 ? "s" : ""}
+              {matches.length} {matches.length > 1 ? "activités trouvées" : "activité trouvée"}
             </h2>
             <label>
               Trier par
