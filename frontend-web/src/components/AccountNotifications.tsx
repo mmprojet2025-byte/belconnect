@@ -30,9 +30,9 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     catch { setError('Impossible de marquer cette nouvelle comme lue. Réessayez.'); }
     finally { setBusyId(null); }
   }
-  if (!notices.length && !spaceNotices.length && !error) return null;
-  return <section className="account-notifications" aria-label={tr(locale, 'Mes nouvelles', 'My updates', 'Mijn meldingen')}>
-    <h2>{tr(locale, 'Mes nouvelles', 'My updates', 'Mijn meldingen')}</h2>
+  return <section className="account-notifications" id="notifications" aria-label={tr(locale, 'Notifications', 'Notifications', 'Meldingen')}>
+    <h2>{tr(locale, 'Notifications', 'Notifications', 'Meldingen')}{notices.length + spaceNotices.length > 0 && <span className="account-notification-count">{notices.length + spaceNotices.length}</span>}</h2>
+    {!notices.length && !spaceNotices.length && !error && <p className="account-notice account-notice-empty">{tr(locale, 'Aucune nouvelle notification. Les demandes d’espace et leurs décisions apparaîtront ici.', 'No new notifications. Space requests and decisions will appear here.', 'Geen nieuwe meldingen. Aanvragen voor een ruimte en beslissingen verschijnen hier.')}</p>}
     {error && <p role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Réessayer</button></p>}
     {notices.slice(0, 5).map(notice => <div className="account-notice" key={notice.id}>
       <p><strong>{tr(locale, 'Activité annulée :', 'Activity cancelled:', 'Activiteit geannuleerd:')}</strong> {notice.title}</p>

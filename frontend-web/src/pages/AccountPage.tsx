@@ -30,7 +30,7 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
     return () => controller.abort();
   }, [user.id]);
   useEffect(() => {
-    requestAnimationFrame(() => document.querySelector('.account-heading')?.scrollIntoView?.());
+    requestAnimationFrame(() => document.querySelector(hash === 'notifications' ? '#notifications' : '.account-heading')?.scrollIntoView?.());
   }, [hash]);
   function openSection(next: string) {
     setMenuOpen(false);
@@ -74,6 +74,7 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
             <div className="account-side-divider" />
             <button className="account-menu-toggle" aria-expanded={menuOpen} aria-controls="account-side-nav" onClick={() => setMenuOpen(open => !open)}>{menuOpen ? 'Fermer le menu' : 'Menu de mon espace'}</button>
             <nav id="account-side-nav" className="account-side-nav" data-open={menuOpen} aria-label="Navigation de mon espace">
+              {isOwner !== null && <a href="#notifications" aria-current={hash === 'notifications' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('notifications'); }}>Notifications</a>}
               {isOwner === null ? <span role="status">Chargement du menu…</span> : isOwner ? <><a href="#suivi-belconnect" aria-current={section === 'workspace' && hash !== 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('suivi-belconnect'); }}>Suivi de Belconnect</a><a href="#demandes" aria-current={hash === 'demandes' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}>Demandes d’ouverture</a></> : <>
                 <a href="#mes-inscriptions" aria-current={section === 'personal' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}><Icon name="ticket" /> Mes participations</a>
                 <a href="#espaces" aria-current={hash === 'espaces' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /> Mes espaces et groupes</a>
