@@ -3,6 +3,7 @@ import { SpaceAdministrators } from './SpaceAdministrators';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
+import { tr, useLocale } from '../lib/locale';
 
 type SpaceContent = { name: string; type: string; description: string };
 type Space = SpaceContent & { id: number; version: number };
@@ -16,14 +17,16 @@ const message = (e: unknown) => e instanceof Error ? e.message : 'Impossible de 
 const load = (path: string, signal?: AbortSignal) => fetch(`/api/workspace${path}`, { credentials: 'same-origin', cache: 'no-store', signal }).then(result);
 
 function SpaceFields({ value, onChange }: { value: SpaceContent; onChange: (value: SpaceContent) => void }) {
+  const locale = useLocale();
   return <>
-    <label>Nom de l’espace<input required minLength={3} maxLength={180} value={value.name} onChange={e => onChange({ ...value, name: e.target.value })} /></label>
-    <label>Type d’organisateur<select value={value.type} onChange={e => onChange({ ...value, type: e.target.value })}>{Object.entries(spaceTypes).map(([key, text]) => <option value={key} key={key}>{text}</option>)}</select></label>
-    <label>Présentation<textarea rows={4} maxLength={3000} value={value.description} onChange={e => onChange({ ...value, description: e.target.value })} /></label>
+    <label>{tr(locale, 'Nom de l’espace', 'Space name', 'Naam van de ruimte')}<input required minLength={3} maxLength={180} value={value.name} onChange={e => onChange({ ...value, name: e.target.value })} /></label>
+    <label>{tr(locale, 'Type d’organisateur', 'Organiser type', 'Type organisator')}<select value={value.type} onChange={e => onChange({ ...value, type: e.target.value })}>{Object.entries(spaceTypes).map(([key, text]) => <option value={key} key={key}>{key === 'ASSOCIATION' ? tr(locale, 'Association', 'Association', 'Vereniging') : key === 'PARTICULIER' ? tr(locale, 'Particulier', 'Individual', 'Particulier') : tr(locale, text, 'Organiser', 'Organisator')}</option>)}</select></label>
+    <label>{tr(locale, 'Présentation', 'Description', 'Beschrijving')}<textarea rows={4} maxLength={3000} value={value.description} onChange={e => onChange({ ...value, description: e.target.value })} /></label>
   </>;
 }
 
 function OpeningForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const locale = useLocale();
   const [content, setContent] = useState<SpaceContent>({ name: '', type: 'ORGANISATEUR', description: '' });
   const [requestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
@@ -34,8 +37,9 @@ function OpeningForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   return <form className="draft-editor" onSubmit={submit}>
-    <h3>Demander un espace organisateur</h3>
-    <p>Présentez votre organisation. Après approbation par le propriétaire de Belconnect, vous pourrez administrer cet espace et créer vos groupes.</p>
+    <h3>{tr(locale, 'Demander un espace organisateur', 'Request an organiser space', 'Een organisatieruimte aanvragen')}</h3>
+    <p>{tr(locale, 'Présentez votre organisation. Le propriétaire de Belconnect examine la demande. Si elle est approuvée, vous devenez administrateur de cet espace et pouvez créer vos groupes.', 'Describe your organisation. Belconnect’s owner reviews the request. If approved, you become this space’s administrator and can create groups.', 'Beschrijf uw organisatie. De eigenaar van Belconnect beoordeelt de aanvraag. Na goedkeuring wordt u beheerder van deze ruimte en kunt u groepen aanmaken.')}</p>
+    <p className="workspace-description">{tr(locale, 'Cette approbation ne vérifie pas votre identité professionnelle et n’autorise pas encore les encaissements. Avant tout paiement réel, l’identité de l’organisateur et son compte Stripe devront être vérifiés séparément.', 'Approval does not verify your business identity or authorise payments. Before any live payment, the organiser’s identity and Stripe account must be checked separately.', 'Goedkeuring verifieert uw professionele identiteit niet en staat betalingen nog niet toe. Vóór echte betalingen moeten de identiteit van de organisator en diens Stripe-account afzonderlijk worden gecontroleerd.')}</p>
     <fieldset disabled={busy}><SpaceFields value={content} onChange={setContent} /><div className="management-actions"><button className="button coral">{busy ? 'Envoi…' : 'Envoyer la demande'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Fermer cette demande et abandonner les saisies non envoyées ?')) onCancel(); }}>Annuler</button></div></fieldset>
     {error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}
   </form>;
@@ -52,7 +56,7 @@ function RequestDecision({ request, onDone }: { request: Opening; onDone: () => 
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   if (!decision) return <div className="management-actions"><button className="button coral" onClick={() => setDecision('APPROUVEE')}>Approuver l’ouverture</button><button className="button outline" onClick={() => setDecision('REFUSEE')}>Refuser</button></div>;
-  return <form className="draft-editor" onSubmit={submit}><p>{decision === 'APPROUVEE' ? `L’espace sera créé et ${request.applicant} en deviendra administrateur.` : 'Le demandeur pourra consulter votre motif de refus.'}</p><fieldset disabled={busy}>
+  return <form className="draft-editor" onSubmit={submit}><p>{decision === 'APPROUVEE' ? `L’espace sera créé et ${request.applicant} en deviendra administrateur. Cette décision n’autorise pas les paiements réels : ils nécessitent une vérification distincte.` : 'Le demandeur pourra consulter votre motif de refus.'}</p><fieldset disabled={busy}>
     {decision === 'REFUSEE' && <label>Motif du refus<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label>}
     <div className="management-actions"><button className="button coral">{busy ? 'Traitement…' : decision === 'APPROUVEE' ? 'Confirmer l’ouverture' : 'Confirmer le refus'}</button><button type="button" className="button outline" onClick={() => { setDecision(null); setReason(''); setError(''); }}>Annuler</button></div>
   </fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
@@ -77,7 +81,7 @@ export function SpaceRequests({ owner, onChanged }: { owner: boolean; onChanged:
   const refresh = () => { setAttempt(n => n + 1); onChanged(); };
   return <section aria-labelledby="space-requests-title">
     <div className="account-section-heading"><h2 id="space-requests-title">{owner ? 'Demandes d’ouverture d’espace' : 'Ouvrir un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser les demandes</button></div>
-    <p className="workspace-description">{owner ? 'Examinez les demandes. L’approbation désigne le demandeur comme administrateur du nouvel espace.' : 'Un espace rassemble vos groupes et vos projets. Son ouverture est approuvée par le propriétaire de Belconnect.'}</p>
+    <p className="workspace-description">{owner ? 'Examinez les demandes. L’approbation désigne le demandeur comme administrateur du nouvel espace, sans autoriser les paiements réels.' : 'Un espace rassemble vos groupes et vos projets. Son ouverture est approuvée par le propriétaire de Belconnect. Les paiements réels demandent une vérification séparée.'}</p>
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
     {!loaded && !error && <p role="status">Chargement des demandes…</p>}

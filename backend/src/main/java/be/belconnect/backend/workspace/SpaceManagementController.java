@@ -84,6 +84,13 @@ public class SpaceManagementController {
         var result=request(id);
         if(!result.name().equals(c.name()) || !result.type().equals(c.type()) || !result.description().equals(c.description()))
             throw error(HttpStatus.CONFLICT,"Cette demande a déjà été envoyée avec un autre contenu. Actualisez vos demandes.");
+        if(!ids.isEmpty()) jdbc.update("""
+            INSERT INTO notification_demande_espace(utilisateur_id,demande_id,evenement)
+            SELECT r.utilisateur_id,?,'DEMANDE_RECUE' FROM role_plateforme r
+            JOIN utilisateur u ON u.id=r.utilisateur_id AND u.statut='ACTIF'
+            WHERE r.role='PROPRIETAIRE' AND r.utilisateur_id<>?
+            ON CONFLICT DO NOTHING
+            """,id,user);
         return result;
     }
     @GetMapping("/opening-requests") @Transactional
@@ -118,6 +125,10 @@ public class SpaceManagementController {
         }
         jdbc.update("UPDATE demande_espace SET statut=?,espace_id=?,examinateur_id=?,motif=?,date_decision=now(),version=version+1 WHERE id=?",
             body.status(),space,user,body.reason(),id);
+        jdbc.update("""
+            INSERT INTO notification_demande_espace(utilisateur_id,demande_id,evenement)
+            VALUES (?,?,?) ON CONFLICT DO NOTHING
+            """,row.get("demandeur_id"),id,body.status().equals("APPROUVEE")?"DEMANDE_APPROUVEE":"DEMANDE_REFUSEE");
         return request(id);
     }
     private Space space(long id) {

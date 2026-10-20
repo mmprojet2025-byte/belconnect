@@ -24,6 +24,7 @@ import type { EnrollmentDraft } from "./lib/booking";
 import { ActivityDetail } from "./pages/ActivityDetail";
 import { Catalogue } from "./pages/Catalogue";
 import { catalogueUrl, navigate, useLocation } from "./lib/navigation";
+import { setLocale, tr, useLocale } from './lib/locale';
 
 type Preview = {
   title: string;
@@ -32,6 +33,7 @@ type Preview = {
   activity?: Activity;
 };
 function App() {
+  const locale = useLocale();
   const catalog = useCatalog();
   const activities = catalog.activities;
   const location = useLocation();
@@ -209,21 +211,22 @@ function App() {
               aria-current={isCatalogue ? "page" : undefined}
               href="/activites"
             >
-              Activités
+              {tr(locale, 'Activités', 'Activities', 'Activiteiten')}
             </a>
-            <a href="/projets">Projets</a>
-            <a href="/groupes" onClick={() => setMenuOpen(false)}>Groupes</a>
+            <a href="/projets">{tr(locale, 'Projets', 'Projects', 'Projecten')}</a>
+            <a href="/groupes" onClick={() => setMenuOpen(false)}>{tr(locale, 'Groupes', 'Groups', 'Groepen')}</a>
           </nav>
           <div className="header-actions">
             <button
               className="button outline organize"
               onClick={() => navigate('/mon-espace#espaces')}
             >
-              Organiser une activité
+              {tr(locale, 'Organiser une activité', 'Organise an activity', 'Organiseer een activiteit')}
             </button>
             <a className="login" href={user ? "/mon-espace" : "/connexion"}>
-              {user ? "Mon espace" : "Connexion"}
+              {user ? tr(locale, 'Mon espace', 'My space', 'Mijn ruimte') : tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}
             </a>
+            <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">FR</option><option value="en">EN</option><option value="nl">NL</option></select></label>
           </div>
           <button
             className="menu-button"
@@ -242,18 +245,19 @@ function App() {
             aria-label="Navigation mobile"
           >
             <a href="/activites" onClick={() => setMenuOpen(false)}>
-              Activités
+              {tr(locale, 'Activités', 'Activities', 'Activiteiten')}
             </a>
             <a href="/projets" onClick={() => setMenuOpen(false)}>
-              Projets
+              {tr(locale, 'Projets', 'Projects', 'Projecten')}
             </a>
-            <a href="/groupes" onClick={() => setMenuOpen(false)}>Groupes</a>
+            <a href="/groupes" onClick={() => setMenuOpen(false)}>{tr(locale, 'Groupes', 'Groups', 'Groepen')}</a>
             <a className="login" href={user ? "/mon-espace" : "/connexion"}>
-              {user ? "Mon espace" : "Connexion"}
+              {user ? tr(locale, 'Mon espace', 'My space', 'Mijn ruimte') : tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}
             </a>
             <a href="/mon-espace#espaces" onClick={() => setMenuOpen(false)}>
-              Organiser une activité
+              {tr(locale, 'Organiser une activité', 'Organise an activity', 'Organiseer een activiteit')}
             </a>
+            <label className="locale-picker">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} <select value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">Français</option><option value="en">English</option><option value="nl">Nederlands</option></select></label>
           </nav>
         )}
       </header>

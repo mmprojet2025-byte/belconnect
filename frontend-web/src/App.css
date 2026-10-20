@@ -98,6 +98,24 @@
   margin-left: auto;
   font-size: 13px;
 }
+.locale-picker select {
+  border: 1px solid #b8c8d4;
+  border-radius: 6px;
+  padding: 7px 4px;
+  color: var(--navy);
+  background: white;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .button {
   display: inline-flex;
   align-items: center;

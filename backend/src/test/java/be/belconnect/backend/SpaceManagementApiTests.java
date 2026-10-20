@@ -71,6 +71,23 @@ class SpaceManagementApiTests {
   for(long user:users) { jdbc.update("DELETE FROM demande_espace WHERE demandeur_id=? OR examinateur_id=?",user,user); jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",user); }
   for(long user:users) jdbc.update("DELETE FROM utilisateur WHERE id=?",user);
  }
+ @Test void openingRequestNotifiesOwnerAndDecisionNotifiesApplicant() throws Exception {
+  try {
+   var applicant=actor(); var proprietor=actor(); owner(proprietor);
+   var opened=request(applicant,"Espace notification");
+   var ownerNotices=ok(proprietor.get("/api/workspace/notifications"),200);
+   assertEquals(1,ownerNotices.size());
+   assertEquals("DEMANDE_RECUE",ownerNotices.get(0).get("event").asText());
+   assertEquals(200,proprietor.post("/api/workspace/notifications/"+ownerNotices.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
+   assertEquals(0,ok(proprietor.get("/api/workspace/notifications"),200).size());
+   assertEquals(404,applicant.post("/api/workspace/notifications/"+ownerNotices.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
+   ok(proprietor.post("/api/workspace/opening-requests/"+opened.get("id").asLong()+"/decision",
+       Map.of("version",opened.get("version").asLong(),"status","REFUSEE","reason","Informations insuffisantes"),true),200);
+   var applicantNotices=ok(applicant.get("/api/workspace/notifications"),200);
+   assertEquals(1,applicantNotices.size());
+   assertEquals("DEMANDE_REFUSEE",applicantNotices.get(0).get("event").asText());
+  } finally { cleanup(); }
+ }
  @Test void subscriptionIsSpaceScopedAndOnlySignedWebhookActivatesPro() throws Exception {
   try {
    var admin=actor(); var other=actor();
