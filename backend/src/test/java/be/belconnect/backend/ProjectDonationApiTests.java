@@ -83,6 +83,21 @@ class ProjectDonationApiTests {
     if(space>0) jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
     for(long id:users) jdbc.update("DELETE FROM utilisateur WHERE id=?",id);
   }
+  @Test void publicCanReadPaidProjectOfferWithoutAccessToManagement() throws Exception {
+    try {
+      actor(); setupData();
+      jdbc.update("INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite) VALUES (?,?,?,?)",
+          project,"Une place pour une activité du projet.",1200,16);
+      var visitor=new Actor();
+      var offer=visitor.get("/api/project-paid-participations/offer/"+project);
+      assertEquals(200,offer.statusCode(),offer.body());
+      assertEquals(1200,json.readTree(offer.body()).get("priceCents").asInt());
+      var publicProject=visitor.get("/api/projects/"+project);
+      assertEquals(200,publicProject.statusCode(),publicProject.body());
+      assertEquals(1200,json.readTree(publicProject.body()).get("participationPriceCents").asInt());
+      assertEquals(401,visitor.get("/api/project-paid-participations/manage/"+project).statusCode());
+    } finally { cleanup(); }
+  }
   @Test void paidActivityNeedsSignedMatchingPaymentAndConfirmsOnlyOnce() throws Exception {
     try {
       var participant=actor(); var stranger=actor(); setupData();

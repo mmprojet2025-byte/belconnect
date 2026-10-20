@@ -26,7 +26,7 @@ public class SecurityConfig {
         return http
             .securityContext(context -> context.securityContextRepository(repository))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/groups", "/api/projects", "/api/projects/*", "/api/activities", "/api/activities/*", "/api/auth/csrf", "/actuator/health").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/groups", "/api/projects", "/api/projects/*", "/api/project-paid-participations/offer/*", "/api/activities", "/api/activities/*", "/api/auth/csrf", "/actuator/health").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/password/recovery", "/api/auth/password/reset").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/stripe/webhook", "/api/stripe/subscriptions/webhook").permitAll()
                 .requestMatchers("/error").permitAll()

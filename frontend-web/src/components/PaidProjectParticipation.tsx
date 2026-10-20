@@ -35,7 +35,7 @@ export function PaidProjectParticipation({ projectId, signedIn }: { projectId: n
   if (!offer && !error) return null;
   return <section className="project-donation" aria-labelledby="paid-project-title">
     <h2 id="paid-project-title">Participer à ce projet</h2>
-    {offer && <><p>{offer.description}</p><p><strong>{euro(offer.priceCents)}</strong> par personne · {offer.placesLeft} place{offer.placesLeft > 1 ? 's' : ''} disponible{offer.placesLeft > 1 ? 's' : ''} sur {offer.capacity}. Commission Belconnect : {offer.commissionPercent} % du prix.</p>
+    {offer && <><p>{offer.description}</p><p><strong>{euro(offer.priceCents)}</strong> par personne · {offer.placesLeft} {offer.placesLeft > 1 ? 'places disponibles' : 'place disponible'} sur {offer.capacity}. Commission Belconnect : {offer.commissionPercent} % du prix.</p>
       {returned === 'annule' && <p role="status">Le paiement a été interrompu. La participation n'est pas confirmée.</p>}
       {booking && <p role="status">Votre participation : {booking.status === 'PAYE' ? 'confirmée' : booking.status === 'REMBOURSE' ? 'remboursée' : booking.status === 'EN_ATTENTE' ? 'en attente de confirmation Stripe ; actualisez cette page' : booking.status.toLowerCase()}.</p>}
       {!offer.active ? <p>Les participations sont fermées.</p> : !offer.paymentReady ? <p>Le paiement n'est pas encore ouvert.</p> : offer.placesLeft < 1 ? <p>Toutes les places sont réservées.</p> : !signedIn ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour participer</a> : <button className="button coral" disabled={busy} onClick={join}>{busy ? 'Ouverture du paiement…' : `Participer pour ${euro(offer.priceCents)}`}</button>}</>}

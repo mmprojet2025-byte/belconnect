@@ -16,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProjectPublicationController {
  private final JdbcTemplate jdbc;
  public ProjectPublicationController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
- public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,List<String> helpTypes,OffsetDateTime publishedAt) {}
+ public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,List<String> helpTypes,Long participationPriceCents,OffsetDateTime publishedAt) {}
  public record Managed(long id,String title,String spaceName,String visibility,boolean published,long version) {}
  public record Change(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
  private Long user(Authentication auth) {
@@ -25,8 +25,9 @@ public class ProjectPublicationController {
  }
  private long requiredUser(Authentication auth) {Long id=user(auth);if(id==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);return id;}
  private static final String PUBLIC_SELECT="""
-  SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom FROM projet p
+  SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom,o.prix_centimes AS participation_prix_centimes FROM projet p
   JOIN espace_organisateur e ON e.id=p.espace_id LEFT JOIN groupe g ON g.id=p.groupe_id
+  LEFT JOIN offre_participation_projet o ON o.projet_id=p.id AND o.active
   WHERE p.publie AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
    AND (p.visibilite='PUBLIQUE' OR (p.visibilite='GROUPE' AND EXISTS (
     SELECT 1 FROM appartenance_groupe ag JOIN appartenance_espace ae
@@ -34,7 +35,7 @@ public class ProjectPublicationController {
     WHERE ag.groupe_id=p.groupe_id AND ag.espace_id=p.espace_id AND ag.utilisateur_id=?
      AND ag.statut='ACTIF' AND ae.statut='ACTIF')))
   """;
- private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getObject("date_publication",OffsetDateTime.class));
+ private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getObject("participation_prix_centimes",Long.class),r.getObject("date_publication",OffsetDateTime.class));
  @GetMapping("/api/projects") @Transactional(readOnly=true)
  public ResponseEntity<List<Published>> list(Authentication auth) {
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query(PUBLIC_SELECT+" ORDER BY p.date_publication DESC,p.id DESC",publicMapper,user(auth)));

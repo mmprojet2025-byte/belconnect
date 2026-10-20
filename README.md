@@ -35,6 +35,8 @@ npm run dev
 
 L’accueil, le catalogue et les fiches chargent les activités depuis PostgreSQL via le backend. Vite redirige `/api` vers `http://127.0.0.1:8080` (aussi en mode preview). Démarrer le backend avant d’ouvrir le frontend. Si l’API est indisponible, un message permet de réessayer ; aucun jeu de données de secours n’est embarqué.
 
+Le profil local ajoute sept activités et quatre projets fictifs marqués « [Démo] » pour essayer le catalogue. Deux projets ont une offre de participation payante visible ; les paiements et dons restent fermés tant que Stripe test et le compte Connect de l'organisateur ne sont pas configurés. Ces exemples ne sont pas chargés par le profil de production. Voir [la recette web](docs/RECETTE_WEB.md).
+
 ## Préparer Stripe Connect en mode test
 
 Le fondateur a choisi Stripe : chaque organisateur recevra le paiement de ses activités, et Belconnect prélèvera 8 % avec Starter ou 5 % avec Pro du prix total. En cas d'annulation par l'organisateur, le participant devra recevoir un remboursement intégral. Si le participant annule lui-même, aucun remboursement automatique ne sera déclenché. Le raccordement Stripe Connect d'un espace se lance dans « Mon espace → Mes espaces et projets → Paiements des activités » par son administrateur.
@@ -378,3 +380,7 @@ Les commentaires, l’édition, la modération et les e-mails restent à faire. 
 Validation : 32 tests backend réussis, compilation et lint web réussis. Publication et lecture vérifiées dans un navigateur sur données fictives ; affichage mobile à 390 px sans débordement horizontal. Aperçus : `docs/images/nouvelles-groupes-demo.png` et `docs/images/nouvelles-groupes-mobile-demo.png`. Migration V20 appliquée en local ; serveur sain.
 
 La préparation des abonnements Starter/Pro des espaces est décrite dans [docs/ABONNEMENT_ORGANISATEURS.md](docs/ABONNEMENT_ORGANISATEURS.md).
+
+### Vitrine des projets — 20 octobre 2026
+
+Le catalogue `/projets` et les fiches `/projets/{id}` présentent les projets avec photos, cartes, recherche, objectif, organisateur, dates et actions pour aider, participer ou faire un don. Le catalogue explique la différence avec les activités : un projet poursuit un objectif dans la durée, une activité est un rendez-vous à réserver. Les cartes mettent l'objectif en avant et ne classent pas les projets par prix, puisqu'une aide bénévole reste possible même lorsqu'une action est payante. Quatre exemples fictifs illustrés sont chargés uniquement en profil local sous « Belconnect Démo » ; aucun projet réel n'est publié automatiquement. Les paiements restent fermés jusqu'à la configuration de Stripe test et de Connect. Voir [la recette web](docs/RECETTE_WEB.md#projets-de-démonstration).
