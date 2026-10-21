@@ -3,6 +3,7 @@ import { ReviewHistory } from './ReviewHistory';
 import type { Review } from './ReviewHistory';
 import { postJson, result } from '../lib/auth';
 import { helpTypes } from '../lib/helpTypes';
+import { useUnsavedChanges } from '../lib/unsavedChanges';
 
 export type Draft = { id: number; spaceId: number; groupId: number | null; spaceName: string; groupName: string | null; title: string; description: string; objective: string; startsOn: string | null; endsOn: string | null; imageUrl: string | null; helpTypes: string[]; visibility: 'PUBLIQUE' | 'GROUPE'; version: number; status: string; reviews: Review[] };
 type Props = {
@@ -30,6 +31,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [closing, setClosing] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -47,12 +49,6 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
       }).catch(e => { if (!controller.signal.aborted) { setError(e instanceof Error ? e.message : 'Brouillon indisponible.'); setLoading(false); } });
     return () => controller.abort();
   }, [id, retry]);
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
   async function save(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     if (!selectedHelp.length) { setBusy(false); setError('Choisissez au moins une forme d’aide recherchée.'); return; }
@@ -85,13 +81,13 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
           <label>Qui pourra voir le projet après publication ?<select value={visibility} onChange={e => setVisibility(e.target.value as 'PUBLIQUE' | 'GROUPE')}><option value="PUBLIQUE">Tout le monde</option>{(draft?.groupId || group) && <option value="GROUPE">Uniquement les membres du groupe</option>}</select></label>
           <small>{visibility === 'GROUPE' ? 'Seuls les membres actifs du groupe pourront ouvrir la fiche et proposer leur aide.' : 'La fiche sera visible par tous une fois validée et publiée.'} Le brouillon reste privé avant publication.</small>
           <label>Titre du projet<input required minLength={5} maxLength={180} value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex. Un atelier cuisine pour se rencontrer" /></label>
-          <label>Description (facultative au stade du brouillon)<textarea rows={5} maxLength={10000} value={description} onChange={e => setDescription(e.target.value)} /></label>
+          <label>Description et déroulement (facultatifs au stade du brouillon)<textarea rows={5} maxLength={10000} value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex. Voyage de quatre jours : départ, étapes principales, hébergement et retour." /></label>
           <label>Objectif (facultatif au stade du brouillon)<textarea rows={3} maxLength={3000} value={objective} onChange={e => setObjective(e.target.value)} placeholder="Que souhaitez-vous réaliser ?" /></label>
           <label>Image de couverture (facultative)<input type="url" maxLength={2048} pattern="https://.*" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemple.be/photo.jpg" /></label>
           <small>Utilisez une image HTTPS que vous avez le droit de publier. Aucun fichier n’est importé.</small>
           {imageUrl.startsWith('https://') && <img className="draft-cover-preview" src={imageUrl} alt="Aperçu de la couverture du projet" referrerPolicy="no-referrer" />}
           <fieldset className="draft-help-types"><legend>Aides recherchées</legend><p>Choisissez au moins une forme d’aide. Les visiteurs ne pourront proposer que ces aides.</p>{Object.entries(helpTypes).map(([value, label]) => <label key={value}><input type="checkbox" checked={selectedHelp.includes(value)} onChange={e => setSelectedHelp(current => e.target.checked ? [...current, value] : current.filter(item => item !== value))} />{label}</label>)}</fieldset>
-          <div className="draft-columns"><label>Début prévu (facultatif)<input type="date" value={startsOn} onChange={e => setStartsOn(e.target.value)} /></label><label>Fin prévue (facultative)<input type="date" min={startsOn || undefined} value={endsOn} onChange={e => setEndsOn(e.target.value)} /></label></div>
+          <div className="draft-columns"><label>Premier jour du projet<input type="date" value={startsOn} onChange={e => setStartsOn(e.target.value)} /></label><label>Dernier jour du projet<input type="date" min={startsOn || undefined} value={endsOn} onChange={e => setEndsOn(e.target.value)} /></label></div><small>Précisez la période pour un voyage ou un projet sur plusieurs jours. Le rendez-vous exact et les places se règlent après l’approbation.</small>
           <button type="submit" className="button coral" disabled={busy || (!!draft && !dirty)}>{busy ? 'Enregistrement…' : draft?.status === 'A_CORRIGER' ? 'Enregistrer les corrections' : 'Enregistrer le brouillon'}</button>
         </fieldset>
         {draft && editable && <div className="draft-submission">

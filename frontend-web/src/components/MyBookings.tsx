@@ -40,7 +40,7 @@ export function MyBookings() {
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/bookings", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
-      .then(result).then(data => { if (!controller.signal.aborted) setBookings(data); })
+      .then(result).then(data => { if (!controller.signal.aborted) { setBookings(data); setError(""); } })
       .catch(cause => { if (!controller.signal.aborted) setError(cause.message || "Impossible de charger vos inscriptions."); });
     return () => controller.abort();
   }, [attempt]);
@@ -52,14 +52,14 @@ export function MyBookings() {
     `${new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" }).format(b.amountCents / 100)} payé`;
   const visible = bookings?.filter(b => filter === "all" || group(b) === filter);
   return <section className="account-bookings" id="mes-inscriptions" aria-label="Mes inscriptions">
-    <div className="account-section-heading"><h2>Mes inscriptions</h2><span>{bookings ? `${bookings.length} au total` : ""}</span></div>
+    <div className="account-section-heading"><h2>Mes inscriptions</h2><span>{bookings ? `${bookings.length} au total` : ""}</span><button className="text-link" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
     <div className="account-filters" role="group" aria-label="Filtrer les inscriptions">
       {[["all","Toutes"],["upcoming","À venir"],["past","Passées"],["cancelled","Annulées"]].map(([id,label]) => <button key={id} aria-pressed={filter === id} disabled={busyId !== null} onClick={() => {setFilter(id);setEditId(null);setConfirmId(null);setActionError("");}}>{label}<span>{bookings ? bookings.filter(b => id === "all" || group(b) === id).length : "—"}</span></button>)}
     </div>
     <p className={notice ? "account-notice" : "account-notice-empty"} ref={noticeRef} tabIndex={-1} role="status">{notice}</p>
     {actionError && <p role="alert">{actionError}</p>}
     {!notice && new URLSearchParams(window.location.search).get("inscription") === "confirmee" && <p className="account-notice" role="status">Votre inscription a bien été enregistrée.</p>}
-    {error ? <p role="alert">{error} <button className="text-link" onClick={() => {setError(""); setAttempt(v => v + 1);}}>Réessayer</button></p> : !bookings ? <p role="status">Chargement…</p> : visible?.length === 0 ? <div className="account-empty"><span><Icon name="calendar" /></span><h3>{filter === "all" ? "Votre prochaine sortie vous attend" : "Aucune inscription dans cette catégorie"}</h3><p>{filter === "all" ? "Un atelier créatif ou une balade au grand air ? Trouvez une activité qui vous ressemble." : "Vos inscriptions apparaîtront ici au fil de vos découvertes."}</p><a className="button navy" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> : visible?.map(b => <article key={b.id} className={`account-booking-card ${b.status === "ANNULEE" ? "is-cancelled" : ""}`}>
+    {error ? <p role="alert">{error} <button className="text-link" onClick={() => {setError(""); setAttempt(v => v + 1);}}>Réessayer</button></p> : !bookings ? <p role="status">Chargement…</p> : visible?.length === 0 ? <div className="account-empty"><span><Icon name="calendar" /></span><h3>{filter === "all" ? "Aucune inscription confirmée" : "Aucune inscription dans cette catégorie"}</h3><p>{filter === "all" ? "Une inscription gratuite apparaît après confirmation du formulaire ; une inscription payante après confirmation par Stripe. Un paiement de démonstration ne réserve aucune place." : "Vos inscriptions apparaîtront ici au fil de vos découvertes."}</p><a className="button navy" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> : visible?.map(b => <article key={b.id} className={`account-booking-card ${b.status === "ANNULEE" ? "is-cancelled" : ""}`}>
       <div className="account-booking-top">
       <span className="account-booking-image" aria-hidden="true">{activities.find(a => a.id === b.activityId)?.image ? <img src={`/images/${activities.find(a => a.id === b.activityId)?.image}.jpg`} alt="" /> : <Icon name="ticket" />}</span>
       <div className="account-booking-info"><div className="account-card-meta"><span className={`account-status status-${group(b)}`}>{b.activityCancelled ? "Activité annulée" : b.status === "ANNULEE" ? "Annulée" : group(b) === "past" ? "Passée" : "Confirmée"}</span><span className="account-reference">Réf. #{b.id}</span></div>

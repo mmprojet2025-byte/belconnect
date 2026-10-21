@@ -18,6 +18,7 @@ export function GroupAnnouncements({ groups }: { groups: Group[] }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const selectedGroup = writable.some(group => group.id === groupId) ? groupId : writable[0]?.id ?? 0;
+  const visible = items.filter(item => groups.some(group => group.id === item.groupId));
   useEffect(() => {
     const controller = new AbortController();
     fetch('/api/group-announcements', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
@@ -44,8 +45,8 @@ export function GroupAnnouncements({ groups }: { groups: Group[] }) {
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Réessayer</button></p>}
     {!loaded && !error && <p role="status">Chargement des nouvelles…</p>}
-    {loaded && !items.length && <p className="workspace-muted">Aucune annonce pour le moment.</p>}
-    {items.length > 0 && <div className="workspace-grid">{items.map(item => <article className="workspace-card group-announcement" key={item.id}>
+    {loaded && !visible.length && <p className="workspace-muted">Aucune annonce pour le moment.</p>}
+    {visible.length > 0 && <div className="workspace-grid">{visible.map(item => <article className="workspace-card group-announcement" key={item.id}>
       <span className="account-status">{item.groupName}</span>
       <p className="group-announcement-meta">{item.author} · {new Date(item.createdAt).toLocaleString('fr-BE', { timeZone: 'Europe/Brussels', dateStyle: 'medium', timeStyle: 'short' })}</p>
       <p className="group-announcement-content">{item.content}</p>

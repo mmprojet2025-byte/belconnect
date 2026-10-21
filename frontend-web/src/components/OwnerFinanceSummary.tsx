@@ -28,7 +28,7 @@ export function OwnerFinanceSummary() {
 
   return <section aria-labelledby="owner-finance-title">
     <div className="account-section-heading"><h2 id="owner-finance-title">Suivi de Belconnect</h2><button className="text-link" type="button" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
-    <p className="workspace-description">Données locales en mode test. Les commissions ci-dessous concernent les paiements confirmés encore marqués « payés » ; les remboursements et les frais Stripe ne sont pas inclus dans un résultat comptable.</p>
+    <p className="workspace-description">Données locales en mode test, hors espace de démonstration. Les commissions ci-dessous concernent les paiements confirmés encore marqués « payés » ; les remboursements et les frais Stripe ne sont pas inclus dans un résultat comptable.</p>
     {error && <p role="alert">{error} Les derniers chiffres chargés restent affichés.</p>}
     {!summary && !error && <p role="status">Chargement du suivi…</p>}
     {summary && <div className="owner-finance-grid">

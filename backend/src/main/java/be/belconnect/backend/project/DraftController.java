@@ -153,6 +153,16 @@ public class DraftController {
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Fermez puis rouvrez le brouillon avant de le soumettre.");
         if(((String)row.get("description")).isBlank() || ((String)row.get("objectif")).isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Complétez et enregistrez la description et l’objectif avant de soumettre le projet.");
+        boolean authorAdmin=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?
+              AND role='ADMINISTRATEUR' AND statut='ACTIF')
+            """,Boolean.class,spaceId,userId));
+        if(authorAdmin && jdbc.query("""
+            SELECT u.id FROM appartenance_espace a JOIN utilisateur u ON u.id=a.utilisateur_id
+            WHERE a.espace_id=? AND a.utilisateur_id<>? AND a.role='ADMINISTRATEUR'
+              AND a.statut='ACTIF' AND u.statut='ACTIF' FOR SHARE OF a,u
+            """,(r,n)->r.getLong(1),spaceId,userId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Désignez un autre administrateur actif avant de soumettre votre propre projet : vous ne pouvez pas l’approuver vous-même.");
         var referents=groupId==null?java.util.List.<Long>of():jdbc.query("""
             SELECT u.id FROM appartenance_groupe ag
             JOIN appartenance_espace ae ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id

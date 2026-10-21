@@ -40,6 +40,7 @@ final class PlatformOwnerWorkflowFilter extends OncePerRequestFilter {
                 || path.matches("/api/workspace/notifications/[0-9]+/read")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators/recovery")
+                || path.matches("/api/workspace/spaces/[0-9]+/administrators/[0-9]+/status")
                 || path.matches("/api/workspace/owner/moderation/.*"));
         if (owner && !ownerAction) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN,

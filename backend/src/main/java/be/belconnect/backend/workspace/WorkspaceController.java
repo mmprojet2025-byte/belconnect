@@ -52,15 +52,39 @@ public class WorkspaceController {
                  WHERE e.statut='ACTIF' AND u.email<>'belconnect-demo-projects@example.invalid'
                    AND a.formule='PRO' AND a.statut='ACTIF') AS pro_spaces,
               (SELECT count(*) FROM (
-                 SELECT id FROM reservation_payante_activite WHERE statut='PAYE'
-                 UNION ALL SELECT id FROM inscription_payante_projet WHERE statut='PAYE'
-                 UNION ALL SELECT id FROM don_projet WHERE statut='PAYE') paid) AS paid_transactions,
+                 SELECT r.id FROM reservation_payante_activite r
+                   JOIN activite a ON a.id=r.activite_id JOIN espace_organisateur e ON e.id=a.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE r.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid'
+                 UNION ALL SELECT i.id FROM inscription_payante_projet i
+                   JOIN projet p ON p.id=i.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE i.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid'
+                 UNION ALL SELECT d.id FROM don_projet d
+                   JOIN projet p ON p.id=d.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE d.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid') paid) AS paid_transactions,
               (SELECT COALESCE(sum(commission_centimes),0) FROM (
-                 SELECT commission_centimes FROM reservation_payante_activite WHERE statut='PAYE'
-                 UNION ALL SELECT commission_centimes FROM inscription_payante_projet WHERE statut='PAYE'
-                 UNION ALL SELECT commission_centimes FROM don_projet WHERE statut='PAYE') paid) AS confirmed_commission_cents,
-              ((SELECT count(*) FROM reservation_payante_activite WHERE statut='REMBOURSEMENT_EN_COURS')
-               +(SELECT count(*) FROM inscription_payante_projet WHERE statut='REMBOURSEMENT_EN_COURS')) AS pending_refunds
+                 SELECT r.commission_centimes FROM reservation_payante_activite r
+                   JOIN activite a ON a.id=r.activite_id JOIN espace_organisateur e ON e.id=a.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE r.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid'
+                 UNION ALL SELECT i.commission_centimes FROM inscription_payante_projet i
+                   JOIN projet p ON p.id=i.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE i.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid'
+                 UNION ALL SELECT d.commission_centimes FROM don_projet d
+                   JOIN projet p ON p.id=d.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE d.statut='PAYE' AND u.email<>'belconnect-demo-projects@example.invalid') paid) AS confirmed_commission_cents,
+              ((SELECT count(*) FROM reservation_payante_activite r
+                   JOIN activite a ON a.id=r.activite_id JOIN espace_organisateur e ON e.id=a.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE r.statut='REMBOURSEMENT_EN_COURS' AND u.email<>'belconnect-demo-projects@example.invalid')
+               +(SELECT count(*) FROM inscription_payante_projet i
+                   JOIN projet p ON p.id=i.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
+                   JOIN utilisateur u ON u.id=e.createur_id
+                   WHERE i.statut='REMBOURSEMENT_EN_COURS' AND u.email<>'belconnect-demo-projects@example.invalid')) AS pending_refunds
             """, (r,n) -> new OwnerFinance(r.getLong("active_spaces"), r.getLong("pro_spaces"),
                 r.getLong("paid_transactions"), r.getLong("confirmed_commission_cents"),
                 r.getLong("pending_refunds")));

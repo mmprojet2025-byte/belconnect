@@ -15,8 +15,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class SpaceAdministratorsController {
   private final JdbcTemplate jdbc;
   public SpaceAdministratorsController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
-  public record Member(long id,String name,String email,String role) {}
+  public record Member(long id,String name,String email,String role,String status) {}
   public record Change(@NotNull Long memberId,@NotBlank @Size(min=10,max=1000) String reason) {}
+  public record StatusChange(@NotBlank String status,@NotBlank @Size(min=10,max=1000) String reason) {}
   public record Recovery(@NotBlank @Email String email,@NotBlank @Size(min=10,max=1000) String reason) {}
   private ResponseStatusException error(HttpStatus status,String message) { return new ResponseStatusException(status,message); }
   private long user(Authentication auth) {
@@ -34,17 +35,41 @@ public class SpaceAdministratorsController {
   }
   private List<Member> members(long space) {
     return jdbc.query("""
-      SELECT u.id,u.prenom,u.nom,u.email,a.role FROM appartenance_espace a
+      SELECT u.id,u.prenom,u.nom,u.email,a.role,a.statut FROM appartenance_espace a
       JOIN utilisateur u ON u.id=a.utilisateur_id
-      WHERE a.espace_id=? AND a.statut='ACTIF' AND u.statut='ACTIF'
+      WHERE a.espace_id=? AND a.statut IN ('ACTIF','SUSPENDU') AND u.statut='ACTIF'
       ORDER BY CASE WHEN a.role='ADMINISTRATEUR' THEN 0 ELSE 1 END,u.nom,u.prenom,u.id
       """,(r,n)->new Member(r.getLong("id"),(r.getString("prenom")+" "+r.getString("nom")).strip(),
-        r.getString("email"),r.getString("role")),space);
+        r.getString("email"),r.getString("role"),r.getString("statut")),space);
   }
   @GetMapping @Transactional(readOnly=true)
   public List<Member> list(Authentication auth,@PathVariable long spaceId) {
     long actor=user(auth);
     if(!admin(actor,spaceId) && !owner(actor)) throw error(HttpStatus.FORBIDDEN,"Accès réservé aux administrateurs de cet espace.");
+    return members(spaceId);
+  }
+  @PostMapping("/{memberId}/status") @Transactional
+  public List<Member> changeStatus(Authentication auth,@PathVariable long spaceId,@PathVariable long memberId,
+      @Valid @RequestBody StatusChange body) {
+    long actor=user(auth);
+    if(!owner(actor)) throw error(HttpStatus.FORBIDDEN,"Action réservée au propriétaire de Belconnect.");
+    if(!body.status().equals("ACTIF") && !body.status().equals("SUSPENDU"))
+      throw error(HttpStatus.BAD_REQUEST,"Statut invalide.");
+    var spaces=jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? FOR UPDATE",spaceId);
+    if(spaces.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Espace introuvable.");
+    var target=jdbc.queryForList("""
+      SELECT role,statut FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? FOR UPDATE
+      """,spaceId,memberId);
+    if(target.isEmpty() || !"ADMINISTRATEUR".equals(target.getFirst().get("role"))
+        || !List.of("ACTIF","SUSPENDU").contains(target.getFirst().get("statut")))
+      throw error(HttpStatus.CONFLICT,"Ce compte n’est pas un administrateur actif ou suspendu de cet espace.");
+    if(owner(memberId)) throw error(HttpStatus.CONFLICT,"Le propriétaire ne peut pas administrer un espace.");
+    if(body.status().equals(target.getFirst().get("statut"))) return members(spaceId);
+    jdbc.update("UPDATE appartenance_espace SET statut=? WHERE espace_id=? AND utilisateur_id=?",body.status(),spaceId,memberId);
+    jdbc.update("""
+      INSERT INTO historique_gestion_espace(espace_id,acteur_id,cible_utilisateur_id,action,version,motif)
+      VALUES (?,?,?, ?,0,?)
+      """,spaceId,actor,memberId,body.status().equals("ACTIF")?"ADMINISTRATEUR_REACTIVE":"ADMINISTRATEUR_SUSPENDU",body.reason().strip());
     return members(spaceId);
   }
   @PostMapping @Transactional
@@ -108,6 +133,18 @@ public class SpaceAdministratorsController {
     jdbc.queryForList("SELECT id FROM espace_organisateur WHERE id=? FOR UPDATE",spaceId);
     if(!admin(actor,spaceId)) throw error(HttpStatus.FORBIDDEN,"Vous n’administrez pas cet espace.");
     if(adminCount(spaceId)<2) throw error(HttpStatus.CONFLICT,"Désignez d’abord un autre administrateur actif.");
+    if(Boolean.TRUE.equals(jdbc.queryForObject("""
+      SELECT EXISTS(SELECT 1 FROM projet p JOIN appartenance_espace a
+        ON a.espace_id=p.espace_id AND a.utilisateur_id=p.auteur_id
+        JOIN utilisateur u ON u.id=a.utilisateur_id
+        WHERE p.espace_id=? AND p.statut='SOUMIS' AND a.role='ADMINISTRATEUR'
+          AND a.statut='ACTIF' AND u.statut='ACTIF' AND a.utilisateur_id<>?
+          AND NOT EXISTS(SELECT 1 FROM appartenance_espace reviewer JOIN utilisateur ru
+            ON ru.id=reviewer.utilisateur_id WHERE reviewer.espace_id=p.espace_id
+            AND reviewer.utilisateur_id<>p.auteur_id AND reviewer.utilisateur_id<>?
+            AND reviewer.role='ADMINISTRATEUR' AND reviewer.statut='ACTIF' AND ru.statut='ACTIF'))
+      """,Boolean.class,spaceId,actor,actor)))
+      throw error(HttpStatus.CONFLICT,"Un projet soumis par l’autre administrateur attend une décision. Désignez un remplaçant avant de quitter ce rôle.");
     jdbc.update("UPDATE appartenance_espace SET role='MEMBRE' WHERE espace_id=? AND utilisateur_id=?",spaceId,actor);
     jdbc.update("INSERT INTO historique_gestion_espace(espace_id,acteur_id,cible_utilisateur_id,action,version) VALUES (?,?,?,'ADMINISTRATEUR_PARTI',0)",spaceId,actor,actor);
     return members(spaceId);

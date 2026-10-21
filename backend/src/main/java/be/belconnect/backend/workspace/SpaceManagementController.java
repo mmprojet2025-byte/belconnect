@@ -37,7 +37,7 @@ public class SpaceManagementController {
     public record GroupUpdate(@NotNull @Min(0) Long version,@NotNull @Valid GroupContent content) {}
     public record Space(long id,String name,String type,String description,long version) {}
     public record Group(long id,long spaceId,String name,String description,String coverUrl,boolean openMembership,
-                        String visibility,String status,long version) {}
+                        String visibility,String status,long version,UUID invitationCode) {}
     public record Management(Space space,List<Group> groups) {}
     public record Request(long id,String name,String type,String description,String status,long version,
                           Long spaceId,String reason,String applicant,OffsetDateTime createdAt) {}
@@ -138,7 +138,7 @@ public class SpaceManagementController {
     private List<Group> groups(long space) {
         return jdbc.query("SELECT * FROM groupe WHERE espace_id=? ORDER BY nom,id",(r,n)->new Group(r.getLong("id"),r.getLong("espace_id"),
             r.getString("nom"),Objects.requireNonNullElse(r.getString("description"),""),r.getString("couverture_url"),r.getBoolean("adhesion_ouverte"),
-            r.getString("visibilite"),r.getString("statut"),r.getLong("version")),space);
+            r.getString("visibilite"),r.getString("statut"),r.getLong("version"),r.getObject("invitation_code",UUID.class)),space);
     }
     private Group group(long space,long id) {
         return groups(space).stream().filter(g->g.id()==id).findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Groupe introuvable dans cet espace."));

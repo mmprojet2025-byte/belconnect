@@ -34,11 +34,11 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     <h2>{tr(locale, 'Notifications', 'Notifications', 'Meldingen')}{notices.length + spaceNotices.length > 0 && <span className="account-notification-count">{notices.length + spaceNotices.length}</span>}</h2>
     {!notices.length && !spaceNotices.length && !error && <p className="account-notice account-notice-empty">{tr(locale, 'Aucune nouvelle notification. Les demandes d’espace et leurs décisions apparaîtront ici.', 'No new notifications. Space requests and decisions will appear here.', 'Geen nieuwe meldingen. Aanvragen voor een ruimte en beslissingen verschijnen hier.')}</p>}
     {error && <p role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Réessayer</button></p>}
-    {notices.slice(0, 5).map(notice => <div className="account-notice" key={notice.id}>
+    {notices.map(notice => <div className="account-notice" key={notice.id}>
       <p><strong>{tr(locale, 'Activité annulée :', 'Activity cancelled:', 'Activiteit geannuleerd:')}</strong> {notice.title}</p>
       <div className="management-actions"><a className="text-link" href="#mes-inscriptions" onClick={onOpenBookings}>{tr(locale, 'Voir mon inscription', 'View my booking', 'Mijn inschrijving bekijken')}</a><button className="text-link" disabled={busyId !== null} onClick={() => acknowledge(notice.id)}>{busyId === notice.id ? tr(locale, 'Enregistrement…', 'Saving…', 'Opslaan…') : tr(locale, 'J’ai compris', 'Mark as read', 'Markeren als gelezen')}</button></div>
     </div>)}
-    {spaceNotices.slice(0, 5).map(notice => <div className="account-notice" key={`space-${notice.id}`}>
+    {spaceNotices.map(notice => <div className="account-notice" key={`space-${notice.id}`}>
       <p><strong>{notice.event === 'DEMANDE_RECUE' ? tr(locale, 'Nouvelle demande d’espace', 'New space request', 'Nieuwe aanvraag voor een ruimte') : notice.event === 'DEMANDE_APPROUVEE' ? tr(locale, 'Espace approuvé', 'Space approved', 'Ruimte goedgekeurd') : tr(locale, 'Demande d’espace refusée', 'Space request declined', 'Aanvraag voor ruimte geweigerd')} :</strong> {notice.name}</p>
       <div className="management-actions"><a className="text-link" href="#demandes" onClick={onOpenRequests}>{tr(locale, 'Voir la demande', 'View request', 'Aanvraag bekijken')}</a><button className="text-link" disabled={busyId !== null} onClick={() => acknowledge(notice.id, true)}>{busyId === notice.id ? tr(locale, 'Enregistrement…', 'Saving…', 'Opslaan…') : tr(locale, 'J’ai compris', 'Mark as read', 'Markeren als gelezen')}</button></div>
     </div>)}

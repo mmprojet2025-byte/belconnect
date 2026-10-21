@@ -38,11 +38,12 @@ public class PaidProjectParticipationController {
   }
   public record Offer(long projectId,String description,long priceCents,int capacity,int placesLeft,boolean active,boolean paymentReady,int commissionPercent,
       OffsetDateTime startsAt,String venue) {}
-  public record OfferInput(@NotBlank @Size(min=10,max=500) String description,@Min(100) @Max(10000000) long priceCents,
+  public record OfferInput(@NotBlank @Size(min=10,max=500) String description,@Min(0) @Max(10000000) long priceCents,
       @Min(1) @Max(100000) int capacity,@NotNull LocalDateTime startsAt,@NotBlank @Size(min=5,max=240) String venue) {}
   public record Request(@NotNull UUID requestId,@NotNull Long projectId) {}
   public record Checkout(long id,String url,String status) {}
   public record Enrollment(long id,long projectId,String projectTitle,long priceCents,String status,OffsetDateTime createdAt) {}
+  public record FreeEnrollment(long id,long projectId,String projectTitle,String status,OffsetDateTime createdAt) {}
   private record Pending(long id,long projectId,String title,long price,long fee,String account,String session,String status) {}
   private ResponseStatusException fail(HttpStatus status,String message) { return new ResponseStatusException(status,message); }
   private long user(Authentication auth) {
@@ -55,19 +56,22 @@ public class PaidProjectParticipationController {
     if(idempotency!=null) b.setIdempotencyKey(idempotency);
     return b.build();
   }
-  private void admin(long uid,long projectId) {
+  private void admin(long uid,long projectId,boolean settlement) {
     if(jdbc.queryForList("""
       SELECT p.id FROM projet p JOIN appartenance_espace ae ON ae.espace_id=p.espace_id
       JOIN espace_organisateur e ON e.id=p.espace_id
-      WHERE p.id=? AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF' AND e.statut='ACTIF'
-      """,projectId,uid).isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Projet introuvable dans vos espaces administrés.");
+      WHERE p.id=? AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF'
+        AND (e.statut='ACTIF' OR (? AND e.statut='SUSPENDU'))
+      """,projectId,uid,settlement).isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Projet introuvable dans vos espaces administrés.");
   }
+  private void admin(long uid,long projectId) { admin(uid,projectId,false); }
   private Offer offer(long id, boolean onlyPublished, Long uid) {
     var rows=jdbc.queryForList("""
       SELECT p.id,p.publie,p.masque_moderation,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
       o.description,o.prix_centimes,o.capacite,o.active,o.debut_action,o.lieu_action,
-      (SELECT count(*) FROM inscription_payante_projet i WHERE i.projet_id=p.id AND
-        i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE')) AS reservees
+      ((SELECT count(*) FROM inscription_payante_projet i WHERE i.projet_id=p.id AND
+        i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE'))
+       +(SELECT count(*) FROM inscription_gratuite_projet f WHERE f.projet_id=p.id AND f.statut='CONFIRMEE')) AS reservees
       FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id
       JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE p.id=?
@@ -92,7 +96,8 @@ public class PaidProjectParticipationController {
       : rawStart instanceof java.sql.Timestamp timestamp?timestamp.toInstant().atOffset(java.time.ZoneOffset.UTC):null;
     return new Offer(id,(String)r.get("description"),((Number)r.get("prix_centimes")).longValue(),
       ((Number)r.get("capacite")).intValue(),Math.max(0,left),Boolean.TRUE.equals(r.get("active")),
-      r.get("stripe_account_id")!=null && key.startsWith("sk_test_") && webhook.startsWith("whsec_")
+      (((Number)r.get("prix_centimes")).longValue()==0 ||
+        (r.get("stripe_account_id")!=null && key.startsWith("sk_test_") && webhook.startsWith("whsec_")))
         && startsAt!=null && startsAt.isAfter(OffsetDateTime.now()) && r.get("lieu_action")!=null,
       commissions.percent(((Number)r.get("espace_id")).longValue()),startsAt,(String)r.get("lieu_action"));
   }
@@ -103,14 +108,15 @@ public class PaidProjectParticipationController {
   }
   @GetMapping("/manage/{projectId}")
   public Offer managedOffer(Authentication auth,@PathVariable long projectId) {
-    admin(user(auth),projectId);
+    admin(user(auth),projectId,true);
     return offer(projectId,false,null);
   }
   @PutMapping("/manage/{projectId}")
   public Offer saveOffer(Authentication auth,@PathVariable long projectId,@Valid @RequestBody OfferInput body) {
     long uid=user(auth);
     OffsetDateTime startsAt=body.startsAt().atZone(ZoneId.of("Europe/Brussels")).toOffsetDateTime();
-    if(!startsAt.isAfter(OffsetDateTime.now())) throw fail(HttpStatus.BAD_REQUEST,"La séance doit se tenir à une date future.");
+    if(!startsAt.isAfter(OffsetDateTime.now())) throw fail(HttpStatus.BAD_REQUEST,"Le départ ou la première rencontre doit être à une date future.");
+    if(body.priceCents()>0 && body.priceCents()<100) throw fail(HttpStatus.BAD_REQUEST,"Le prix doit être gratuit ou d’au moins 1 €.");
     return tx.execute(s->{
       admin(uid,projectId);
       jdbc.queryForList("SELECT id FROM projet WHERE id=? FOR UPDATE",projectId);
@@ -119,6 +125,8 @@ public class PaidProjectParticipationController {
         SELECT id FROM inscription_payante_projet WHERE projet_id=? AND
         statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE') LIMIT 1
         """,projectId).isEmpty()) throw fail(HttpStatus.CONFLICT,"Des places sont réservées ou payées. L'offre ne peut plus être modifiée.");
+      if(!existing.isEmpty() && Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM inscription_gratuite_projet WHERE projet_id=? AND statut='CONFIRMEE')",Boolean.class,projectId)))
+        throw fail(HttpStatus.CONFLICT,"Des personnes sont inscrites. L’offre ne peut plus être modifiée.");
       jdbc.update("""
         INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite,debut_action,lieu_action)
         VALUES (?,?,?,?,?,?) ON CONFLICT(projet_id) DO UPDATE SET description=excluded.description,
@@ -133,7 +141,8 @@ public class PaidProjectParticipationController {
     var locked=jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",body.projectId());
     if(locked.isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Offre indisponible.");
     Offer offer=offer(body.projectId(),true,uid);
-    if(!offer.active() || !offer.paymentReady()) throw fail(HttpStatus.CONFLICT,"Cette participation n'est pas encore ouverte ou sa séance est passée.");
+    if(offer.priceCents()==0) throw fail(HttpStatus.CONFLICT,"Cette inscription est gratuite.");
+    if(!offer.active() || !offer.paymentReady()) throw fail(HttpStatus.CONFLICT,"Les inscriptions ne sont pas encore ouvertes ou le projet a commencé.");
     var existing=jdbc.queryForList("SELECT id,projet_id,prix_centimes,commission_centimes,compte_stripe,session_stripe,statut FROM inscription_payante_projet WHERE participant_id=? AND demande=?",uid,body.requestId());
     if(!existing.isEmpty()) {
       var r=existing.getFirst();
@@ -142,6 +151,8 @@ public class PaidProjectParticipationController {
         ((Number)r.get("commission_centimes")).longValue(),(String)r.get("compte_stripe"),(String)r.get("session_stripe"),(String)r.get("statut"));
     }
     if(offer.placesLeft()<1) throw fail(HttpStatus.CONFLICT,"Toutes les places sont réservées.");
+    if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM inscription_gratuite_projet WHERE projet_id=? AND participant_id=? AND statut='CONFIRMEE')",Boolean.class,body.projectId(),uid)))
+      throw fail(HttpStatus.CONFLICT,"Vous êtes déjà inscrit à ce projet.");
     var project=jdbc.queryForMap("SELECT p.titre,p.espace_id,e.stripe_account_id FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",body.projectId());
     String account=(String)project.get("stripe_account_id");
     if(account==null) throw fail(HttpStatus.CONFLICT,"Le paiement de l'organisateur n'est pas encore prêt.");
@@ -151,6 +162,63 @@ public class PaidProjectParticipationController {
       VALUES (?,?,?,?,?,?,now()+interval '35 minutes') RETURNING id
       """,Long.class,body.projectId(),uid,body.requestId(),offer.priceCents(),fee,account);
     return new Pending(id,body.projectId(),(String)project.get("titre"),offer.priceCents(),fee,account,null,"EN_ATTENTE");
+  }
+  private FreeEnrollment freeEnrollment(long id,long uid) {
+    return jdbc.query("""
+      SELECT f.id,f.projet_id,p.titre,f.statut,f.date_creation
+      FROM inscription_gratuite_projet f JOIN projet p ON p.id=f.projet_id
+      WHERE f.id=? AND f.participant_id=?
+      """,(r,n)->new FreeEnrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class)),id,uid)
+      .stream().findFirst().orElseThrow(()->fail(HttpStatus.NOT_FOUND,"Inscription introuvable."));
+  }
+  @PostMapping("/free/{projectId}")
+  public FreeEnrollment joinFree(Authentication auth,@PathVariable long projectId) {
+    long uid=user(auth);
+    return tx.execute(s->{
+      if(jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",projectId).isEmpty())
+        throw fail(HttpStatus.NOT_FOUND,"Inscriptions indisponibles.");
+      Offer available=offer(projectId,true,uid);
+      if(available.priceCents()!=0) throw fail(HttpStatus.CONFLICT,"Cette inscription nécessite un paiement.");
+      if(!available.active() || !available.paymentReady()) throw fail(HttpStatus.CONFLICT,"Les inscriptions à ce projet sont fermées.");
+      var prior=jdbc.queryForList("SELECT id,statut FROM inscription_gratuite_projet WHERE projet_id=? AND participant_id=? FOR UPDATE",projectId,uid);
+      if(!prior.isEmpty() && "CONFIRMEE".equals(prior.getFirst().get("statut")))
+        return freeEnrollment(((Number)prior.getFirst().get("id")).longValue(),uid);
+      if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM inscription_payante_projet WHERE projet_id=? AND participant_id=? AND statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS'))",Boolean.class,projectId,uid)))
+        throw fail(HttpStatus.CONFLICT,"Vous avez déjà une participation à ce projet.");
+      if(available.placesLeft()<1) throw fail(HttpStatus.CONFLICT,"Toutes les places sont réservées.");
+      long id;
+      if(prior.isEmpty()) id=jdbc.queryForObject("INSERT INTO inscription_gratuite_projet(projet_id,participant_id) VALUES (?,?) RETURNING id",Long.class,projectId,uid);
+      else {
+        id=((Number)prior.getFirst().get("id")).longValue();
+        jdbc.update("UPDATE inscription_gratuite_projet SET statut='CONFIRMEE',date_annulation=NULL WHERE id=?",id);
+      }
+      return freeEnrollment(id,uid);
+    });
+  }
+  @GetMapping("/free")
+  public ResponseEntity<List<FreeEnrollment>> mineFree(Authentication auth) {
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query("""
+      SELECT f.id,f.projet_id,p.titre,f.statut,f.date_creation
+      FROM inscription_gratuite_projet f JOIN projet p ON p.id=f.projet_id
+      WHERE f.participant_id=? ORDER BY f.date_creation DESC
+      """,(r,n)->new FreeEnrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class)),user(auth)));
+  }
+  @PostMapping("/free/{id}/cancel")
+  public FreeEnrollment cancelFree(Authentication auth,@PathVariable long id) {
+    long uid=user(auth);
+    return tx.execute(s->{
+      var rows=jdbc.queryForList("SELECT projet_id FROM inscription_gratuite_projet WHERE id=? AND participant_id=?",id,uid);
+      if(rows.isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Inscription introuvable.");
+      long projectId=((Number)rows.getFirst().get("projet_id")).longValue();
+      jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",projectId);
+      OffsetDateTime startsAt=jdbc.queryForObject("SELECT debut_action FROM offre_participation_projet WHERE projet_id=?",
+        (r,n)->r.getObject(1,OffsetDateTime.class),projectId);
+      var enrollment=freeEnrollment(id,uid);
+      if("ANNULEE".equals(enrollment.status())) return enrollment;
+      if(startsAt!=null && !startsAt.isAfter(OffsetDateTime.now())) throw fail(HttpStatus.CONFLICT,"Le projet a déjà commencé.");
+      jdbc.update("UPDATE inscription_gratuite_projet SET statut='ANNULEE',date_annulation=now() WHERE id=?",id);
+      return freeEnrollment(id,uid);
+    });
   }
   @PostMapping @ResponseStatus(HttpStatus.CREATED)
   public Checkout checkout(Authentication auth,@Valid @RequestBody Request body) {
@@ -209,10 +277,11 @@ public class PaidProjectParticipationController {
   @PostMapping("/manage/{projectId}/cancel")
   public Offer cancel(Authentication auth,@PathVariable long projectId) {
     long uid=user(auth);
-    admin(uid,projectId);
+    admin(uid,projectId,true);
     tx.executeWithoutResult(s->{
       jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? FOR UPDATE",projectId);
       jdbc.update("UPDATE offre_participation_projet SET active=false,date_modification=now() WHERE projet_id=?",projectId);
+      jdbc.update("UPDATE inscription_gratuite_projet SET statut='ANNULEE',date_annulation=now() WHERE projet_id=? AND statut='CONFIRMEE'",projectId);
     });
     cancellation.process(projectId);
     return offer(projectId,false,null);

@@ -17,7 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProjectReviewController {
     private final JdbcTemplate jdbc;
     public ProjectReviewController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
-    public record Project(long id,String title,String description,String objective,String spaceName,String groupName,
+    public record Project(long id,String title,String description,String objective,long spaceId,String spaceName,String groupName,
                           String reviewStage,OffsetDateTime submittedAt,LocalDate startsOn,LocalDate endsOn,long version,boolean canReview,boolean canDecide,String status,List<DraftController.Review> reviews) {}
     private long user(Authentication auth) {
         return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",(r,n)->r.getLong(1),auth.getName())
@@ -49,7 +49,7 @@ public class ProjectReviewController {
         WHERE p.statut IN ('SOUMIS','APPROUVE','REFUSE')
         """;
     private final org.springframework.jdbc.core.RowMapper<Project> mapper=(r,n)->new Project(r.getLong("id"),r.getString("titre"),
-        r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),
+        r.getString("description"),r.getString("objectif"),r.getLong("espace_id"),r.getString("espace_nom"),r.getString("groupe_nom"),
         r.getString("etape_validation"),r.getObject("date_soumission",OffsetDateTime.class),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getLong("version"),r.getBoolean("can_review"),r.getBoolean("can_decide"),r.getString("statut"),reviews(r.getLong("id")));
     private List<DraftController.Review> reviews(long id) {
         return jdbc.query("""

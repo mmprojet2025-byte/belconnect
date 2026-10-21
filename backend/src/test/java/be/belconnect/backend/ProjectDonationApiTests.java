@@ -73,6 +73,7 @@ class ProjectDonationApiTests {
       activity=0;
     }
     if(project>0) {
+      jdbc.update("DELETE FROM inscription_gratuite_projet WHERE projet_id=?",project);
       jdbc.update("DELETE FROM inscription_payante_projet WHERE projet_id=?",project);
       jdbc.update("DELETE FROM offre_participation_projet WHERE projet_id=?",project);
     }
@@ -82,6 +83,27 @@ class ProjectDonationApiTests {
     if(space>0) jdbc.update("DELETE FROM abonnement_espace WHERE espace_id=?",space);
     if(space>0) jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
     for(long id:users) jdbc.update("DELETE FROM utilisateur WHERE id=?",id);
+  }
+  @Test void freeLongProjectEnrollmentRespectsCapacityAndAppearsInAccount() throws Exception {
+    try {
+      actor(); setupData(); var first=actor(); var second=actor(); var third=actor();
+      jdbc.update("""
+        INSERT INTO offre_participation_projet(projet_id,description,prix_centimes,capacite,debut_action,lieu_action)
+        VALUES (?, 'Voyage collectif sur plusieurs jours', 0, 2, now()+interval '10 days', 'Gare de Bruxelles-Central')
+        """,project);
+      var offer=json.readTree(first.get("/api/project-paid-participations/offer/"+project).body());
+      assertEquals(0,offer.get("priceCents").asInt()); assertTrue(offer.get("paymentReady").asBoolean());
+      String path="/api/project-paid-participations/free/"+project;
+      var joined=first.post(path,Map.of(),true); assertEquals(200,joined.statusCode(),joined.body());
+      long enrollment=json.readTree(joined.body()).get("id").asLong();
+      assertEquals(enrollment,json.readTree(first.post(path,Map.of(),true).body()).get("id").asLong());
+      assertEquals(1,json.readTree(first.get("/api/project-paid-participations/free").body()).size());
+      assertEquals(200,second.post(path,Map.of(),true).statusCode());
+      assertEquals(409,third.post(path,Map.of(),true).statusCode());
+      assertEquals(0,json.readTree(first.get("/api/project-paid-participations/offer/"+project).body()).get("placesLeft").asInt());
+      assertEquals(200,first.post("/api/project-paid-participations/free/"+enrollment+"/cancel",Map.of(),true).statusCode());
+      assertEquals(200,third.post(path,Map.of(),true).statusCode());
+    } finally { cleanup(); }
   }
   @Test void publicCanReadPaidProjectOfferWithoutAccessToManagement() throws Exception {
     try {

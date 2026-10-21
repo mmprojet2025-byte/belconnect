@@ -42,15 +42,15 @@ export function StripeConnectSetup({ spaces }: { spaces: Space[] }) {
   }, []);
 
   return <section aria-labelledby="stripe-connect-title">
-    <div className="account-section-heading"><h2 id="stripe-connect-title">Paiements des activités</h2></div>
-    <p className="workspace-description">Chaque espace organisateur recevra directement les paiements de ses activités. Belconnect prélèvera 8 % avec Starter ou 5 % avec Pro.</p>
+    <div className="account-section-heading"><h2 id="stripe-connect-title">Encaissements de l’espace</h2></div>
+    <p className="workspace-description">Le compte Stripe de l’espace sert aux activités payantes, aux participations payantes aux projets et aux dons. Belconnect prélève 8 % avec Starter ou 5 % avec Pro sur les transactions concernées.</p>
     {error && <p className="draft-error" role="alert">{error}</p>}
     <div className="workspace-grid">{spaces.map(space => {
       const status = statuses[space.id];
       const ready = status?.chargesEnabled && status?.payoutsEnabled;
       return <article className="workspace-card" key={space.id}>
         <h3>{space.name}</h3>
-        <p>{!status ? 'Vérification du compte Stripe…' : !status.configured ? 'La connexion Stripe en mode test sera bientôt disponible.' : ready ? 'Compte Stripe prêt pour les essais de paiement.' : status.connected ? 'Configuration du compte Stripe à terminer.' : 'Reliez votre compte pour préparer les activités payantes.'}</p>
+        <p>{!status ? 'Vérification du compte Stripe…' : !status.configured ? 'La connexion Stripe en mode test sera bientôt disponible.' : ready ? 'Compte Stripe prêt pour les essais de paiement.' : status.connected ? 'Configuration du compte Stripe à terminer.' : 'Reliez votre compte pour préparer les encaissements.'}</p>
         {status?.configured && !ready && <button type="button" className="button outline workspace-resume" disabled={busy !== null} onClick={() => start(space.id)}>{busy === space.id ? 'Ouverture de Stripe…' : status.connected ? 'Continuer sur Stripe' : 'Connecter Stripe'}</button>}
       </article>;
     })}</div>

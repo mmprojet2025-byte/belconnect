@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
 import { categories } from '../data/activities';
+import { useUnsavedChanges } from '../lib/unsavedChanges';
 
 type Space = { id: number; name: string; role: string };
 type Group = { id: number; spaceId: number; name: string };
@@ -20,6 +21,8 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
   const [requestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const patch = (change: Partial<Content>) => setContent(c => ({ ...c, ...change }));
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError('');
@@ -29,7 +32,7 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
       onSaved();
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
-  return <form className="draft-editor activity-editor" onSubmit={submit}>
+  return <form className="draft-editor activity-editor" onSubmit={submit} onChange={() => setDirty(true)}>
     <p className="eyebrow teal">PRÉPARER UNE RENCONTRE</p><h3>{activity ? 'Modifier le brouillon' : 'Créer une activité'}</h3>
     <p>Le brouillon est partagé avec l’administrateur et les référents autorisés du groupe. Il ne sera visible par les participants qu’après publication.</p>
     <fieldset disabled={busy}>
@@ -57,14 +60,14 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
   </form>;
 }
 
-export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups: Group[] }) {
+export function ManagedActivities({ spaces, groups, startCreating = false, onCreationFinished, settlementOnly = false }: { spaces: Space[]; groups: Group[]; startCreating?: boolean; onCreationFinished?: () => void; settlementOnly?: boolean }) {
   const [now] = useState(() => Date.now());
   const [activities, setActivities] = useState<Managed[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [editing, setEditing] = useState<Managed | 'new' | null>(null);
+  const [editing, setEditing] = useState<Managed | 'new' | null>(startCreating ? 'new' : null);
   const [confirm, setConfirm] = useState<Managed | null>(null);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,14 +97,13 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
       refresh(); window.dispatchEvent(new Event('catalog-refresh'));
     } catch (e) { setError(errorText(e)); refresh(); } finally { setBusy(false); }
   }
-  const filtered = activities.filter(a => filter === 'ALL' || (filter === 'PUBLISHED' && a.published) || (filter === 'DRAFT' && !a.published && !a.cancelled));
+  const filtered = activities.filter(a => spaces.some(space => space.id === a.spaceId) && (filter === 'ALL' || (filter === 'PUBLISHED' && a.published) || (filter === 'DRAFT' && !a.published && !a.cancelled)));
   return <section aria-labelledby="managed-activities-title">
     <div className="account-section-heading"><h2 id="managed-activities-title">Mes activités</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser les activités</button></div>
-    <p className="workspace-description">Préparez une activité, publiez-la et retrouvez vos inscrits ici.</p>
+    <p className="workspace-description">{settlementOnly ? 'L’espace est suspendu. Consultez les inscriptions et traitez les annulations ou remboursements nécessaires. Aucune nouvelle activité ne peut être créée ou publiée.' : 'Préparez une activité, publiez-la et retrouvez vos inscrits ici.'}</p>
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
-    {!editing && <button className="button coral workspace-create" disabled={busy || confirm !== null} onClick={() => { setNotice(''); setEditing('new'); }}>Créer une activité</button>}
-    {editing && <ActivityEditor key={editing === 'new' ? 'new' : editing.id} activity={editing === 'new' ? null : editing} spaces={spaces} groups={groups} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Brouillon enregistré. Il n’est pas encore publié.'); refresh(); }} />}
+    {editing && !settlementOnly && <ActivityEditor key={editing === 'new' ? 'new' : editing.id} activity={editing === 'new' ? null : editing} spaces={spaces} groups={groups} onClose={() => { setEditing(null); if (editing === 'new') onCreationFinished?.(); }} onSaved={() => { setEditing(null); if (editing === 'new') onCreationFinished?.(); setNotice('Brouillon enregistré. Il n’est pas encore publié.'); refresh(); }} />}
     <div className="account-filters" aria-label="Filtrer les activités organisées">{[['ALL', 'Toutes'], ['DRAFT', 'Brouillons'], ['PUBLISHED', 'Publiées']].map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>
     {!loaded && !error && <p role="status">Chargement des activités…</p>}
     {loaded && !filtered.length && <p className="account-empty">Aucune activité dans cette catégorie.</p>}
@@ -111,7 +113,10 @@ export function ManagedActivities({ spaces, groups }: { spaces: Space[]; groups:
       <span className="account-status">{a.cancelled ? 'Annulée' : a.published ? 'Publiée' : 'Brouillon'}</span><h3>{a.content.title}</h3><p>{a.spaceName}{a.groupName ? ` · ${a.groupName}` : ' · Sans groupe'}</p>
       <p>{displayDate(a.content.startsAt)} (Bruxelles) · {a.content.city}</p><p>{a.content.capacity} places · {a.content.price === 0 ? 'Gratuit' : `${a.content.price} €`} · {a.content.visibility === 'PUBLIQUE' ? 'Publique' : 'Privée'}</p><p>Clôture : {displayDate(a.content.closesAt)}</p>
       <button className="button outline workspace-resume" disabled={registrationsId === a.id} onClick={() => setRegistrationsId(a.id)}>Voir les inscriptions</button>
-      {a.cancelled ? <div className="account-notice"><p>{a.content.price > 0 && a.pendingCancellation > 0 ? 'Activité fermée. Des paiements ou remboursements restent à vérifier.' : 'Activité annulée. Les inscriptions sont conservées dans l’historique.'}</p>{a.content.price > 0 && a.pendingCancellation > 0 && <button className="text-link" disabled={busy} onClick={() => cancelActivity(a)}>Revérifier les remboursements</button>}</div> : a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
+      {a.cancelled ? <div className="account-notice"><p>{a.content.price > 0 && a.pendingCancellation > 0 ? 'Activité fermée. Des paiements ou remboursements restent à vérifier.' : 'Activité annulée. Les inscriptions sont conservées dans l’historique.'}</p>{a.content.price > 0 && a.pendingCancellation > 0 && <button className="text-link" disabled={busy} onClick={() => cancelActivity(a)}>Revérifier les remboursements</button>}</div> : settlementOnly ? <>
+        {a.published && new Date(a.content.startsAt).getTime() > now ? <button className="button outline" disabled={busy || cancelId !== null} onClick={() => setCancelId(a.id)}>Annuler et traiter les inscriptions</button> : <p className="management-hint">{a.published ? 'L’activité a déjà commencé : contactez l’assistance pour le traitement de ses paiements.' : 'Brouillon conservé jusqu’à la réactivation de l’espace.'}</p>}
+        {cancelId === a.id && <div className="group-role-confirm"><p>Annuler « {a.content.title} » ? Les inscriptions seront fermées et les paiements seront remboursés intégralement.</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={() => cancelActivity(a)}>{busy ? 'Annulation…' : 'Confirmer l’annulation'}</button><button className="button outline" disabled={busy} onClick={() => setCancelId(null)}>Conserver l’activité</button></div></div>}
+      </> : a.groupId !== null && !groups.some(g => g.id === a.groupId) ? <p className="account-notice">Groupe inactif : activité masquée et gestion bloquée jusqu’à réactivation du groupe.</p> : <>
         {a.published && <a className="text-link" href={`/activites/${a.slug}`}>Voir la fiche de l’activité</a>}
         <p className="management-hint">{a.bookings} inscription{a.bookings === 1 ? '' : 's'} confirmée{a.bookings === 1 ? '' : 's'}. {a.published ? 'Pour modifier, retirez d’abord la publication. Le retrait est bloqué si des inscriptions sont confirmées.' : 'Enregistrez vos modifications avant de publier.'}</p>
         {confirm?.id === a.id ? <div className="group-role-confirm"><p>{a.published ? 'Retirer cette activité du catalogue ? Elle redeviendra un brouillon.' : `Publier « ${a.content.title} » et ouvrir ses inscriptions ${a.content.visibility === 'PRIVEE' ? 'aux membres autorisés' : 'aux comptes Belconnect'} ?`}</p><div className="management-actions"><button className="button coral" disabled={busy} onClick={publish}>{busy ? 'Traitement…' : 'Confirmer'}</button><button className="button outline" disabled={busy} onClick={() => setConfirm(null)}>Annuler</button></div></div> : <div className="management-actions">

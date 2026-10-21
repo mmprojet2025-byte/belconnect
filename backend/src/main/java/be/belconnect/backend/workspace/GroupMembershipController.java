@@ -18,7 +18,8 @@ public class GroupMembershipController {
     public GroupMembershipController(JdbcTemplate jdbc,GroupPermissions permissions) { this.jdbc=jdbc; this.permissions=permissions; }
     public record Group(long id,String name,String description,String coverUrl,String spaceName,
                         boolean openMembership,String visibility,String membershipStatus) {}
-    public record Request(long id,long groupId,String groupName,String spaceName,String applicant,
+    public record Invitation(long id,String name,String description,String spaceName,boolean openMembership,String membershipStatus) {}
+    public record Request(long id,long groupId,long spaceId,String groupName,String spaceName,String applicant,
                           String status,String membershipStatus,String reason,long version,boolean available) {}
     public record Decision(@NotNull @Min(0) Long version,
                            @NotNull @Pattern(regexp="ACCEPTEE|REFUSEE") String status,
@@ -63,7 +64,7 @@ public class GroupMembershipController {
               (g.statut='ACTIF' AND e.statut='ACTIF') AS disponible
             FROM demande_adhesion_groupe d JOIN groupe g ON g.id=d.groupe_id
             JOIN espace_organisateur e ON e.id=d.espace_id JOIN utilisateur u ON u.id=d.utilisateur_id
-            """+where+" ORDER BY d.date_creation DESC,d.id DESC",(r,n)->new Request(r.getLong("id"),r.getLong("groupe_id"),
+            """+where+" ORDER BY d.date_creation DESC,d.id DESC",(r,n)->new Request(r.getLong("id"),r.getLong("groupe_id"),r.getLong("espace_id"),
                 r.getString("groupe_nom"),r.getString("espace_nom"),r.getString("prenom")+" "+r.getString("demandeur_nom"),
                 r.getString("statut"),membership(r.getLong("utilisateur_id"),r.getLong("espace_id"),r.getLong("groupe_id")),
                 r.getString("motif"),r.getLong("version"),r.getBoolean("disponible")),args);
@@ -112,12 +113,30 @@ public class GroupMembershipController {
     private void audit(long actor,long space,long group,String action,long version) {
         jdbc.update("INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,action,version) VALUES (?,?,?,?,?)",space,group,actor,action,version);
     }
+    @GetMapping("/groups/invitations/{code}") @Transactional
+    public Invitation invitation(Authentication auth,@PathVariable UUID code) {
+        long actor=auth==null?0:user(auth);
+        return jdbc.query("""
+            SELECT g.id,g.nom,g.description,g.espace_id,g.adhesion_ouverte,e.nom AS espace_nom
+            FROM groupe g JOIN espace_organisateur e ON e.id=g.espace_id
+            WHERE g.invitation_code=? AND g.statut='ACTIF' AND e.statut='ACTIF'
+            """,(r,n)->new Invitation(r.getLong("id"),r.getString("nom"),Objects.requireNonNullElse(r.getString("description"),""),
+                r.getString("espace_nom"),r.getBoolean("adhesion_ouverte"),actor==0?"AUCUNE":state(actor,r.getLong("espace_id"),r.getLong("id"))),code)
+            .stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Invitation indisponible."));
+    }
+    @PostMapping("/groups/invitations/{code}/join") @Transactional
+    public Request joinWithInvitation(Authentication auth,@PathVariable UUID code) {
+        var ids=jdbc.query("SELECT id FROM groupe WHERE invitation_code=?",(r,n)->r.getLong(1),code);
+        if(ids.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Invitation indisponible.");
+        return join(user(auth),ids.getFirst(),true);
+    }
     @PostMapping("/groups/{id}/join") @Transactional
-    public Request join(Authentication auth,@PathVariable long id) {
-        long user=user(auth), space=lockSpaceForGroup(id);
+    public Request join(Authentication auth,@PathVariable long id) { return join(user(auth),id,false); }
+    private Request join(long user,long id,boolean invited) {
+        long space=lockSpaceForGroup(id);
         var g=jdbc.queryForMap("SELECT * FROM groupe WHERE id=? FOR SHARE",id);
         boolean member=Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=? AND statut='ACTIF')",Boolean.class,user,space));
-        if(!"ACTIF".equals(g.get("statut")) || (!"PUBLIQUE".equals(g.get("visibilite")) && !member))
+        if(!"ACTIF".equals(g.get("statut")) || (!"PUBLIQUE".equals(g.get("visibilite")) && !member && !invited))
             throw error(HttpStatus.NOT_FOUND,"Ce groupe n’est pas accessible.");
         activeMemberships(user,space,id);
         var prior=jdbc.query("SELECT id FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getLong(1),user,id);

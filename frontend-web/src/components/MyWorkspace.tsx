@@ -15,6 +15,8 @@ import { DraftEditor } from './DraftEditor';
 import { Icon } from './Icon';
 import { OwnerFinanceSummary } from './OwnerFinanceSummary';
 import { OwnerModeration } from './OwnerModeration';
+import { navigate } from '../lib/navigation';
+import { confirmLeavingEditor } from '../lib/unsavedChanges';
 
 type Space = { id: number; name: string; role: string };
 type Overview = {
@@ -28,7 +30,7 @@ type Overview = {
 };
 const statuses: Record<string, string> = { BROUILLON: 'Brouillon privé', SOUMIS: 'Soumis', A_CORRIGER: 'À corriger', APPROUVE: 'Approuvé', REFUSE: 'Refusé' };
 
-export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces' | 'projects' | 'requests' | 'owner'; onOwnerChange?: (owner: boolean) => void }) {
+export function MyWorkspace({ view = 'spaces', selectedSpaceId, createActivity = false, onOwnerChange, onActivityAccessChange }: { view?: 'spaces' | 'management' | 'projects' | 'requests' | 'owner' | 'owner-spaces'; selectedSpaceId?: number | null; createActivity?: boolean; onOwnerChange?: (owner: boolean) => void; onActivityAccessChange?: (allowed: boolean) => void }) {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -36,49 +38,79 @@ export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces
   const [openedSubmission, setOpenedSubmission] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [membersGroup, setMembersGroup] = useState<number | null>(null);
-  const [managedSpace, setManagedSpace] = useState<number | null>(null);
   const [filter, setFilter] = useState('ALL');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [managementTab, setManagementTab] = useState<'activities' | 'projects' | 'community' | 'payments' | 'settings'>(createActivity ? 'activities' : 'community');
+  const [communityTab, setCommunityTab] = useState<'groups' | 'memberships' | 'announcements'>('groups');
   useEffect(() => {
     const controller = new AbortController();
     const refresh = () => fetch('/api/workspace', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
-      .then(result).then(value => { setData(value); onOwnerChange?.(Boolean(value.owner)); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Impossible de charger votre espace.'); });
+      .then(result).then((value: Overview) => { setData(value); onOwnerChange?.(Boolean(value.owner)); onActivityAccessChange?.(!value.owner && (value.spaces.some(space => space.role === 'ADMINISTRATEUR') || value.groups.some(group => group.canManageActivities))); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Impossible de charger votre espace.'); });
     refresh();
     window.addEventListener('focus', refresh);
     return () => { controller.abort(); window.removeEventListener('focus', refresh); };
-  }, [attempt, onOwnerChange]);
+  }, [attempt, onOwnerChange, onActivityAccessChange]);
   if (error && !data) return <div className="account-empty" role="alert"><h3>Votre espace est indisponible</h3><p>{error}</p><button className="button outline" onClick={() => { setError(''); setData(null); setAttempt(n => n + 1); }}>Réessayer</button></div>;
   if (!data) return <p role="status">Chargement de vos espaces et projets…</p>;
   const projects = data.projects.filter(p => filter === 'ALL' || p.status === filter);
+  const manageableSpaces = data.spaces.filter(space => space.role === 'ADMINISTRATEUR' || data.groups.some(group => group.spaceId === space.id && (group.role === 'REFERENT' || group.canManageActivities || group.canManageMemberships)));
+  const activitySpaces = manageableSpaces.filter(space => space.role === 'ADMINISTRATEUR' || data.groups.some(group => group.spaceId === space.id && group.canManageActivities));
+  const selectedSpace = manageableSpaces.find(space => space.id === selectedSpaceId && (!createActivity || activitySpaces.some(allowed => allowed.id === space.id)));
+  const selectedSuspendedSpace = data.suspendedSpaces?.find(space => space.id === selectedSpaceId);
+  const selectedGroups = data.groups.filter(group => group.spaceId === selectedSpace?.id);
+  const isSpaceAdmin = selectedSpace?.role === 'ADMINISTRATEUR';
+  const canManageMembers = isSpaceAdmin || selectedGroups.some(group => group.canManageMemberships);
+  const canManageActivities = isSpaceAdmin || selectedGroups.some(group => group.canManageActivities);
+  const canReviewProjects = isSpaceAdmin || selectedGroups.some(group => group.role === 'REFERENT');
+  const activeManagementTab = !canManageActivities && managementTab === 'activities' ? 'community' : createActivity && canManageActivities ? 'activities' : managementTab;
+  const canLeaveActivityCreation = confirmLeavingEditor;
+  const chooseSpace = (id: number, startActivity = false) => { if (!canLeaveActivityCreation()) return; setManagementTab(startActivity ? 'activities' : 'community'); setCommunityTab('groups'); setMembersGroup(null); navigate(`/mon-espace?espace=${id}${startActivity ? '&creation=activite' : ''}#organisation`); };
+  const changeManagementTab = (tab: typeof managementTab) => { if (tab === activeManagementTab || !canLeaveActivityCreation()) return; if (createActivity && selectedSpace) navigate(`/mon-espace?espace=${selectedSpace.id}#organisation`, true); setManagementTab(tab); };
   return <div className="workspace-sections">
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
-    <div className="workspace-intro"><h2>{view === 'spaces' ? 'Mes espaces et groupes' : view === 'projects' ? 'Mes projets' : view === 'requests' ? 'Mes demandes' : 'Suivi de Belconnect'}</h2><p>{view === 'owner' ? 'Supervision globale de la plateforme.' : 'Retrouvez ici les informations et actions liées à cette rubrique.'}</p></div>
-    <div className="workspace-panel" hidden={view !== 'spaces'}>
-    {data.suspendedSpaces?.map(space => <div className="account-notice" role="status" key={space.id}><strong>{space.name} : espace suspendu par Belconnect.</strong> Les nouveaux accès publics, inscriptions et paiements sont arrêtés. {space.reason && <>Motif : {space.reason}</>} Contactez l’assistance pour demander un réexamen. Les réservations déjà payées restent à traiter.</div>)}
+    {['management', 'owner', 'owner-spaces'].includes(view) && <div className="workspace-intro"><h2>{view === 'management' ? 'Gérer mon organisation' : view === 'owner-spaces' ? 'Espaces organisateurs' : 'Pilotage de la plateforme'}</h2><p>{view === 'owner' ? 'Indicateurs de la plateforme en mode test.' : view === 'owner-spaces' ? 'Consultez les espaces et intervenez en cas de signalement.' : 'Choisissez une rubrique pour gérer votre organisation.'}</p></div>}
+    {view === 'spaces' && <div className="workspace-panel">
+    {data.suspendedSpaces?.map(space => <div className="account-notice" role="status" key={space.id}><strong>{space.name} : espace suspendu par Belconnect.</strong> Les nouveaux accès publics, inscriptions et paiements sont arrêtés. {space.reason && <>Motif : {space.reason}</>} Contactez l’assistance pour demander un réexamen. Les réservations déjà payées restent à traiter. <button className="text-link" onClick={() => navigate(`/mon-espace?espace=${space.id}#organisation`)}>Traiter les réservations et remboursements</button></div>)}
     {data.moderationNotices?.map((notice, index) => <div className="account-notice" role="status" key={`${notice.spaceName}-${notice.contentName}-${index}`}><strong>{notice.contentName} est masqué par Belconnect.</strong> Espace : {notice.spaceName}. Motif : {notice.reason}. Les réservations déjà payées restent à traiter ; contactez l’assistance pour demander un réexamen.</div>)}
     <section aria-labelledby="workspace-title">
       <div className="account-section-heading"><h2 id="workspace-title">Mes espaces et groupes</h2><span>{data.spaces.length} espace{data.spaces.length > 1 ? 's' : ''}</span></div>
-      {!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>{data.suspendedSpaces?.length ? 'Aucun espace actif' : 'Votre aventure commence ici'}</h3><p>{data.suspendedSpaces?.length ? 'Un espace suspendu figure ci-dessus. Vous pouvez consulter son motif et contacter l’assistance.' : 'Votre compte vous permet de participer aux activités. Vous n’êtes pas encore rattaché à un espace organisateur ou à un groupe.'}</p>{!data.suspendedSpaces?.length && <a className="button coral" href="/activites">Découvrir les activités <Icon name="arrow" /></a>}</div> :
+      {!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>Aucun espace pour le moment</h3><p>{data.suspendedSpaces?.length ? 'Un espace suspendu figure ci-dessus. Contactez l’assistance pour demander un réexamen.' : 'Rejoignez un groupe existant ou demandez l’ouverture de votre propre espace ci-dessous.'}</p>{!data.suspendedSpaces?.length && <a className="button outline" href="/groupes">Découvrir les groupes <Icon name="arrow" /></a>}</div> :
         <div className="workspace-grid">{data.spaces.map(space => <article className="workspace-card" key={space.id}>
           <span className="account-status">{space.role === 'ADMINISTRATEUR' ? 'Administrateur d’espace' : 'Membre de l’espace'}</span><h3>{space.name}</h3>
-          <p>{space.role === 'ADMINISTRATEUR' ? 'Vous êtes désigné pour administrer cet espace.' : 'Vous faites partie de cet espace organisateur.'}</p>
-          {data.groups.some(g => g.spaceId === space.id) ? <ul>{data.groups.filter(g => g.spaceId === space.id).map(group => <li key={group.id}><Icon name="users" /><div><strong>{group.name}</strong><span>{group.role === 'ADMINISTRATEUR' ? 'Gestion directe' : group.role === 'REFERENT' ? 'Référent du groupe' : 'Membre du groupe'}</span>{group.role === 'REFERENT' && <><span>{group.canManageMemberships ? 'Adhésions : gestion autorisée' : 'Adhésions : gérées par l’administrateur'}</span><button className="text-link workspace-resume" disabled={membersGroup !== null} onClick={() => setMembersGroup(group.id)}>Voir les membres et mes permissions</button></>}</div></li>)}</ul> : <p className="workspace-muted">Aucune appartenance active à un groupe dans cet espace.</p>}
-          {space.role === 'ADMINISTRATEUR' && <button className="button outline workspace-resume" disabled={managedSpace !== null} onClick={() => setManagedSpace(space.id)}>Gérer l’espace et les groupes</button>}
+          {data.groups.some(g => g.spaceId === space.id) ? <ul>{data.groups.filter(g => g.spaceId === space.id).map(group => <li key={group.id}><Icon name="users" /><div><strong>{group.name}</strong><span>{group.role === 'ADMINISTRATEUR' ? 'Administrateur' : group.role === 'REFERENT' ? 'Référent' : 'Membre'}</span></div></li>)}</ul> : <p className="workspace-muted">Aucun groupe lié à votre compte dans cet espace.</p>}
+          {manageableSpaces.some(item => item.id === space.id) && <button className="button outline workspace-resume" onClick={() => chooseSpace(space.id)}>{space.role === 'ADMINISTRATEUR' ? 'Gérer cet espace' : 'Gérer mes groupes'}</button>}
         </article>)}</div>}
       {data.groups.some(g => g.role === 'REFERENT') && <p className="account-notice">En tant que référent, vous accompagnez les projets de vos groupes. La décision finale revient à l’administrateur de l’espace.</p>}
     </section>
-    {managedSpace !== null && <SpaceManagement key={managedSpace} spaceId={managedSpace} onChanged={() => setAttempt(n => n + 1)} onClose={() => setManagedSpace(null)} />}
-    {data.spaces.some(space => space.role === 'ADMINISTRATEUR') && <section className="workspace-settings" aria-labelledby="workspace-settings-title"><div className="account-section-heading"><h2 id="workspace-settings-title">Réglages de l’organisation</h2></div><p>Abonnement et encaissement des activités, dons et projets.</p><button className="button outline" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(open => !open)}>{settingsOpen ? 'Masquer les réglages' : 'Gérer les paiements et l’abonnement'}</button>{settingsOpen && <div className="workspace-settings-content"><SpaceSubscriptions spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} /><StripeConnectSetup spaces={data.spaces.filter(space => space.role === 'ADMINISTRATEUR')} /></div>}</section>}
-    {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => setAttempt(n => n + 1)} onClose={() => setMembersGroup(null)} />}
-    {data.groups.length > 0 && <GroupAnnouncements groups={data.groups} />}
-    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageActivities)) && <div id="managed-activities"><ManagedActivities spaces={data.spaces.filter(s => s.role === 'ADMINISTRATEUR' || data.groups.some(g => g.spaceId === s.id && g.canManageActivities))} groups={data.groups.filter(g => g.canManageActivities)} /></div>}
-    </div>
-    <div className="workspace-panel" hidden={view !== 'requests'}>
+    <SpaceRequests owner={false} mode="create" onChanged={() => setAttempt(n => n + 1)} />
+    </div>}
+    {view === 'management' && <div className="workspace-panel">
+      <a className="text-link" href="/mon-espace#espaces">← Retour à mes espaces</a>
+      {selectedSuspendedSpace && !createActivity ? <section aria-label="Obligations d’un espace suspendu"><div className="account-section-heading"><h2>{selectedSuspendedSpace.name} · suspendu</h2></div><p className="account-notice">Seules la consultation des inscriptions et la régularisation des annulations ou remboursements restent possibles. Contactez l’assistance pour demander un réexamen.</p><ManagedActivities spaces={[{ id: selectedSuspendedSpace.id, name: selectedSuspendedSpace.name, role: 'ADMINISTRATEUR' }]} groups={[]} settlementOnly /><ProjectPublications spaceId={selectedSuspendedSpace.id} settlementOnly /></section> : !selectedSpace ? <section aria-label="Choisir un espace à gérer"><div className="account-section-heading"><h2>{createActivity ? 'Choisir un espace pour l’activité' : 'Choisir un espace à gérer'}</h2></div>{(createActivity ? activitySpaces : manageableSpaces).length ? <div className="workspace-grid">{(createActivity ? activitySpaces : manageableSpaces).map(space => <button className="workspace-card workspace-select-card" key={space.id} onClick={() => chooseSpace(space.id, createActivity)}>{space.name}</button>)}</div> : <p className="account-empty">{createActivity ? 'Vous devez administrer un espace ou être autorisé à gérer les activités d’un groupe pour créer une activité.' : 'Vous ne gérez pas encore d’espace ou de groupe.'} <a href="/mon-espace#espaces">Voir mes espaces</a></p>}</section> : <>
+      <div className="account-section-heading"><h2>{selectedSpace.name}</h2><button className="text-link" onClick={() => { if (canLeaveActivityCreation()) navigate('/mon-espace#organisation'); }}>Changer d’espace</button></div>
+      <nav className="workspace-management-nav" aria-label="Gestion de l’organisation">
+        {canManageActivities && <button aria-pressed={activeManagementTab === 'activities'} onClick={() => changeManagementTab('activities')}>Activités</button>}
+        {canReviewProjects && <button aria-pressed={activeManagementTab === 'projects'} onClick={() => changeManagementTab('projects')}>Projets de l’espace</button>}
+        {(isSpaceAdmin || selectedGroups.length > 0) && <button aria-pressed={activeManagementTab === 'community'} onClick={() => changeManagementTab('community')}>Communauté</button>}
+        {isSpaceAdmin && <button aria-pressed={activeManagementTab === 'payments'} onClick={() => changeManagementTab('payments')}>Paiements</button>}
+        {isSpaceAdmin && <button aria-pressed={activeManagementTab === 'settings'} onClick={() => changeManagementTab('settings')}>Réglages</button>}
+      </nav>
+      {activeManagementTab === 'community' && <>
+        <nav className="workspace-subnav" aria-label="Communauté"><button aria-pressed={communityTab === 'groups'} onClick={() => { if (confirmLeavingEditor()) setCommunityTab('groups'); }}>Groupes</button>{canManageMembers && <button aria-pressed={communityTab === 'memberships'} onClick={() => { if (confirmLeavingEditor()) setCommunityTab('memberships'); }}>Adhésions</button>}{selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT') && <button aria-pressed={communityTab === 'announcements'} onClick={() => { if (confirmLeavingEditor()) setCommunityTab('announcements'); }}>Annonces</button>}</nav>
+        {communityTab === 'groups' && (isSpaceAdmin ? <SpaceManagement key={`groups-${selectedSpace.id}`} section="groups" spaceId={selectedSpace.id} onChanged={() => setAttempt(n => n + 1)} /> : <section aria-label="Groupes de l’espace"><div className="account-section-heading"><h2>Mes groupes</h2></div><div className="workspace-grid">{selectedGroups.map(group => <article className="workspace-card" key={group.id}><h3>{group.name}</h3><p>{group.role === 'REFERENT' ? 'Référent' : 'Membre'}</p>{group.canManageMemberships && <button className="button outline" onClick={() => setMembersGroup(group.id)}>Voir les membres</button>}</article>)}</div>{membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => setAttempt(n => n + 1)} onClose={() => setMembersGroup(null)} />}</section>)}
+        {communityTab === 'memberships' && canManageMembers && <GroupMemberships key={selectedSpace.id} received spaceId={selectedSpace.id} onChanged={() => setAttempt(n => n + 1)} />}
+        {communityTab === 'announcements' && <GroupAnnouncements key={selectedSpace.id} groups={selectedGroups} />}
+      </>}
+      {activeManagementTab === 'payments' && isSpaceAdmin && <section className="workspace-settings" aria-labelledby="workspace-settings-title"><div className="account-section-heading"><h2 id="workspace-settings-title">Paiements et abonnement</h2></div><div className="workspace-settings-content"><SpaceSubscriptions key={selectedSpace.id} spaces={[selectedSpace]} /><StripeConnectSetup key={selectedSpace.id} spaces={[selectedSpace]} /></div></section>}
+      {activeManagementTab === 'activities' && canManageActivities && <div id="managed-activities"><ManagedActivities key={`${selectedSpace.id}-${createActivity ? 'create' : 'list'}`} spaces={[selectedSpace]} groups={selectedGroups.filter(group => group.canManageActivities)} startCreating={createActivity} onCreationFinished={() => navigate(`/mon-espace?espace=${selectedSpace.id}#organisation`, true)} /></div>}
+      {activeManagementTab === 'projects' && canReviewProjects && <><ProjectInbox key={`inbox-${selectedSpace.id}`} spaceId={selectedSpace.id} />{isSpaceAdmin && <><ProjectPublications key={`publications-${selectedSpace.id}`} spaceId={selectedSpace.id} /><ProjectParticipations key={`participations-${selectedSpace.id}`} received spaceId={selectedSpace.id} /></>}</>}
+      {activeManagementTab === 'settings' && isSpaceAdmin && <SpaceManagement key={`settings-${selectedSpace.id}`} section="settings" spaceId={selectedSpace.id} onChanged={() => setAttempt(n => n + 1)} />}
+      </>}
+    </div>}
+    {view === 'requests' && <div className="workspace-panel">
       {!data.owner && <GroupMemberships onChanged={() => setAttempt(n => n + 1)} />}
-      {!data.owner && (data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.canManageMemberships)) && <GroupMemberships received onChanged={() => setAttempt(n => n + 1)} />}
-      <SpaceRequests owner={data.owner} onChanged={() => setAttempt(n => n + 1)} />
-    </div>
-    <div className="workspace-panel" hidden={view !== 'projects'}>
+      <SpaceRequests owner={data.owner} mode={data.owner ? 'all' : 'list'} onChanged={() => setAttempt(n => n + 1)} />
+    </div>}
+    {view === 'projects' && <div className="workspace-panel">
     <section aria-labelledby="my-projects-title">
       <div className="account-section-heading"><h2 id="my-projects-title">Mes projets</h2><span>{data.projects.length} projet{data.projects.length > 1 ? 's' : ''}</span></div>
       {submittedNotice && <p className="account-notice" role="status">{submittedNotice}</p>}
@@ -93,12 +125,13 @@ export function MyWorkspace({ view = 'spaces', onOwnerChange }: { view?: 'spaces
       {data.projects.length > 0 && <div className="account-filters" aria-label="Filtrer mes projets">{[['ALL', 'Tous'], ...Object.entries(statuses)].map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{value === 'ALL' ? data.projects.length : data.projects.filter(p => p.status === value).length}</span></button>)}</div>}
       {!data.projects.length ? <div className="workspace-card"><h3>Vos idées ont leur place ici</h3><p>Vous n’avez pas encore créé de projet. {data.spaces.length ? 'Commencez par enregistrer une idée en brouillon privé.' : 'Une appartenance active à un espace organisateur est nécessaire pour créer un projet.'}</p></div> : projects.length ? <div className="workspace-grid">{projects.map(project => <article key={project.id} className="workspace-card"><span className="account-status">{project.status === 'SOUMIS' ? stageLabel(project.reviewStage) : statuses[project.status] ?? project.status}</span><h3>{project.title}</h3><p>{project.spaceName} · Projet #{project.id}</p>{(project.status === 'BROUILLON' || project.status === 'A_CORRIGER') && <><p className="workspace-muted">{project.status === 'A_CORRIGER' ? 'Des corrections ont été demandées. Consultez les remarques avant de soumettre à nouveau.' : 'Ce brouillon reste visible uniquement par vous.'}</p><button className="text-link workspace-resume" disabled={editing !== null} onClick={() => setEditing(project.id)}>{project.status === 'A_CORRIGER' ? 'Consulter les remarques et corriger' : 'Ouvrir le brouillon'} <Icon name="arrow" /></button></>}{['SOUMIS', 'APPROUVE', 'REFUSE'].includes(project.status) && <><button className="text-link workspace-resume" aria-expanded={openedSubmission === project.id} onClick={() => setOpenedSubmission(openedSubmission === project.id ? null : project.id)}>{openedSubmission === project.id ? 'Masquer le projet' : project.status === 'SOUMIS' ? 'Consulter le projet soumis' : 'Consulter la décision'}</button>{openedSubmission === project.id && <SubmittedDetail id={project.id} />}</>}</article>)}</div> : <p className="account-empty">Aucun projet avec ce statut.</p>}
     </section>
-    {(data.spaces.some(s => s.role === 'ADMINISTRATEUR') || data.groups.some(g => g.role === 'REFERENT')) && <ProjectInbox />}
-    {data.spaces.some(s => s.role === 'ADMINISTRATEUR') && <><ProjectPublications /><ProjectParticipations received /></>}
-    <p className="account-demo-note">Les projets peuvent être enregistrés en brouillon privé. La soumission transmet la version enregistrée pour examen. Les référents peuvent demander des corrections ou transmettre un avis favorable. L’administrateur peut approuver ou refuser les projets soumis de son espace.</p>
-    </div>
-    <div className="workspace-panel" hidden={view !== 'owner'}>
-      {data.owner ? <><OwnerFinanceSummary /><OwnerModeration /><section aria-labelledby="platform-title"><div className="account-section-heading"><h2 id="platform-title">Vue propriétaire</h2><span>{data.managedSpaces.filter(space => space.role !== 'DEMO').length} espaces actifs hors démo</span></div><p className="workspace-description">Vue globale des espaces organisateurs actifs de Belconnect. L’espace de démonstration est indiqué séparément.</p><div className="workspace-grid">{data.managedSpaces.map(space => <article className="workspace-card" key={space.id}><h3>{space.name}</h3><span className="account-status">{space.role === 'DEMO' ? 'Espace de démonstration' : 'Espace actif'}</span></article>)}</div>{!data.managedSpaces.length && <p>Aucun espace actif pour le moment.</p>}</section></> : <p className="account-empty">Ce suivi est réservé au propriétaire de Belconnect.</p>}
-    </div>
-  </div>;
+    <p className="account-demo-note">Un projet en brouillon reste privé. Une fois soumis, l’équipe de l’espace l’examine avant sa publication.</p>
+    </div>}
+    {view === 'owner' && <div className="workspace-panel">
+      {data.owner ? <OwnerFinanceSummary /> : <p className="account-empty">Ce suivi est réservé au propriétaire de Belconnect.</p>}
+    </div>}
+    {view === 'owner-spaces' && <div className="workspace-panel">
+      {data.owner ? <OwnerModeration /> : <p className="account-empty">Cette vue est réservée au propriétaire de Belconnect.</p>}
+    </div>}
+  </div>
 }

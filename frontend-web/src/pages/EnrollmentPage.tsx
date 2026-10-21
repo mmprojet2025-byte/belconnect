@@ -33,7 +33,7 @@ export function EnrollmentPage({
     try {
       await postJson("/api/bookings", { ...value, activityId: activity.id, quantity });
       window.dispatchEvent(new Event("catalog-refresh"));
-      navigate("/connexion?inscription=confirmee");
+      navigate("/mon-espace?inscription=confirmee#mes-inscriptions");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Inscription impossible."); }
     finally { submitted.current = false; setBusy(false); }
   }
@@ -177,7 +177,7 @@ export function EnrollmentPage({
                     {activity.price === 0 ? activity.demonstration ? "Votre inscription sera conservée dans Mon espace. Cette activité est un exemple : aucun événement réel ni e-mail ne sont confirmés." : "Votre inscription sera conservée dans Mon espace. Aucun e-mail n'est envoyé pour le moment." : activity.demonstration ? "Aucun paiement, e-mail ou billet n’a été généré. Le paiement reste simulé." : "Les places sont retenues pendant le paiement. Le retour de Stripe ne confirme pas à lui seul l'inscription : vérifiez son état dans Mon espace."}
                   </p>
                 </div>
-                {error && <p role="alert" className="inline-notice">{error} <a href="/connexion">Mon espace</a></p>}
+                {error && <p role="alert" className="inline-notice">{error} <a href="/mon-espace#mes-inscriptions">Mon espace</a></p>}
                 <div className="review-actions">
                   {activity.price === 0 && <button className="button coral" disabled={busy} onClick={confirmBooking}>{busy ? "Enregistrement…" : "Confirmer mon inscription gratuite"}</button>}
                   {activity.price > 0 && activity.demonstration && (

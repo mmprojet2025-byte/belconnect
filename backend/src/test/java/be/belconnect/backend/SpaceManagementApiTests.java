@@ -238,6 +238,18 @@ class SpaceManagementApiTests {
  long setupGroup(long space,String name,boolean open,String visibility) {
   return jdbc.queryForObject("INSERT INTO groupe(espace_id,nom,adhesion_ouverte,visibilite) VALUES (?,?,?,?) RETURNING id",Long.class,space,name,open,visibility);
  }
+ @Test void privateGroupInvitationAdmitsOnlyLinkHolder() throws Exception {
+  try {
+   var admin=actor();var outsider=actor();long space=setupSpace(admin);
+   long group=setupGroup(space,"Groupe privé invité",true,"PRIVEE");
+   String code=jdbc.queryForObject("SELECT invitation_code::text FROM groupe WHERE id=?",String.class,group);
+   assertFalse(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
+   assertEquals(404,outsider.post("/api/groups/"+group+"/join",Map.of(),true).statusCode());
+   assertEquals("Groupe privé invité",ok(outsider.get("/api/groups/invitations/"+code),200).get("name").asText());
+   assertEquals("ACCEPTEE",ok(outsider.post("/api/groups/invitations/"+code+"/join",Map.of(),true),200).get("status").asText());
+   assertTrue(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
+  } finally { cleanup(); }
+ }
  @Test void membershipsPublicPrivateApprovalAndIsolation() throws Exception {
   try {
    var admin=actor();var member=actor();var other=actor();var platform=actor();owner(platform);
@@ -580,7 +592,7 @@ class SpaceManagementApiTests {
    jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
    assertEquals(403,admin.get(path).statusCode());assertEquals(403,admin.get(path+".csv").statusCode());
    jdbc.update("UPDATE appartenance_espace SET statut='ACTIF' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
-   jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",space);assertEquals(403,admin.get(path).statusCode());
+   jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",space);assertEquals(200,admin.get(path).statusCode());assertEquals(200,admin.get(path+".csv").statusCode());
    jdbc.update("UPDATE espace_organisateur SET statut='ACTIF' WHERE id=?",space);
    jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",admin.id);assertEquals(401,admin.get(path+".csv").statusCode());
   } finally { cleanup(); }
@@ -704,6 +716,12 @@ class SpaceManagementApiTests {
    assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM appartenance_espace WHERE espace_id=? AND role='ADMINISTRATEUR'",Integer.class,space));
    assertEquals(200,admin.post(admins+"/leave",Map.of(),true).statusCode());
    assertEquals(409,member.post(admins+"/leave",Map.of(),true).statusCode());
+   String statusPath=admins+"/"+member.id+"/status";
+   assertEquals(403,admin.post(statusPath,Map.of("status","SUSPENDU","reason","Signalement à examiner"),true).statusCode());
+   assertEquals(200,platform.post(statusPath,Map.of("status","SUSPENDU","reason","Signalement à examiner"),true).statusCode());
+   assertEquals("SUSPENDU",jdbc.queryForObject("SELECT statut FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?",String.class,space,member.id));
+   assertEquals(200,platform.post(statusPath,Map.of("status","ACTIF","reason","Examen terminé sans anomalie"),true).statusCode());
+   assertEquals("ACTIF",jdbc.queryForObject("SELECT statut FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?",String.class,space,member.id));
    long project=jdbc.queryForObject("""
      INSERT INTO projet(espace_id,auteur_id,titre,description,objectif,statut,publie,date_publication)
      VALUES (?,?,'Projet de modération','Description','Objectif','APPROUVE',true,now()) RETURNING id

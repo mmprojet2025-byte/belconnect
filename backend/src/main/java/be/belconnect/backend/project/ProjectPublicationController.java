@@ -16,8 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProjectPublicationController {
  private final JdbcTemplate jdbc;
  public ProjectPublicationController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
- public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,List<String> helpTypes,Long participationPriceCents,OffsetDateTime publishedAt) {}
- public record Managed(long id,String title,String spaceName,String visibility,boolean published,long version) {}
+ public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,List<String> helpTypes,Long participationPriceCents,String meetingPlace,OffsetDateTime publishedAt) {}
+ public record Managed(long id,String title,long spaceId,String spaceName,String visibility,boolean published,long version) {}
  public record Change(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
  private Long user(Authentication auth) {
   if(auth==null) return null;
@@ -25,7 +25,7 @@ public class ProjectPublicationController {
  }
  private long requiredUser(Authentication auth) {Long id=user(auth);if(id==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);return id;}
  private static final String PUBLIC_SELECT="""
-  SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom,o.prix_centimes AS participation_prix_centimes FROM projet p
+  SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom,o.prix_centimes AS participation_prix_centimes,o.lieu_action AS lieu_rendez_vous FROM projet p
   JOIN espace_organisateur e ON e.id=p.espace_id LEFT JOIN groupe g ON g.id=p.groupe_id
   LEFT JOIN offre_participation_projet o ON o.projet_id=p.id AND o.active
   WHERE p.publie AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
@@ -35,7 +35,7 @@ public class ProjectPublicationController {
     WHERE ag.groupe_id=p.groupe_id AND ag.espace_id=p.espace_id AND ag.utilisateur_id=?
      AND ag.statut='ACTIF' AND ae.statut='ACTIF')))
   """;
- private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getObject("participation_prix_centimes",Long.class),r.getObject("date_publication",OffsetDateTime.class));
+ private final org.springframework.jdbc.core.RowMapper<Published> publicMapper=(r,n)->new Published(r.getLong("id"),r.getString("titre"),r.getString("description"),r.getString("objectif"),r.getString("espace_nom"),r.getString("groupe_nom"),r.getString("visibilite"),r.getObject("debut_prevu",LocalDate.class),r.getObject("fin_prevue",LocalDate.class),r.getString("image_url"),List.of((String[])r.getArray("types_aide").getArray()),r.getObject("participation_prix_centimes",Long.class),r.getString("lieu_rendez_vous"),r.getObject("date_publication",OffsetDateTime.class));
  @GetMapping("/api/projects") @Transactional(readOnly=true)
  public ResponseEntity<List<Published>> list(Authentication auth) {
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query(PUBLIC_SELECT+" ORDER BY p.date_publication DESC,p.id DESC",publicMapper,user(auth)));
@@ -45,7 +45,7 @@ public class ProjectPublicationController {
   var p=jdbc.query(PUBLIC_SELECT+" AND p.id=?",publicMapper,user(auth),id).stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Projet indisponible."));
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(p);
  }
- private final org.springframework.jdbc.core.RowMapper<Managed> managedMapper=(r,n)->new Managed(r.getLong("id"),r.getString("titre"),r.getString("espace_nom"),r.getString("visibilite"),r.getBoolean("publie"),r.getLong("version"));
+ private final org.springframework.jdbc.core.RowMapper<Managed> managedMapper=(r,n)->new Managed(r.getLong("id"),r.getString("titre"),r.getLong("espace_id"),r.getString("espace_nom"),r.getString("visibilite"),r.getBoolean("publie"),r.getLong("version"));
  @GetMapping("/api/project-publications") @Transactional(readOnly=true)
  public List<Managed> manage(Authentication auth) {
   return jdbc.query("""
@@ -79,7 +79,7 @@ public class ProjectPublicationController {
     SELECT o.projet_id FROM offre_participation_projet o
     WHERE o.projet_id=? AND o.active LIMIT 1
     """,id).isEmpty())
-    throw new ResponseStatusException(HttpStatus.CONFLICT,"Fermez d'abord la participation payante et remboursez les participants.");
+    throw new ResponseStatusException(HttpStatus.CONFLICT,"Fermez d’abord les inscriptions au projet et terminez les remboursements éventuels.");
   var prior=jdbc.queryForList("SELECT administrateur_id,publie FROM publication_projet WHERE projet_id=? AND version_projet=?",id,body.version());
   if(!prior.isEmpty()) {
    var old=prior.getFirst();

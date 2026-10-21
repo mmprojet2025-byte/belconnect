@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { postJson, result } from '../lib/auth';
 
-type Member = { id: number; name: string; email: string; role: 'MEMBRE' | 'ADMINISTRATEUR' };
+type Member = { id: number; name: string; email: string; role: 'MEMBRE' | 'ADMINISTRATEUR'; status: 'ACTIF' | 'SUSPENDU' };
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Opération impossible.';
 
 export function SpaceAdministrators({ spaceId, owner = false, onChanged }: { spaceId: number; owner?: boolean; onChanged?: () => void }) {
@@ -13,14 +13,25 @@ export function SpaceAdministrators({ spaceId, owner = false, onChanged }: { spa
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [statusReason, setStatusReason] = useState('');
   useEffect(() => {
     const controller = new AbortController();
     fetch(`/api/workspace/spaces/${spaceId}/administrators`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
       .then(result).then(setMembers).catch(e => { if (!controller.signal.aborted) setError(errorText(e)); });
     return () => controller.abort();
   }, [spaceId, refresh]);
-  const admins = members.filter(member => member.role === 'ADMINISTRATEUR');
-  const eligible = members.filter(member => member.role === 'MEMBRE');
+  const admins = members.filter(member => member.role === 'ADMINISTRATEUR' && member.status === 'ACTIF');
+  const suspendedAdmins = members.filter(member => member.role === 'ADMINISTRATEUR' && member.status === 'SUSPENDU');
+  const eligible = members.filter(member => member.role === 'MEMBRE' && member.status === 'ACTIF');
+  async function changeStatus(member: Member) {
+    const next = member.status === 'ACTIF' ? 'SUSPENDU' : 'ACTIF';
+    if (!window.confirm(`${next === 'SUSPENDU' ? 'Suspendre' : 'Réactiver'} ${member.name} comme administrateur de cet espace ?`)) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      setMembers(await postJson(`/api/workspace/spaces/${spaceId}/administrators/${member.id}/status`, { status: next, reason: statusReason.trim() }));
+      setStatusReason(''); setNotice(next === 'SUSPENDU' ? 'Administrateur suspendu. Les autres administrateurs restent actifs.' : 'Administrateur réactivé.'); onChanged?.();
+    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
   async function appoint() {
     setBusy(true); setError(''); setNotice('');
     try {
@@ -45,6 +56,7 @@ export function SpaceAdministrators({ spaceId, owner = false, onChanged }: { spa
   return <section className="workspace-card" aria-label="Administrateurs de l’espace">
     <h3>Administrateurs de l’espace</h3>
     <p>{admins.length ? admins.map(member => `${member.name} (${member.email})`).join(' · ') : 'Aucun administrateur actif.'}</p>
+    {owner && <div className="draft-editor"><p className="management-hint">Une suspension cible uniquement ce compte dans cet espace. Si c’est le dernier administrateur, prévoyez aussitôt son remplacement pour éviter de bloquer les projets et réservations.</p><label>Motif de la suspension ou réactivation<textarea maxLength={1000} value={statusReason} onChange={e => setStatusReason(e.target.value)} /></label>{[...admins, ...suspendedAdmins].map(member => <div className="management-actions" key={member.id}><span>{member.name} ({member.email}) — {member.status === 'ACTIF' ? 'Actif' : 'Suspendu'}</span><button className="button outline" disabled={busy || statusReason.trim().length < 10} onClick={() => changeStatus(member)}>{member.status === 'ACTIF' ? 'Suspendre' : 'Réactiver'}</button></div>)}</div>}
     {owner ? <p className="management-hint">La récupération est possible uniquement si l’espace n’a plus aucun administrateur actif.</p> : <p className="management-hint">Désignez un autre membre avant de quitter ce rôle.</p>}
     {(!owner || admins.length === 0) && eligible.length > 0 && <div className="draft-editor">
       <label>Membre à désigner<select value={candidate} onChange={e => setCandidate(e.target.value)}><option value="">Choisir un membre</option>{eligible.map(member => <option key={member.id} value={member.id}>{member.name} ({member.email})</option>)}</select></label>
