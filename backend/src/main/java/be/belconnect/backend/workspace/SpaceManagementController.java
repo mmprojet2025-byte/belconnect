@@ -38,9 +38,11 @@ public class SpaceManagementController {
     public record Space(long id,String name,String type,String description,long version) {}
     public record Group(long id,long spaceId,String name,String description,String coverUrl,boolean openMembership,
                         String visibility,String status,long version,UUID invitationCode) {}
-    public record Management(Space space,List<Group> groups) {}
+    public record Management(Space space,List<Group> groups,GroupQuota groupQuota) {}
     public record Request(long id,String name,String type,String description,String status,long version,
                           Long spaceId,String reason,String applicant,OffsetDateTime createdAt) {}
+    public record SpaceQuota(int used,int max,boolean pro) {}
+    public record GroupQuota(int used,int max,boolean pro) {}
     static String clean(String value) { return value==null?null:value.strip(); }
     private ResponseStatusException error(HttpStatus status,String message) { return new ResponseStatusException(status,message); }
     private long user(Authentication auth) {
@@ -71,11 +73,33 @@ public class SpaceManagementController {
             r.getString("motif"),r.getString("prenom")+" "+r.getString("demandeur_nom"),r.getObject("date_creation",OffsetDateTime.class)),args);
     }
     private Request request(long id) { return requests("WHERE d.id=?",id).getFirst(); }
+    private SpaceQuota quota(long applicant) {
+        boolean pro=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM espace_organisateur e
+              JOIN abonnement_espace ab ON ab.espace_id=e.id AND ab.statut='ACTIF' AND ab.formule='PRO'
+              JOIN appartenance_espace a ON a.espace_id=e.id AND a.utilisateur_id=?
+                AND a.role='ADMINISTRATEUR' AND a.statut='ACTIF'
+              WHERE e.createur_id=? AND e.statut='ACTIF')
+            """,Boolean.class,applicant,applicant));
+        int active=jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=? AND statut<>'FERME'",Integer.class,applicant);
+        int pending=jdbc.queryForObject("SELECT count(*) FROM demande_espace WHERE demandeur_id=? AND statut='EN_ATTENTE'",Integer.class,applicant);
+        return new SpaceQuota(active+pending,pro?3:1,pro);
+    }
+    private void lockApplicant(long applicant) {
+        jdbc.query("SELECT pg_advisory_xact_lock(?)",(r,n)->0,8_500_000_000L+applicant);
+    }
     @GetMapping("/requests") @Transactional
     public List<Request> mine(Authentication auth) { return requests("WHERE d.demandeur_id=?",user(auth)); }
+    @GetMapping("/requests/quota") @Transactional
+    public SpaceQuota myQuota(Authentication auth) { return quota(user(auth)); }
     @PostMapping("/requests") @Transactional @ResponseStatus(HttpStatus.CREATED)
     public Request requestOpening(Authentication auth,@Valid @RequestBody Opening body) {
         long user=user(auth); var c=body.content();
+        lockApplicant(user);
+        var prior=jdbc.query("SELECT id FROM demande_espace WHERE demandeur_id=? AND creation_request=?",(r,n)->r.getLong(1),user,body.requestId());
+        var currentQuota=quota(user);
+        if(prior.isEmpty() && currentQuota.used()>=currentQuota.max())
+            throw error(HttpStatus.CONFLICT,"Limite d’espaces atteinte : 1 en Starter ou 3 avec un abonnement Pro actif sur votre espace.");
         var ids=jdbc.query("""
             INSERT INTO demande_espace(demandeur_id,creation_request,nom,type,description) VALUES (?,?,?,?,?)
             ON CONFLICT(demandeur_id,creation_request) DO NOTHING RETURNING id
@@ -99,6 +123,9 @@ public class SpaceManagementController {
     public Request decide(Authentication auth,@PathVariable long id,@Valid @RequestBody Decision body) {
         long user=user(auth); owner(user);
         if(body.status().equals("REFUSEE") && body.reason().isBlank()) throw error(HttpStatus.BAD_REQUEST,"Indiquez le motif du refus.");
+        var applicantIds=jdbc.query("SELECT demandeur_id FROM demande_espace WHERE id=?",(r,n)->r.getLong(1),id);
+        if(applicantIds.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Demande introuvable.");
+        lockApplicant(applicantIds.getFirst());
         var ids=jdbc.query("SELECT id FROM demande_espace WHERE id=? FOR UPDATE",(r,n)->r.getLong(1),id);
         if(ids.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Demande introuvable.");
         var d=request(id);
@@ -112,6 +139,10 @@ public class SpaceManagementController {
         Long space=null;
         if(body.status().equals("APPROUVEE")) {
             long applicant=((Number)row.get("demandeur_id")).longValue();
+            var currentQuota=quota(applicant);
+            // The current pending request occupies one slot until this decision is saved.
+            if(currentQuota.used()>currentQuota.max())
+                throw error(HttpStatus.CONFLICT,"Le demandeur a dépassé sa limite d’espaces depuis l’envoi. L’ouverture ne peut plus être approuvée.");
             if(jdbc.query("SELECT id FROM utilisateur WHERE id=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),applicant).isEmpty())
                 throw error(HttpStatus.CONFLICT,"Le compte du demandeur n’est plus actif.");
             if(Boolean.TRUE.equals(jdbc.queryForObject(
@@ -143,12 +174,20 @@ public class SpaceManagementController {
     private Group group(long space,long id) {
         return groups(space).stream().filter(g->g.id()==id).findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Groupe introuvable dans cet espace."));
     }
+    private GroupQuota groupQuota(long space) {
+        boolean pro=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM abonnement_espace
+              WHERE espace_id=? AND formule='PRO' AND statut='ACTIF')
+            """,Boolean.class,space));
+        int used=jdbc.queryForObject("SELECT count(*) FROM groupe WHERE espace_id=? AND statut<>'ARCHIVE'",Integer.class,space);
+        return new GroupQuota(used,pro?6:3,pro);
+    }
     private void audit(long space,Long group,long actor,String action,long version) {
         jdbc.update("INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,action,version) VALUES (?,?,?,?,?)",space,group,actor,action,version);
     }
     @GetMapping("/spaces/{id}/management") @Transactional
     public Management manage(Authentication auth,@PathVariable long id) {
-        admin(user(auth),id,false); return new Management(space(id),groups(id));
+        admin(user(auth),id,false); return new Management(space(id),groups(id),groupQuota(id));
     }
     @PostMapping("/spaces/{id}") @Transactional
     public Space updateSpace(Authentication auth,@PathVariable long id,@Valid @RequestBody SpaceUpdate body) {
@@ -174,14 +213,17 @@ public class SpaceManagementController {
         if(!prior.isEmpty()) {
             var g=group(spaceId,((Number)prior.getFirst().get("id")).longValue());
             if(Objects.equals(prior.getFirst().get("createur_id"),user) && g.version()==0 && g.name().equals(c.name()) && g.description().equals(c.description())
-                && g.coverUrl().equals(c.coverUrl()) && g.openMembership()==c.openMembership() && g.visibility().equals(c.visibility())) return g;
+                && g.coverUrl().equals(c.coverUrl()) && !g.openMembership() && g.visibility().equals(c.visibility())) return g;
             throw error(HttpStatus.CONFLICT,"Cette création a déjà été traitée. Rechargez les groupes.");
         }
+        var quota=groupQuota(spaceId);
+        if(quota.used()>=quota.max())
+            throw error(HttpStatus.CONFLICT,"Limite de groupes atteinte : 3 en Starter ou 6 avec un abonnement Pro actif sur cet espace.");
         uniqueName(spaceId,null,c.name());
         long id=jdbc.queryForObject("""
             INSERT INTO groupe(espace_id,nom,description,couverture_url,adhesion_ouverte,visibilite,creation_request,createur_id)
             VALUES (?,?,?,?,?,?,?,?) RETURNING id
-            """,Long.class,spaceId,c.name(),c.description(),c.coverUrl(),c.openMembership(),c.visibility(),body.requestId(),user);
+            """,Long.class,spaceId,c.name(),c.description(),c.coverUrl(),false,c.visibility(),body.requestId(),user);
         audit(spaceId,id,user,"GROUPE_CREE",0); return group(spaceId,id);
     }
     @PostMapping("/spaces/{spaceId}/groups/{id}") @Transactional
@@ -192,7 +234,7 @@ public class SpaceManagementController {
         if(jdbc.update("""
             UPDATE groupe SET nom=?,description=?,couverture_url=?,adhesion_ouverte=?,visibilite=?,version=version+1
             WHERE id=? AND espace_id=? AND version=?
-            """,c.name(),c.description(),c.coverUrl(),c.openMembership(),c.visibility(),id,spaceId,body.version())!=1)
+            """,c.name(),c.description(),c.coverUrl(),false,c.visibility(),id,spaceId,body.version())!=1)
             throw error(HttpStatus.CONFLICT,"Ce groupe a changé. Rechargez les données avant de modifier.");
         audit(spaceId,id,user,"GROUPE_MODIFIE",body.version()+1); return group(spaceId,id);
     }

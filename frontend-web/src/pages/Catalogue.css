@@ -297,8 +297,8 @@
   width: 15px;
   height: 15px;
 }
-.mobile-filter-toggle,
-.apply-mobile {
+.catalogue-layout .mobile-filter-toggle,
+.catalogue-layout .apply-mobile {
   display: none;
 }
 .catalogue-empty {
@@ -342,7 +342,7 @@ main h1:focus {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  .mobile-filter-toggle {
+  .catalogue-layout .mobile-filter-toggle {
     display: flex;
     justify-self: start;
     font-size: 12px !important;
@@ -375,7 +375,7 @@ main h1:focus {
   .filter-organizer {
     display: none;
   }
-  .apply-mobile {
+  .catalogue-layout .apply-mobile {
     display: flex;
     width: 100%;
     margin-top: 10px;

@@ -38,7 +38,7 @@ function ProjectCard({ project, compact }: { project: Project; compact: boolean 
   </article>;
 }
 
-export function Projects({ id, compact = false, signedIn = false }: { id?: string; compact?: boolean; signedIn?: boolean }) {
+export function Projects({ id, compact = false, signedIn = false, userId }: { id?: string; compact?: boolean; signedIn?: boolean; userId?: number }) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -132,22 +132,22 @@ export function Projects({ id, compact = false, signedIn = false }: { id?: strin
           <div className="project-detail-hero">{project.imageUrl ? <img src={project.imageUrl} alt={`Illustration du projet ${project.title}`} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/visuel-indisponible.svg'; event.currentTarget.alt = 'Visuel indisponible'; }} /> : <div className="project-photo-empty"><Icon name="users" /></div>}<span>Une expérience à vivre dans la durée</span></div>
           <aside className="project-detail-aside" aria-label="Participer au projet">
             <p className="eyebrow teal">VIVEZ CE PROJET</p>
-            <h2>{offerPreview?.active ? 'Inscrivez-vous' : 'Découvrez le projet'}</h2>
-            <p className="project-aside-intro">{offerPreview?.active ? 'Une inscription pour participer au projet dans sa durée.' : 'Découvrez l’objectif du projet et les façons d’y prendre part.'}</p>
+            <h2>{project.title.startsWith('[Démo]') && offerPreview?.priceCents ? 'Essayez la simulation' : offerPreview?.active ? 'Inscrivez-vous' : 'Découvrez le projet'}</h2>
+            <p className="project-aside-intro">{project.title.startsWith('[Démo]') && offerPreview?.priceCents ? 'Découvrez le parcours payant sans paiement ni réservation.' : offerPreview?.active ? 'Une inscription pour participer au projet dans sa durée.' : 'Découvrez l’objectif du projet et les façons d’y prendre part.'}</p>
             <div className="project-aside-fact"><Icon name="calendar" /><div><strong>Période du projet</strong><span>{project.startsOn ? date(project.startsOn) : 'Début à préciser'}{project.endsOn ? ` — ${date(project.endsOn)}` : ''}</span></div></div>
             <div className="project-aside-fact"><Icon name="users" /><div><strong>Organisé par</strong><span>{project.spaceName}</span></div></div>
             {offerPreview?.active && <p className="project-aside-price">{offerPreview.priceCents === 0 ? 'Inscription gratuite' : `Inscription · ${euro(offerPreview.priceCents)}`}</p>}
-            {offerPreview?.active && offerPreview.paymentReady && offerPreview.placesLeft > 0
-              ? <a className="button coral project-aside-primary" href="#paid-project-title">{offerPreview.priceCents === 0 ? 'M’inscrire gratuitement' : `M’inscrire · ${euro(offerPreview.priceCents)}`} <Icon name="arrow" /></a>
+            {offerPreview?.active && (project.title.startsWith('[Démo]') && offerPreview.priceCents > 0 || offerPreview.paymentReady && offerPreview.placesLeft > 0)
+              ? <a className="button coral project-aside-primary" href="#paid-project-title">{project.title.startsWith('[Démo]') && offerPreview.priceCents > 0 ? 'Essayer la simulation' : offerPreview.priceCents === 0 ? 'M’inscrire gratuitement' : `M’inscrire · ${euro(offerPreview.priceCents)}`} <Icon name="arrow" /></a>
               : <a className="button coral project-aside-primary" href="#paid-project-title">Voir les inscriptions <Icon name="arrow" /></a>}
-            {project.participationPriceCents != null && (!offerPreview?.paymentReady || offerPreview.placesLeft < 1) && <p className="project-aside-note">{offerPreview?.placesLeft === 0 ? 'Toutes les places sont réservées.' : 'Les inscriptions ne sont pas encore ouvertes. Leurs modalités figurent plus bas.'}</p>}
+            {project.participationPriceCents != null && (!offerPreview?.paymentReady || offerPreview.placesLeft < 1) && !(project.title.startsWith('[Démo]') && offerPreview?.priceCents) && <p className="project-aside-note">{offerPreview?.placesLeft === 0 ? 'Toutes les places sont réservées.' : 'Les inscriptions ne sont pas encore ouvertes. Leurs modalités figurent plus bas.'}</p>}
             <a className="project-aside-link" href="#help-title">Proposer une aide <Icon name="arrow" /></a>
             <a className="project-aside-link" href="#project-donation-title">Découvrir le soutien financier <Icon name="arrow" /></a>
-            <p className="project-aside-note">S’inscrire réserve une place. Proposer une aide ou faire un don ne réserve pas de place.</p>
+            <p className="project-aside-note">{project.title.startsWith('[Démo]') && offerPreview?.priceCents ? 'La simulation ne réserve aucune place. Proposer une aide ou faire un don ne réserve pas non plus de place.' : 'S’inscrire réserve une place. Proposer une aide ou faire un don ne réserve pas de place.'}</p>
           </aside>
           <div className="project-detail-main">
             <section className="project-detail-panel project-detail-copy"><h2>Le projet dans la durée</h2><div className="project-objective-box"><h3><Icon name="leaf" /> L’objectif collectif</h3><p>{project.objective}</p></div><h3>Comment le projet se déroule</h3><p>{project.description}</p><p className="project-period-summary"><Icon name="calendar" /> {project.startsOn ? `Du ${date(project.startsOn)}` : 'Début à préciser'}{project.endsOn ? ` au ${date(project.endsOn)}` : ''}</p><h3>Les aides recherchées</h3><ul className="project-help-list">{project.helpTypes.map(type => <li key={type}><Icon name="users" />{helpTypes[type] ?? type}</li>)}</ul></section>
-            <PaidProjectParticipation projectId={project.id} signedIn={signedIn} />
+            <PaidProjectParticipation projectId={project.id} signedIn={signedIn} userId={userId} demonstration={project.title.startsWith('[Démo]')} demoProject={{ projectTitle: project.title, spaceName: project.spaceName, imageUrl: project.imageUrl, startsOn: project.startsOn, endsOn: project.endsOn }} />
             <ProposeHelp key={project.id} projectId={project.id} signedIn={signedIn} availableTypes={project.helpTypes} />
             <ProjectDonation projectId={project.id} signedIn={signedIn} />
           </div>

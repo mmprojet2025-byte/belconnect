@@ -24,6 +24,37 @@ class BookingApiTests {
   if(csrf) {var t=json.readTree(get(c,"/api/auth/csrf").body());b.header(t.get("headerName").asText(),t.get("token").asText());}
   return c.send(b.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(data))).build(),HttpResponse.BodyHandlers.ofString());
  }
+ @Test void pendingPaidAttemptIsVisibleInItsOwnersAccount() throws Exception {
+  String marker=UUID.randomUUID().toString(), slug="paid-list-"+marker;
+  String email="paid-list-"+marker+"@example.com", otherEmail="paid-other-"+marker+"@example.com";
+  var owner=client(); var other=client();
+  jdbc.update("""
+   INSERT INTO activite(slug,titre,categorie,ville,lieu,organisateur_nom,prix,image,debut,description,duree,capacite,places_disponibles,public_cible,rendez_vous,preparation,publiee,demonstration)
+   SELECT ?, 'Atelier payant',categorie,ville,lieu,organisateur_nom,55,image,now()+interval '7 days',description,duree,3,3,public_cible,rendez_vous,preparation,true,false
+   FROM activite WHERE slug='chocolat'
+   """,slug);
+  try {
+   assertEquals(201,post(owner,"/api/auth/register",Map.of("email",email,"password","Test-password-"+marker,"firstName","Test","lastName","Paiement"),true).statusCode());
+   assertEquals(201,post(other,"/api/auth/register",Map.of("email",otherEmail,"password","Test-password-"+marker,"firstName","Test","lastName","Autre"),true).statusCode());
+   long userId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,email);
+   long activityId=jdbc.queryForObject("SELECT id FROM activite WHERE slug=?",Long.class,slug);
+   jdbc.update("""
+    INSERT INTO reservation_payante_activite(activite_id,utilisateur_id,demande,quantite,prenom,nom,email,montant_centimes,commission_centimes,compte_stripe)
+    VALUES (?,?,?,1,'Test','Paiement',?,5500,440,'acct_testExample123')
+    """,activityId,userId,UUID.randomUUID(),email);
+   assertEquals(401,get(client(),"/api/paid-activity-bookings").statusCode());
+   assertEquals(0,json.readTree(get(other,"/api/paid-activity-bookings").body()).size());
+   var attempt=json.readTree(get(owner,"/api/paid-activity-bookings").body());
+   assertEquals(1,attempt.size());
+   assertEquals("Atelier payant",attempt.get(0).get("title").asText());
+   assertEquals("EN_ATTENTE",attempt.get(0).get("status").asText());
+   assertTrue(attempt.get(0).get("registrationId").isNull());
+  } finally {
+   jdbc.update("DELETE FROM reservation_payante_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+   jdbc.update("DELETE FROM activite WHERE slug=?",slug);
+   jdbc.update("DELETE FROM utilisateur WHERE email IN (?,?)",email,otherEmail);
+  }
+ }
  @Test void reservationIsAtomicPrivateAndValidated() throws Exception {
   String marker=UUID.randomUUID().toString(), slug="booking-test-"+marker;
   String e1="booking-one-"+marker+"@example.com",e2="booking-two-"+marker+"@example.com";

@@ -57,7 +57,7 @@ public class ProjectDonationController {
       SELECT p.id,p.titre,p.espace_id,e.stripe_account_id
       FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id
       LEFT JOIN groupe g ON g.id=p.groupe_id
-      WHERE p.id=? AND p.publie AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF'
+      WHERE p.id=? AND p.publie AND p.termine_le IS NULL AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF'
         AND (p.groupe_id IS NULL OR g.statut='ACTIF')
         AND (p.visibilite='PUBLIQUE' OR (p.visibilite='GROUPE' AND EXISTS (
           SELECT 1 FROM appartenance_groupe ag JOIN appartenance_espace ae
@@ -137,7 +137,7 @@ public class ProjectDonationController {
     var ids=jdbc.query("""
       SELECT e.stripe_account_id,p.espace_id FROM projet p
       JOIN espace_organisateur e ON e.id=p.espace_id LEFT JOIN groupe g ON g.id=p.groupe_id
-      WHERE p.id=? AND p.publie AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF'
+      WHERE p.id=? AND p.publie AND p.termine_le IS NULL AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF'
         AND (p.groupe_id IS NULL OR g.statut='ACTIF')
         AND (p.visibilite='PUBLIQUE' OR (p.visibilite='GROUPE' AND EXISTS (
           SELECT 1 FROM appartenance_groupe ag JOIN appartenance_espace ae

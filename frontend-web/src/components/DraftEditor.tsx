@@ -92,7 +92,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
         </fieldset>
         {draft && editable && <div className="draft-submission">
           <h4>Prêt à partager votre projet ?</h4>
-          <p>La description et l’objectif doivent être complétés et enregistrés. Le projet sera transmis aux référents actifs du groupe, ou directement à l’administrateur de l’espace. Il ne sera pas publié à cette étape.</p>
+          <p>La description et l’objectif doivent être complétés et enregistrés. Le projet sera transmis aux référents actifs du groupe, ou directement à l’administrateur de l’espace. Il ne sera pas publié à cette étape. Vous pouvez avoir trois projets soumis en attente à la fois.</p>
           {dirty && <p>Enregistrez vos dernières modifications avant de soumettre.</p>}
           {!confirmSubmit ? <button type="button" className="button outline" disabled={busy || dirty || !draft.description.trim() || !draft.objective.trim()} onClick={() => setConfirmSubmit(true)}>{draft.status === 'A_CORRIGER' ? 'Soumettre à nouveau' : 'Soumettre pour validation'}</button> : <div className="account-cancel-confirm">
             <p>Confirmer la soumission de « {draft.title} » ? La version enregistrée sera partagée avec les personnes chargées de la validation. Vous ne pourrez plus la modifier pendant son examen.</p>
@@ -101,7 +101,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
           </div>}
         </div>}
         {error && <p role="alert" className="draft-error">{error} Vos saisies restent dans ce formulaire.</p>}
-        {notice && <p role="status" className="account-notice">{notice}</p>}
+        {notice && <div className="account-notice" role="status"><p>{notice}</p><button type="button" className="text-link" onClick={onClose}>Voir dans Mes projets →</button></div>}
       </form>}
     {!closing ? <button type="button" className="text-link" disabled={busy} onClick={() => dirty ? setClosing(true) : onClose()}>Fermer le brouillon</button> : <div className="account-cancel-confirm"><p>Fermer sans enregistrer les dernières modifications ?</p><button className="button outline" onClick={onClose}>Abandonner les modifications</button><button className="text-link" onClick={() => setClosing(false)}>Continuer la rédaction</button></div>}
   </section>;

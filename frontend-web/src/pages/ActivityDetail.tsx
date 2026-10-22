@@ -273,6 +273,7 @@ export function ActivityDetail({
               </span>
             </div>
           </div>
+          {activity.endsAt && <p>Fin : {new Date(activity.endsAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels" })} (heure de Bruxelles)</p>}
           <div className={`availability ${full ? "unavailable" : ""}`}>
             <span />
             {full
@@ -340,7 +341,7 @@ export function ActivityDetail({
                 <Icon name="ticket" />
                 {activity.price === 0
                   ? "S’inscrire gratuitement"
-                  : "S’inscrire"}
+                  : activity.demonstration ? "Essayer la simulation" : "S’inscrire et payer"}
                 <Icon name="arrow" />
               </button>
             </>

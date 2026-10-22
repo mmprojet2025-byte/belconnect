@@ -42,8 +42,10 @@ public class PaidProjectParticipationController {
       @Min(1) @Max(100000) int capacity,@NotNull LocalDateTime startsAt,@NotBlank @Size(min=5,max=240) String venue) {}
   public record Request(@NotNull UUID requestId,@NotNull Long projectId) {}
   public record Checkout(long id,String url,String status) {}
-  public record Enrollment(long id,long projectId,String projectTitle,long priceCents,String status,OffsetDateTime createdAt) {}
-  public record FreeEnrollment(long id,long projectId,String projectTitle,String status,OffsetDateTime createdAt) {}
+  public record Enrollment(long id,long projectId,String projectTitle,String spaceName,String imageUrl,
+      java.time.LocalDate startsOn,java.time.LocalDate endsOn,String meetingPlace,long priceCents,String status,OffsetDateTime createdAt) {}
+  public record FreeEnrollment(long id,long projectId,String projectTitle,String spaceName,String imageUrl,
+      java.time.LocalDate startsOn,java.time.LocalDate endsOn,String meetingPlace,String status,OffsetDateTime createdAt) {}
   private record Pending(long id,long projectId,String title,long price,long fee,String account,String session,String status) {}
   private ResponseStatusException fail(HttpStatus status,String message) { return new ResponseStatusException(status,message); }
   private long user(Authentication auth) {
@@ -67,7 +69,7 @@ public class PaidProjectParticipationController {
   private void admin(long uid,long projectId) { admin(uid,projectId,false); }
   private Offer offer(long id, boolean onlyPublished, Long uid) {
     var rows=jdbc.queryForList("""
-      SELECT p.id,p.publie,p.masque_moderation,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
+      SELECT p.id,p.publie,p.termine_le,p.masque_moderation,p.statut,p.visibilite,p.groupe_id,p.espace_id,e.statut AS espace_statut,e.stripe_account_id,
       o.description,o.prix_centimes,o.capacite,o.active,o.debut_action,o.lieu_action,
       ((SELECT count(*) FROM inscription_payante_projet i WHERE i.projet_id=p.id AND
         i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS','EN_ATTENTE'))
@@ -79,7 +81,7 @@ public class PaidProjectParticipationController {
     if(rows.isEmpty()) throw fail(HttpStatus.NOT_FOUND,"Offre indisponible.");
     var r=rows.getFirst();
     if(onlyPublished) {
-      boolean visible=Boolean.TRUE.equals(r.get("publie")) && !Boolean.TRUE.equals(r.get("masque_moderation")) && "APPROUVE".equals(r.get("statut")) && "ACTIF".equals(r.get("espace_statut"));
+      boolean visible=Boolean.TRUE.equals(r.get("publie")) && r.get("termine_le")==null && !Boolean.TRUE.equals(r.get("masque_moderation")) && "APPROUVE".equals(r.get("statut")) && "ACTIF".equals(r.get("espace_statut"));
       if(r.get("groupe_id")!=null) {
         visible &= !jdbc.queryForList("SELECT id FROM groupe WHERE id=? AND statut='ACTIF'",r.get("groupe_id")).isEmpty();
         if("GROUPE".equals(r.get("visibilite"))) visible &= uid!=null && !jdbc.queryForList("""
@@ -165,10 +167,11 @@ public class PaidProjectParticipationController {
   }
   private FreeEnrollment freeEnrollment(long id,long uid) {
     return jdbc.query("""
-      SELECT f.id,f.projet_id,p.titre,f.statut,f.date_creation
+      SELECT f.id,f.projet_id,p.titre,e.nom AS espace_nom,p.image_url,p.debut_prevu,p.fin_prevue,o.lieu_action,f.statut,f.date_creation
       FROM inscription_gratuite_projet f JOIN projet p ON p.id=f.projet_id
+      JOIN espace_organisateur e ON e.id=p.espace_id JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE f.id=? AND f.participant_id=?
-      """,(r,n)->new FreeEnrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class)),id,uid)
+      """,freeMapper,id,uid)
       .stream().findFirst().orElseThrow(()->fail(HttpStatus.NOT_FOUND,"Inscription introuvable."));
   }
   @PostMapping("/free/{projectId}")
@@ -198,10 +201,11 @@ public class PaidProjectParticipationController {
   @GetMapping("/free")
   public ResponseEntity<List<FreeEnrollment>> mineFree(Authentication auth) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query("""
-      SELECT f.id,f.projet_id,p.titre,f.statut,f.date_creation
+      SELECT f.id,f.projet_id,p.titre,e.nom AS espace_nom,p.image_url,p.debut_prevu,p.fin_prevue,o.lieu_action,f.statut,f.date_creation
       FROM inscription_gratuite_projet f JOIN projet p ON p.id=f.projet_id
+      JOIN espace_organisateur e ON e.id=p.espace_id JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE f.participant_id=? ORDER BY f.date_creation DESC
-      """,(r,n)->new FreeEnrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class)),user(auth)));
+      """,freeMapper,user(auth)));
   }
   @PostMapping("/free/{id}/cancel")
   public FreeEnrollment cancelFree(Authentication auth,@PathVariable long id) {
@@ -257,21 +261,33 @@ public class PaidProjectParticipationController {
       return new Checkout(p.id(),session.getUrl(),"EN_ATTENTE");
     } catch(StripeException ex) { throw fail(HttpStatus.BAD_GATEWAY,"Stripe est temporairement indisponible."); }
   }
+  private final org.springframework.jdbc.core.RowMapper<Enrollment> paidMapper=(r,n)->new Enrollment(
+    r.getLong("id"),r.getLong("projet_id"),r.getString("titre"),r.getString("espace_nom"),r.getString("image_url"),
+    r.getObject("debut_prevu",java.time.LocalDate.class),r.getObject("fin_prevue",java.time.LocalDate.class),
+    r.getString("lieu_action"),r.getLong("prix_centimes"),r.getString("statut"),r.getObject("date_creation",OffsetDateTime.class));
+  private final org.springframework.jdbc.core.RowMapper<FreeEnrollment> freeMapper=(r,n)->new FreeEnrollment(
+    r.getLong("id"),r.getLong("projet_id"),r.getString("titre"),r.getString("espace_nom"),r.getString("image_url"),
+    r.getObject("debut_prevu",java.time.LocalDate.class),r.getObject("fin_prevue",java.time.LocalDate.class),
+    r.getString("lieu_action"),r.getString("statut"),r.getObject("date_creation",OffsetDateTime.class));
   @GetMapping
   public ResponseEntity<List<Enrollment>> mine(Authentication auth) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query("""
-      SELECT i.id,i.projet_id,p.titre,i.prix_centimes,i.statut,i.date_creation
+      SELECT i.id,i.projet_id,p.titre,e.nom AS espace_nom,p.image_url,p.debut_prevu,p.fin_prevue,o.lieu_action,
+             i.prix_centimes,i.statut,i.date_creation
       FROM inscription_payante_projet i JOIN projet p ON p.id=i.projet_id
+      JOIN espace_organisateur e ON e.id=p.espace_id JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE i.participant_id=? ORDER BY i.date_creation DESC LIMIT 50
-      """,(r,n)->new Enrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getLong(4),r.getString(5),r.getObject(6,OffsetDateTime.class)),user(auth)));
+      """,paidMapper,user(auth)));
   }
   @GetMapping("/{id}")
   public ResponseEntity<Enrollment> mineOne(Authentication auth,@PathVariable long id) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(jdbc.query("""
-      SELECT i.id,i.projet_id,p.titre,i.prix_centimes,i.statut,i.date_creation
+      SELECT i.id,i.projet_id,p.titre,e.nom AS espace_nom,p.image_url,p.debut_prevu,p.fin_prevue,o.lieu_action,
+             i.prix_centimes,i.statut,i.date_creation
       FROM inscription_payante_projet i JOIN projet p ON p.id=i.projet_id
+      JOIN espace_organisateur e ON e.id=p.espace_id JOIN offre_participation_projet o ON o.projet_id=p.id
       WHERE i.id=? AND i.participant_id=?
-      """,(r,n)->new Enrollment(r.getLong(1),r.getLong(2),r.getString(3),r.getLong(4),r.getString(5),r.getObject(6,OffsetDateTime.class)),id,user(auth)).stream().findFirst()
+      """,paidMapper,id,user(auth)).stream().findFirst()
       .orElseThrow(()->fail(HttpStatus.NOT_FOUND,"Participation introuvable.")));
   }
   @PostMapping("/manage/{projectId}/cancel")

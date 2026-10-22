@@ -57,6 +57,15 @@ class ActivityApiTests {
         assertEquals("+02:00", start.getOffset().toString());
     }
 
+    @Test @Transactional void existingDurationBackfillAndStartChangesKeepTheEndConsistent() {
+        var hours=jdbc.queryForObject("SELECT extract(epoch FROM fin-debut)/3600 FROM activite WHERE slug='chocolat'",java.math.BigDecimal.class);
+        assertEquals(3, hours.intValue());
+        jdbc.update("UPDATE activite SET debut=debut + interval '1 day' WHERE slug='chocolat'");
+        var moved=jdbc.queryForObject("SELECT extract(epoch FROM fin-debut)/3600 FROM activite WHERE slug='chocolat'",java.math.BigDecimal.class);
+        assertEquals(3, moved.intValue());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("UPDATE activite SET fin=debut WHERE slug='chocolat'"));
+    }
+
     @Test @Transactional void pricesCannotBeNegative() {
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("UPDATE activite SET prix = -1 WHERE slug = 'chocolat'"));
     }

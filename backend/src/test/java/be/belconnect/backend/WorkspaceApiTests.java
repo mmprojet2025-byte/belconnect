@@ -55,12 +55,14 @@ class WorkspaceApiTests {
    var overview=json.readTree(get("/api/workspace").body());
    assertEquals(1,overview.get("spaces").size());
    assertEquals("ADMINISTRATEUR",overview.get("spaces").get(0).get("role").asText());
-   assertEquals(2,overview.get("groups").size()); assertTrue(overview.get("groups").toString().contains("REFERENT"));
+   assertEquals(2,overview.get("groups").size()); assertTrue(overview.get("groups").toString().contains("GESTION_ESPACE"));
    assertEquals(1,overview.get("projects").size());
    assertFalse(overview.toString().contains("Brouillon privé autre")); assertFalse(overview.toString().contains(" hidden"));
    jdbc.update("UPDATE appartenance_groupe SET statut='SUSPENDU' WHERE groupe_id=?",group);
    // An administrator retains direct access despite removal of a personal group role.
-   assertEquals(2,json.readTree(get("/api/workspace").body()).get("groups").size());
+   var groupsAfterRevocation=json.readTree(get("/api/workspace").body()).get("groups");
+   assertEquals(2,groupsAfterRevocation.size());
+   assertTrue(groupsAfterRevocation.toString().contains("GESTION_ESPACE"));
    jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=?",me);
    var revoked=json.readTree(get("/api/workspace").body());
    assertEquals(0,revoked.get("spaces").size()); assertEquals(0,revoked.get("groups").size());

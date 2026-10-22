@@ -23,6 +23,29 @@ public class WorkspaceController {
                            List<ModerationNotice> moderationNotices) {}
     public record OwnerFinance(long activeSpaces, long proSpaces, long paidTransactions,
                                long confirmedCommissionCents, long pendingRefunds) {}
+    public record OwnerActivitySummary(long upcomingActivities,long availablePlaces,long paidTickets) {}
+
+    @GetMapping("/owner/activities-summary") @Transactional(readOnly = true)
+    public OwnerActivitySummary ownerActivitySummary(Authentication auth) {
+        long userId = jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",
+            (r,n) -> r.getLong(1), auth.getName()).stream().findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Veuillez vous reconnecter."));
+        if (!Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",
+            Boolean.class, userId)))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cette vue est réservée au propriétaire de Belconnect.");
+        return jdbc.queryForObject("""
+            SELECT
+              count(*) AS upcoming,
+              COALESCE(sum(a.places_disponibles),0) AS available,
+              COALESCE(sum((SELECT COALESCE(sum(r.quantite),0) FROM reservation_payante_activite r
+                WHERE r.activite_id=a.id AND r.statut='PAYE')),0) AS tickets
+            FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id
+              JOIN utilisateur u ON u.id=e.createur_id
+            WHERE e.statut='ACTIF' AND a.publiee AND NOT a.annulee AND a.debut>now()
+              AND u.email<>'belconnect-demo-projects@example.invalid'
+            """,(r,n)->new OwnerActivitySummary(r.getLong("upcoming"),r.getLong("available"),r.getLong("tickets")));
+    }
 
     @GetMapping("/owner/access") @Transactional(readOnly = true)
     public boolean ownerAccess(Authentication auth) {
@@ -105,7 +128,7 @@ public class WorkspaceController {
             """, (r,n) -> new Space(r.getLong("id"), r.getString("nom"), r.getString("role")), userId);
         List<Group> groups = owner ? List.of() : jdbc.query("""
             SELECT g.id, g.espace_id, g.nom,
-              COALESCE(ag.role,'ADMINISTRATEUR') AS role,
+              CASE WHEN a.role='ADMINISTRATEUR' THEN 'GESTION_ESPACE' ELSE ag.role END AS role,
               (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_adhesions)) AS gestion_adhesions,
               (a.role='ADMINISTRATEUR' OR (ag.role='REFERENT' AND g.referents_gerent_activites)) AS gestion_activites
             FROM appartenance_espace a
@@ -119,7 +142,7 @@ public class WorkspaceController {
             """, (r,n) -> new Group(r.getLong("id"), r.getLong("espace_id"), r.getString("nom"), r.getString("role"),r.getBoolean("gestion_adhesions"),r.getBoolean("gestion_activites")), userId);
         // Personal drafts stay private, including from administrators and the platform owner.
         List<Project> projects = owner ? List.of() : jdbc.query("""
-            SELECT p.id, p.titre, p.statut, p.etape_validation, e.nom FROM projet p
+            SELECT p.id, p.titre, CASE WHEN p.termine_le IS NOT NULL THEN 'TERMINE' ELSE p.statut END AS statut, p.etape_validation, e.nom FROM projet p
             JOIN espace_organisateur e ON e.id=p.espace_id
             WHERE p.auteur_id=? ORDER BY p.date_modification DESC, p.id DESC
             """, (r,n) -> new Project(r.getLong("id"), r.getString("titre"), r.getString("statut"), r.getString("nom"), r.getString("etape_validation")), userId);

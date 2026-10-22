@@ -47,8 +47,68 @@ class SpaceManagementApiTests {
  JsonNode ok(HttpResponse<String> r,int status) throws Exception { assertEquals(status,r.statusCode(),r.body()); return json.readTree(r.body()); }
  Map<String,Object> sc(String name) { return Map.of("name",name,"type","ORGANISATEUR","description","Une communauté locale"); }
  Map<String,Object> gc(String name) { return Map.of("name",name,"description","Rencontres et projets","coverUrl","","openMembership",false,"visibility","PRIVEE"); }
+ @Test void starterAndProLimitGroupsPerSpaceWithoutRemovingExistingGroups() throws Exception {
+  try {
+   var admin=actor(); long space=setupSpace(admin);
+   String path="/api/workspace/spaces/"+space;
+   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   var first=Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe un"));
+   long firstId=ok(admin.post(path+"/groups",first,true),201).get("id").asLong();
+   for(int i=2;i<=3;i++) ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe "+i)),true),201);
+   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe quatre")),true).statusCode());
+   assertEquals(firstId,ok(admin.post(path+"/groups",first,true),201).get("id").asLong());
+   jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",space,admin.id);
+   assertEquals(6,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   for(int i=4;i<=6;i++) ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe "+i)),true),201);
+   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe sept")),true).statusCode());
+   jdbc.update("UPDATE abonnement_espace SET formule='STARTER',statut='ANNULE' WHERE espace_id=?",space);
+   assertEquals(6,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Encore un")),true).statusCode());
+   ok(admin.post(path+"/groups/"+firstId+"/status",Map.of("version",0,"status","ARCHIVE"),true),200);
+   assertEquals(5,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+  } finally { cleanup(); }
+ }
  JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc(name)),true),201); }
+ @Test void starterAndProLimitOrganiserSpaceRequests() throws Exception {
+  try {
+   var applicant=actor(); var proprietor=actor(); owner(proprietor);
+   String quotaPath="/api/workspace/requests/quota";
+   assertEquals(1,ok(applicant.get(quotaPath),200).get("max").asInt());
+   var firstBody=Map.of("requestId",UUID.randomUUID(),"content",sc("Premier espace"));
+   long first=ok(applicant.post("/api/workspace/requests",firstBody,true),201).get("id").asLong();
+   assertEquals(first,ok(applicant.post("/api/workspace/requests",firstBody,true),201).get("id").asLong());
+   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Deuxième espace")),true).statusCode());
+   long firstSpace=ok(proprietor.post("/api/workspace/opening-requests/"+first+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200).get("spaceId").asLong();
+   assertEquals(1,ok(applicant.get(quotaPath),200).get("used").asInt());
+   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Deuxième espace")),true).statusCode());
+   jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",firstSpace,applicant.id);
+   assertEquals(3,ok(applicant.get(quotaPath),200).get("max").asInt());
+   long second=request(applicant,"Deuxième espace").get("id").asLong();
+   long third=request(applicant,"Troisième espace").get("id").asLong();
+   assertEquals(3,ok(applicant.get(quotaPath),200).get("used").asInt());
+   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Quatrième espace")),true).statusCode());
+   jdbc.update("UPDATE abonnement_espace SET formule='STARTER',statut='ANNULE' WHERE espace_id=?",firstSpace);
+   assertEquals(409,proprietor.post("/api/workspace/opening-requests/"+second+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true).statusCode());
+   jdbc.update("UPDATE abonnement_espace SET formule='PRO',statut='ACTIF' WHERE espace_id=?",firstSpace);
+   for(long id:List.of(second,third)) ok(proprietor.post("/api/workspace/opening-requests/"+id+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200);
+   assertEquals(3,jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=?",Integer.class,applicant.id));
+  } finally { cleanup(); }
+ }
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
+ @Test void ownerActivitySummaryIsPrivateAndExcludesDemoSpaces() throws Exception {
+  try {
+   var platform=actor();var member=actor();owner(platform);
+   String path="/api/workspace/owner/activities-summary";
+   assertEquals(401,new Actor().get(path).statusCode());
+   assertEquals(403,member.get(path).statusCode());
+   var summary=ok(platform.get(path),200);
+   assertTrue(summary.get("upcomingActivities").asLong()>=0);
+   assertTrue(summary.get("availablePlaces").asLong()>=0);
+   assertTrue(summary.get("paidTickets").asLong()>=0);
+  } finally { cleanup(); }
+ }
  void cleanup() {
   for(long user:users) for(long space:jdbc.queryForList("SELECT id FROM espace_organisateur WHERE createur_id=?",Long.class,user)) {
    jdbc.update("DELETE FROM moderation_plateforme WHERE espace_id=?",space);
@@ -220,6 +280,7 @@ class SpaceManagementApiTests {
     assertEquals(Set.of(200,409),new HashSet<>(List.of(x.get(20,TimeUnit.SECONDS).statusCode(),y.get(20,TimeUnit.SECONDS).statusCode())));
     jdbc.update("UPDATE espace_organisateur SET statut='SUSPENDU' WHERE id=?",space);
     assertEquals(403,applicant.post(path+"/groups",creation,true).statusCode());
+    jdbc.update("UPDATE espace_organisateur SET statut='FERME' WHERE id=?",space);
    }
    long refused=request(applicant,"Demande à refuser").get("id").asLong(); String refusalPath="/api/workspace/opening-requests/"+refused+"/decision";
    assertEquals(400,platform.post(refusalPath,Map.of("version",0,"status","REFUSEE","reason","  "),true).statusCode());
@@ -238,6 +299,19 @@ class SpaceManagementApiTests {
  long setupGroup(long space,String name,boolean open,String visibility) {
   return jdbc.queryForObject("INSERT INTO groupe(espace_id,nom,adhesion_ouverte,visibilite) VALUES (?,?,?,?) RETURNING id",Long.class,space,name,open,visibility);
  }
+ @Test void groupMemberCanRequestOwnOrganiserSpace() throws Exception {
+  try {
+   var admin=actor(); var member=actor(); var platform=actor(); owner(platform);
+   long existingSpace=setupSpace(admin), group=setupGroup(existingSpace,"Groupe membre",false,"PUBLIQUE");
+   long joinRequest=ok(member.post("/api/groups/"+group+"/join",Map.of(),true),200).get("id").asLong();
+   ok(admin.post("/api/group-memberships/"+joinRequest+"/decision",Map.of("version",0,"status","ACCEPTEE","reason",""),true),200);
+   long opening=request(member,"Mon espace organisateur").get("id").asLong();
+   assertEquals("EN_ATTENTE",ok(member.get("/api/workspace/requests"),200).get(0).get("status").asText());
+   long ownSpace=ok(platform.post("/api/workspace/opening-requests/"+opening+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200).get("spaceId").asLong();
+   assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,member.id,ownSpace));
+   assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,member.id,existingSpace));
+  } finally { cleanup(); }
+ }
  @Test void privateGroupInvitationAdmitsOnlyLinkHolder() throws Exception {
   try {
    var admin=actor();var outsider=actor();long space=setupSpace(admin);
@@ -246,7 +320,10 @@ class SpaceManagementApiTests {
    assertFalse(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
    assertEquals(404,outsider.post("/api/groups/"+group+"/join",Map.of(),true).statusCode());
    assertEquals("Groupe privé invité",ok(outsider.get("/api/groups/invitations/"+code),200).get("name").asText());
-   assertEquals("ACCEPTEE",ok(outsider.post("/api/groups/invitations/"+code+"/join",Map.of(),true),200).get("status").asText());
+   long request=ok(outsider.post("/api/groups/invitations/"+code+"/join",Map.of(),true),200).get("id").asLong();
+   assertEquals("EN_ATTENTE",jdbc.queryForObject("SELECT statut FROM demande_adhesion_groupe WHERE id=?",String.class,request));
+   assertFalse(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
+   ok(admin.post("/api/group-memberships/"+request+"/decision",Map.of("version",0,"status","ACCEPTEE","reason",""),true),200);
    assertTrue(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
   } finally { cleanup(); }
  }
@@ -261,6 +338,10 @@ class SpaceManagementApiTests {
    assertEquals(404,member.post("/api/groups/"+secret+"/join",Map.of(),true).statusCode());
    long req=ok(member.post("/api/groups/"+closed+"/join",Map.of(),true),200).get("id").asLong();
    assertEquals(req,ok(member.post("/api/groups/"+closed+"/join",Map.of(),true),200).get("id").asLong());
+   var adminNotice=ok(admin.get("/api/group-memberships/notifications"),200);
+   assertEquals(1,adminNotice.size());
+   assertEquals("DEMANDE_RECUE",adminNotice.get(0).get("event").asText());
+   assertEquals(404,other.post("/api/group-memberships/notifications/"+adminNotice.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
    assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM appartenance_espace WHERE utilisateur_id=?",Integer.class,member.id));
    assertEquals(0,ok(other.get("/api/group-memberships"),200).size());
    assertEquals(0,ok(other.get("/api/group-memberships/received"),200).size());
@@ -270,14 +351,18 @@ class SpaceManagementApiTests {
    assertEquals(403,other.post(decision,accept,true).statusCode());assertEquals(403,platform.post(decision,accept,true).statusCode());
    assertEquals(403,admin.post(decision,accept,false).statusCode());
    assertEquals("ACCEPTEE",ok(admin.post(decision,accept,true),200).get("status").asText());
+   assertEquals("DEMANDE_ACCEPTEE",ok(member.get("/api/group-memberships/notifications"),200).get(0).get("event").asText());
    ok(admin.post(decision,accept,true),200);
    assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,member.id,space));
    assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",String.class,member.id,closed));
    assertEquals(1,ok(member.get("/api/workspace"),200).get("groups").size());
    assertTrue(ok(member.get("/api/groups"),200).toString().contains("Confidentiel"));
-   assertEquals("ACCEPTEE",ok(member.post("/api/groups/"+secret+"/join",Map.of(),true),200).get("status").asText());
-   // Joining a public open group creates both memberships, without granting any elevated role.
-   assertEquals("MEMBRE",ok(other.post("/api/groups/"+open+"/join",Map.of(),true),200).get("membershipStatus").asText());
+   assertEquals("EN_ATTENTE",ok(member.post("/api/groups/"+secret+"/join",Map.of(),true),200).get("status").asText());
+   // Even a formerly open public group requires administrator approval.
+   long openRequest=ok(other.post("/api/groups/"+open+"/join",Map.of(),true),200).get("id").asLong();
+   assertEquals("EN_ATTENTE",jdbc.queryForObject("SELECT statut FROM demande_adhesion_groupe WHERE id=?",String.class,openRequest));
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",Integer.class,other.id,open));
+   ok(admin.post("/api/group-memberships/"+openRequest+"/decision",accept,true),200);
    assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,other.id,otherSpace));
    assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,other.id,space));
    // Existing referent roles are preserved, never overwritten by a repeated join.
@@ -301,7 +386,7 @@ class SpaceManagementApiTests {
     var a=pool.submit(()->member.post("/api/groups/"+open+"/join",Map.of(),true));
     var b=pool.submit(()->member.post("/api/groups/"+open+"/join",Map.of(),true));
     assertEquals(ok(a.get(20,TimeUnit.SECONDS),200).get("id").asLong(),ok(b.get(20,TimeUnit.SECONDS),200).get("id").asLong());
-    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",Integer.class,member.id,open));
+    assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",Integer.class,member.id,open));
     long req=ok(member.post("/api/groups/"+closed+"/join",Map.of(),true),200).get("id").asLong();String path="/api/group-memberships/"+req+"/decision";
     assertEquals(400,admin.post(path,Map.of("version",0,"status","REFUSEE","reason"," "),true).statusCode());
     assertEquals(409,admin.post(path,Map.of("version",5,"status","ACCEPTEE","reason",""),true).statusCode());
@@ -482,6 +567,51 @@ class SpaceManagementApiTests {
   c.put("meetingPoint","Devant la fontaine");c.put("preparation","Prévoir de bonnes chaussures");c.put("visibility","PUBLIQUE");return c;
  }
  Map<String,Object> booking(String slug) { return Map.of("activityId",slug,"quantity",1,"firstName","Test","lastName","Inscription","email","test@example.com","phone","","acknowledged",true); }
+ @Test void paidActivityCanBePublishedAsLocalDemoWithoutCreatingPaidReservations() throws Exception {
+  try {
+   var admin=actor();var participant=actor();long space=setupSpace(admin);
+   var content=activityContent();content.put("price",2.46);
+   String path="/api/managed-activities";
+   var created=ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"content",content),true),201);
+   long id=created.get("id").asLong();String slug=created.get("slug").asText();
+   assertEquals(503,admin.post(path+"/"+id+"/publication",Map.of("version",0,"published",true),true).statusCode());
+   assertEquals(403,participant.post(path+"/"+id+"/publication",Map.of("version",0,"published",true,"demonstration",true),true).statusCode());
+   var published=ok(admin.post(path+"/"+id+"/publication",Map.of("version",0,"published",true,"demonstration",true),true),200);
+   assertTrue(published.get("published").asBoolean());assertTrue(published.get("demonstration").asBoolean());
+   var myActivities=ok(admin.get(path+"/paged?filter=ALL&page=0"),200);
+   assertEquals(id,myActivities.get("items").get(0).get("id").asLong());
+   assertEquals(0,ok(participant.get(path+"/paged?filter=ALL&page=0"),200).get("total").asInt());
+   assertTrue(ok(participant.get("/api/activities/"+slug),200).get("demonstration").asBoolean());
+   var request=new HashMap<String,Object>(booking(slug));request.put("requestId",UUID.randomUUID());
+   assertEquals(503,participant.post("/api/paid-activity-bookings",request,true).statusCode());
+   assertEquals(409,participant.post("/api/bookings",booking(slug),true).statusCode());
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM reservation_payante_activite WHERE activite_id=?",Integer.class,id));
+  } finally { cleanup(); }
+ }
+ @Test void organizerDashboardShowsOnlyOwnUpcomingActivityAndRealAvailability() throws Exception {
+  try {
+   var admin=actor();var member=actor();var other=actor();long space=setupSpace(admin),group=setupGroup(space,"Suivi",false,"PUBLIQUE");
+   addMember(member,space,group,"MEMBRE");
+   String path="/api/managed-activities";
+   assertEquals(401,new Actor().get(path+"/dashboard").statusCode());
+   assertEquals(204,member.get(path+"/dashboard").statusCode());
+   assertEquals(204,other.get(path+"/dashboard").statusCode());
+   var activity=ok(admin.post(path,Map.of("requestId",UUID.randomUUID(),"spaceId",space,"groupId",group,"content",activityContent()),true),201);
+   long id=activity.get("id").asLong();String slug=activity.get("slug").asText();
+   assertEquals(204,admin.get(path+"/dashboard").statusCode());
+   ok(admin.post(path+"/"+id+"/publication",Map.of("version",0,"published",true),true),200);
+   var dashboard=ok(admin.get(path+"/dashboard"),200);
+   assertEquals(id,dashboard.get("id").asLong());assertEquals(4,dashboard.get("remaining").asInt());
+   assertEquals(space,dashboard.get("spaceId").asLong());
+   assertEquals(id,ok(admin.get(path+"/dashboard?spaceId="+space),200).get("id").asLong());
+   assertEquals(403,other.get(path+"/dashboard?spaceId="+space).statusCode());
+   assertEquals(403,member.get(path+"/dashboard?spaceId="+space).statusCode());
+   assertEquals(0,dashboard.get("paidTickets").asInt());assertEquals(0,dashboard.get("confirmedCents").asLong());
+   ok(member.post("/api/bookings",booking(slug),true),201);
+   assertEquals(3,ok(admin.get(path+"/dashboard"),200).get("remaining").asInt());
+   assertEquals(204,member.get(path+"/dashboard").statusCode());
+  } finally { cleanup(); }
+ }
  @Test void activityAuthoringPublicationIsolationAndBookingProtection() throws Exception {
   try {
    var admin=actor();var other=actor();var ref=actor();var platform=actor();owner(platform);

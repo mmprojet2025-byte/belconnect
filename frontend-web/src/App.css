@@ -32,6 +32,8 @@
   align-items: center;
   gap: 48px;
 }
+.account-header .header-inner { width:min(1720px,calc(100% - 48px)); }
+.account-header #account-header-tools { display:flex; align-items:center; }
 .brand {
   display: inline-flex;
   align-items: center;
@@ -1118,6 +1120,10 @@ h2 {
     min-height: 44px;
     min-width: 44px;
   }
+  .account-header .header-inner { width:calc(100% - 32px); gap:10px; }
+  .account-header .header-actions { display:flex; gap:6px; }
+  .account-header .header-actions .locale-picker { display:none; }
+  .account-header .menu-button { margin-left:0; }
   .mobile-nav {
     display: flex;
     flex-direction: column;

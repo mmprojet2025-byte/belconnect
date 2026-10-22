@@ -49,7 +49,7 @@
 | 03.05 | Implémenter rôles et contrôle d'accès | Partiel | Désignation et retrait des référents, isolation des groupes et permission d’adhésion réalisés ; autres permissions à compléter. |
 | 03.06 | Créer espaces organisateurs et isolation multi-organisateur | Partiel | Demande d’ouverture, décision propriétaire, attribution initiale et modification de l’espace disponibles ; cycle de vie complet restant. |
 | 03.07 | Créer groupes et paramètres de visibilité | Partiel | Groupes actifs gérés, catalogue public/privé et modes d’adhésion opérationnels ; import de couverture restant. |
-| 03.08 | Implémenter adhésion ouverte/sur demande | Réalisé localement | Adhésion ouverte ou demande, suivi personnel ; appartenance espace/groupe créée seulement après acceptation. Notifications restantes. |
+| 03.08 | Implémenter les demandes d’adhésion aux groupes | Réalisé localement | Toute nouvelle adhésion attend une décision ; l’appartenance espace/groupe est créée après acceptation. Notifications restantes. |
 | 03.09 | Gérer acceptation/refus et statut des membres | Réalisé localement | Acceptation/refus par administrateur ou référent autorisé du groupe ; version, isolation et révocation vérifiées. |
 | 03.10 | Nommer un ou plusieurs référents par groupe | Réalisé localement | Liste des membres actifs, désignation de plusieurs référents et retrait conservant l’adhésion ; historique et contrôle de version. |
 | 03.11 | Configurer droits des référents par groupe | Partiel | Permission de traiter les adhésions configurable par groupe, désactivée par défaut ; permission activités (publication gratuite et inscrits/CSV) disponible ; annonces restantes. |

@@ -9,9 +9,10 @@ import { confirmLeavingEditor, useUnsavedChanges } from '../lib/unsavedChanges';
 type SpaceContent = { name: string; type: string; description: string };
 type Space = SpaceContent & { id: number; version: number };
 type Opening = SpaceContent & { id: number; status: string; version: number; spaceId: number | null; reason: string; applicant: string; createdAt: string };
+type SpaceQuota = { used: number; max: number; pro: boolean };
 type GroupContent = { name: string; description: string; coverUrl: string; openMembership: boolean; visibility: string };
 type Group = GroupContent & { id: number; spaceId: number; status: string; version: number; invitationCode: string };
-type Management = { space: Space; groups: Group[] };
+type Management = { space: Space; groups: Group[]; groupQuota?: { used: number; max: number; pro: boolean } };
 const spaceTypes = { ASSOCIATION: 'Association', PARTICULIER: 'Particulier', ORGANISATEUR: 'Organisateur' };
 const requestStatuses: Record<string, string> = { EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvée', REFUSEE: 'Refusée' };
 const message = (e: unknown) => e instanceof Error ? e.message : 'Impossible de joindre le serveur. Réessayez.';
@@ -65,9 +66,10 @@ function RequestDecision({ request, onDone }: { request: Opening; onDone: () => 
   </fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
 }
 
-export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boolean; onChanged: () => void; mode?: 'all' | 'create' | 'list' }) {
+export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boolean; onChanged: () => void; mode?: 'all' | 'create' | 'list' | 'inbox' }) {
   const [mine, setMine] = useState<Opening[]>([]);
   const [queue, setQueue] = useState<Opening[]>([]);
+  const [quota, setQuota] = useState<SpaceQuota | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -76,19 +78,20 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   useEffect(() => {
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
-    Promise.all([owner ? Promise.resolve([]) : load('/requests', signal), owner ? load('/opening-requests', signal) : Promise.resolve([])])
-      .then(([own, all]) => { setMine(own); setQueue(all); setLoaded(true); setError(''); })
+    Promise.all([owner ? Promise.resolve([]) : load('/requests', signal), owner ? load('/opening-requests', signal) : Promise.resolve([]), owner ? Promise.resolve(null) : load('/requests/quota', signal)])
+      .then(([own, all, currentQuota]) => { setMine(own); setQueue(all); setQuota(currentQuota); setLoaded(true); setError(''); })
       .catch(e => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
   }, [owner, attempt]);
   const refresh = () => { setAttempt(n => n + 1); onChanged(); };
-  return <section aria-labelledby="space-requests-title">
-    <div className="account-section-heading"><h2 id="space-requests-title">{owner ? 'Demandes d’ouverture d’espace' : mode === 'create' ? 'Demander un espace organisateur' : 'Mes demandes d’espace'}</h2>{mode !== 'create' && <button className="text-link" onClick={refresh}>Actualiser</button>}</div>
-    <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : mode === 'create' ? 'Vous pouvez demander un espace pour organiser des groupes et des projets.' : 'Suivez ici la réponse à vos demandes d’ouverture.'}</p>
+  return <section id={mode === 'create' ? 'demander-espace' : undefined} aria-labelledby="space-requests-title">
+    <div className="account-section-heading"><h2 id="space-requests-title">{owner ? mode === 'inbox' ? 'À traiter' : 'Demandes d’ouverture d’espace' : mode === 'create' ? 'Demander un espace organisateur' : 'Mes demandes d’espace'}</h2>{mode !== 'create' && <button className="text-link" onClick={refresh}>Actualiser</button>}</div>
+    <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : mode === 'create' ? 'Vous pouvez demander un espace pour organiser des groupes et des projets.' : 'Demandez un espace ici et suivez la réponse de Belconnect.'}</p>
+    {!owner && mode !== 'list' && quota && <p className="workspace-description">{quota.pro ? 'Pro : jusqu’à 3 espaces organisateurs.' : 'Starter : 1 espace organisateur. Un abonnement Pro actif sur votre espace permet d’en ouvrir jusqu’à 3.'} {quota.used}/{quota.max} place{quota.max > 1 ? 's' : ''} utilisée{quota.used > 1 ? 's' : ''}, demandes en attente comprises.</p>}
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
     {!loaded && !error && <p role="status">Chargement des demandes…</p>}
-    {!owner && mode !== 'list' && (editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Suivez sa réponse dans « Mes demandes ».'); refresh(); }} /> : <button className="button outline workspace-create" onClick={() => setEditing(true)}>Demander un espace</button>)}
+    {!owner && mode !== 'list' && (editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Suivez sa réponse dans « Mes demandes ».'); refresh(); }} /> : <button className="button outline workspace-create" disabled={!loaded || (quota !== null && quota.used >= quota.max)} onClick={() => setEditing(true)}>{quota && quota.used >= quota.max ? 'Limite atteinte' : 'Demander un espace'}</button>)}
     {!owner && mode !== 'create' && (mine.length > 0 ? <div className="workspace-grid">{mine.map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Espaces et groupes ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div> : loaded && <p className="workspace-description">Aucune demande d’espace pour le moment.</p>)}
     {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <article className="workspace-card" key={request.id}><span className="account-status">En attente</span><h3>{request.name}</h3><p>{request.applicant} · {spaceTypes[request.type as keyof typeof spaceTypes]}</p><p className="management-copy">{request.description || 'Aucune présentation renseignée.'}</p><RequestDecision request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} /></article>)}{queue.some(r => r.status !== 'EN_ATTENTE') && <details className="workspace-card"><summary>Décisions passées ({queue.filter(r => r.status !== 'EN_ATTENTE').length})</summary>{queue.filter(r => r.status !== 'EN_ATTENTE').map(request => <article key={request.id} className="management-copy"><strong>{request.name}</strong> — {requestStatuses[request.status]} · {request.applicant} · demande du {new Date(request.createdAt).toLocaleDateString('fr-BE')}{request.reason && <p>Motif : {request.reason}</p>}</article>)}</details>}</div>}
   </section>;
@@ -109,7 +112,7 @@ function SpaceEditor({ space, onSaved, onCancel }: { space: Space; onSaved: (spa
 }
 
 function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | null; spaceId: number; onSaved: (group: Group) => void; onCancel: () => void }) {
-  const [content, setContent] = useState<GroupContent>(group ? { name: group.name, description: group.description, coverUrl: group.coverUrl, openMembership: group.openMembership, visibility: group.visibility } : { name: '', description: '', coverUrl: '', openMembership: false, visibility: 'PRIVEE' });
+  const [content, setContent] = useState<GroupContent>(group ? { name: group.name, description: group.description, coverUrl: group.coverUrl, openMembership: false, visibility: group.visibility } : { name: '', description: '', coverUrl: '', openMembership: false, visibility: 'PRIVEE' });
   const [requestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -124,8 +127,8 @@ function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | nul
     <label>Nom du groupe<input required minLength={3} maxLength={150} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
     <label>Description<textarea rows={4} maxLength={3000} value={content.description} onChange={e => setContent({ ...content, description: e.target.value })} /></label>
     <label>Adresse de l’image de couverture (facultative)<input type="url" pattern="https://.*" maxLength={2048} placeholder="https://…" value={content.coverUrl} onChange={e => setContent({ ...content, coverUrl: e.target.value })} /><span className="management-hint">Utilisez une image accessible en HTTPS. L’import de fichier sera ajouté ultérieurement.</span></label>
-    <div className="draft-columns"><label>Visibilité<select value={content.visibility} onChange={e => setContent({ ...content, visibility: e.target.value })}><option value="PRIVEE">Privée</option><option value="PUBLIQUE">Publique</option></select></label><label>Mode d’adhésion<select value={content.openMembership ? 'OPEN' : 'REQUEST'} onChange={e => setContent({ ...content, openMembership: e.target.value === 'OPEN' })}><option value="REQUEST">Sur demande</option><option value="OPEN">Ouverte</option></select></label></div>
-    <p className="management-hint">Un groupe public est visible dans le catalogue. Un groupe privé est réservé aux membres de son espace. L’adhésion ouverte est immédiate ; sur demande, l’administrateur ou un référent autorisé doit l’approuver.</p>
+    <div className="draft-columns"><label>Visibilité<select value={content.visibility} onChange={e => setContent({ ...content, visibility: e.target.value })}><option value="PRIVEE">Privée</option><option value="PUBLIQUE">Publique</option></select></label></div>
+    <p className="management-hint">Un groupe public est visible dans le catalogue. Un groupe privé est réservé aux membres de son espace. Toute nouvelle adhésion doit être approuvée par l’administrateur ou un référent autorisé.</p>
     <div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : group ? 'Enregistrer le groupe' : 'Créer le groupe'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Abandonner les saisies non enregistrées ?')) onCancel(); }}>Annuler</button></div>
   </fieldset>{error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}</form>;
 }
@@ -173,16 +176,17 @@ export function SpaceManagement({ spaceId, section, onChanged }: { spaceId: numb
       {notice && <p className="account-notice" role="status">{notice}</p>}
       {section === 'settings' && detailTab === 'information' && <section aria-label="Informations de l’espace">{editingSpace ? <SpaceEditor space={data.space} onCancel={() => { setEditingSpace(false); reload(); }} onSaved={space => { setData({ ...data, space }); setEditingSpace(false); setNotice('Les informations de l’espace sont enregistrées.'); onChanged(); }} /> : <div className="workspace-card"><h3>{data.space.name}</h3><span className="account-status">{spaceTypes[data.space.type as keyof typeof spaceTypes]}</span><p>{data.space.description || 'Aucune présentation renseignée.'}</p><button className="button outline workspace-resume" onClick={() => { setNotice(''); setEditingSpace(true); }}>Modifier les informations</button></div>}</section>}
       {section === 'settings' && detailTab === 'admins' && <SpaceAdministrators spaceId={spaceId} onChanged={() => { onChanged(); reload(); }} />}
-      {section === 'groups' && <section aria-label="Groupes de l’espace"><div className="account-section-heading"><h3 className="management-groups-title">Groupes ({data.groups.length})</h3><button className="button coral" disabled={editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup('new'); }}>Créer un groupe</button></div>
-      {editingGroup !== null && <GroupEditor key={editingGroup === 'new' ? 'new' : editingGroup.id} group={editingGroup === 'new' ? null : editingGroup} spaceId={spaceId} onCancel={() => { setEditingGroup(null); reload(); }} onSaved={group => { setData({ ...data, groups: [...data.groups.filter(g => g.id !== group.id), group].sort((a, b) => a.name.localeCompare(b.name)) }); setEditingGroup(null); setNotice('Le groupe est enregistré.'); onChanged(); }} />}
+      {section === 'groups' && <section aria-label="Groupes de l’espace"><div className="account-section-heading"><h3 className="management-groups-title">Groupes ({data.groupQuota?.used ?? data.groups.filter(group => group.status !== 'ARCHIVE').length}/{data.groupQuota?.max ?? 3})</h3><button className="button coral" disabled={editingGroup !== null || membersGroup !== null || (data.groupQuota?.used ?? data.groups.filter(group => group.status !== 'ARCHIVE').length) >= (data.groupQuota?.max ?? 3)} onClick={() => { setNotice(''); setEditingGroup('new'); }}>Créer un groupe</button></div>
+      <p className="workspace-description">{data.groupQuota?.pro ? 'Pro : jusqu’à 6 groupes actifs ou suspendus.' : 'Starter : jusqu’à 3 groupes actifs ou suspendus.'} Les groupes archivés ne comptent pas. Si l’abonnement Pro prend fin, les groupes déjà créés restent accessibles ; aucune nouvelle création n’est possible au-delà de la limite Starter.</p>
+      {editingGroup !== null && <GroupEditor key={editingGroup === 'new' ? 'new' : editingGroup.id} group={editingGroup === 'new' ? null : editingGroup} spaceId={spaceId} onCancel={() => { setEditingGroup(null); reload(); }} onSaved={() => { setEditingGroup(null); setNotice('Le groupe est enregistré.'); reload(); onChanged(); }} />}
       {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => { setAttempt(n => n + 1); onChanged(); }} onClose={() => { setMembersGroup(null); reload(); }} />}
       {!data.groups.length ? <div className="account-empty"><h3>Votre premier groupe</h3><p>Créez un groupe pour rassembler votre communauté autour d’un thème ou d’un projet.</p></div> : <div className="workspace-grid">{data.groups.map(group => <article className="workspace-card" key={group.id}>
         {group.coverUrl && <img key={group.coverUrl} className="management-cover" src={group.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { e.currentTarget.style.display = 'none'; }} />}
-        <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · {group.openMembership ? 'Adhésion ouverte' : 'Adhésion sur demande'}</p>
+        <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · Adhésion sur demande</p>
         {group.status === 'ACTIF' && group.visibility === 'PRIVEE' && <button className="text-link workspace-resume" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/groupes?invitation=${group.invitationCode}`); setNotice('Lien d’invitation copié. Partagez-le uniquement avec les personnes que vous souhaitez inviter.'); } catch { setNotice('Copie impossible. Réessayez depuis un navigateur autorisant le presse-papiers.'); } }}>Copier le lien d’invitation</button>}
         {group.status === 'ACTIF' && <button className="text-link workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup(group); }}>Modifier ce groupe</button>}
         {group.status === 'ACTIF' && <button className="button outline workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => setMembersGroup(group.id)}>Membres et référents</button>}
-        <GroupLifecycle key={`${group.id}-${group.version}`} group={group} spaceId={spaceId} disabled={editingSpace || editingGroup !== null || membersGroup !== null} onReload={reload} onSaved={updated => { setData({ ...data, groups: data.groups.map(g => g.id === updated.id ? updated : g) }); setNotice('Le statut du groupe est enregistré.'); onChanged(); }} />
+        <GroupLifecycle key={`${group.id}-${group.version}`} group={group} spaceId={spaceId} disabled={editingSpace || editingGroup !== null || membersGroup !== null} onReload={reload} onSaved={() => { setNotice('Le statut du groupe est enregistré.'); reload(); onChanged(); }} />
       </article>)}</div>}</section>}
     </>}
   </section>;

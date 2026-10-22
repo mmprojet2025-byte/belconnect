@@ -70,7 +70,7 @@ public class ProjectParticipationController {
   // Serialize with publication changes and other proposals on this project.
   existing=jdbc.queryForList("SELECT * FROM participation_projet WHERE utilisateur_id=? AND creation_request=?",uid,body.requestId());
   if(!existing.isEmpty())return retry(existing.getFirst(),body);
-  if(!Boolean.TRUE.equals(p.get("publie")) || Boolean.TRUE.equals(p.get("masque_moderation")) || !"APPROUVE".equals(p.get("statut")))throw error(HttpStatus.NOT_FOUND,"Ce projet n’accepte plus de propositions.");
+  if(!Boolean.TRUE.equals(p.get("publie")) || p.get("termine_le")!=null || Boolean.TRUE.equals(p.get("masque_moderation")) || !"APPROUVE".equals(p.get("statut")))throw error(HttpStatus.NOT_FOUND,"Ce projet n’accepte plus de propositions.");
   if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT ? = ANY(types_aide) FROM projet WHERE id=?",Boolean.class,body.type(),body.projectId())))
    throw error(HttpStatus.CONFLICT,"Ce projet ne recherche pas ce type d'aide.");
   if(jdbc.queryForObject("SELECT count(*) FROM participation_projet WHERE projet_id=? AND utilisateur_id=? AND type_aide=? AND statut IN ('PROPOSEE','ACCEPTEE')",Integer.class,body.projectId(),uid,body.type())>0)

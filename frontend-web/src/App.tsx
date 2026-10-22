@@ -20,6 +20,7 @@ import { PaymentPage } from "./pages/PaymentPage";
 import type { PaymentAttempt } from "./pages/PaymentPage";
 import { EnrollmentPage } from "./pages/EnrollmentPage";
 import { bookingQuantity, bookingUrl, paymentDraftKey } from "./lib/booking";
+import { saveDemoPayment } from "./lib/demoPayments";
 import type { EnrollmentDraft } from "./lib/booking";
 import { ActivityDetail } from "./pages/ActivityDetail";
 import { Catalogue } from "./pages/Catalogue";
@@ -190,7 +191,7 @@ function App() {
       <a className="skip-link" href="#contenu">
         Aller au contenu
       </a>
-      <header className="site-header">
+      <header className={`site-header${pathname === '/mon-espace' ? ' account-header' : ''}`}>
         <div className="container header-inner">
           <a
             className="brand"
@@ -215,17 +216,17 @@ function App() {
             </a>
             <a href="/projets">{tr(locale, 'Projets', 'Projects', 'Projecten')}</a>
             <a href="/groupes" onClick={() => setMenuOpen(false)}>{tr(locale, 'Groupes', 'Groups', 'Groepen')}</a>
+            {user && <a className={pathname === '/mon-espace' ? 'active' : ''} aria-current={pathname === '/mon-espace' ? 'page' : undefined} href="/mon-espace">{tr(locale, 'Mon espace', 'My space', 'Mijn ruimte')}</a>}
           </nav>
           <div className="header-actions">
-            <button
+            {pathname !== '/mon-espace' && <button
               className="button outline organize"
               onClick={() => navigate('/mon-espace#espaces')}
             >
               {tr(locale, 'Organiser une activité', 'Organise an activity', 'Organiseer een activiteit')}
-            </button>
-            <a className="login" href={user ? "/mon-espace" : "/connexion"}>
-              {user ? tr(locale, 'Mon espace', 'My space', 'Mijn ruimte') : tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}
-            </a>
+            </button>}
+            {!user && pathname !== '/mon-espace' && <a className="login" href="/connexion">{tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}</a>}
+            {pathname === '/mon-espace' && <div id="account-header-tools" />}
             <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">FR</option><option value="en">EN</option><option value="nl">NL</option></select></label>
           </div>
           <button
@@ -274,7 +275,7 @@ function App() {
         ) : isGroups ? (
           <Groups key={user?.id ?? "public"} signedIn={isSignedIn} />
         ) : isProject ? (
-          <Projects key={`${pathname}-${user?.id ?? "public"}`} id={pathname.split("/")[2]} signedIn={isSignedIn} />
+          <Projects key={`${pathname}-${user?.id ?? "public"}`} id={pathname.split("/")[2]} signedIn={isSignedIn} userId={user?.id} />
         ) : isFlow && selectedActivity ? (
           !user || step === "connexion" ? (
             <AuthPage
@@ -308,6 +309,10 @@ function App() {
                   : undefined
               }
               onResult={(attempt) => {
+                if (attempt.outcome === 'success' && selectedActivity.demonstration && user) {
+                  saveDemoPayment(user.id, { activityId: selectedActivity.id, quantity: attempt.quantity,
+                    amountCents: Math.round(selectedActivity.price * attempt.quantity * 100), completedAt: new Date().toISOString() });
+                }
                 setPayments((current) => ({
                   ...current,
                   [selectedActivity.id]: attempt,

@@ -143,6 +143,8 @@ public class DraftController {
         var row=rows.getFirst(); long spaceId=((Number)row.get("espace_id")).longValue();
         Long groupId=row.get("groupe_id")==null?null:((Number)row.get("groupe_id")).longValue();
         access(userId,spaceId,groupId);
+        // Serialize this author's submissions so concurrent requests cannot bypass the pending-project limit.
+        jdbc.query("SELECT pg_advisory_xact_lock(?)",(r,n)->0,8_400_000_000L+userId);
         // Lock the project after memberships, serializing retries and concurrent submissions.
         row=jdbc.queryForMap("SELECT * FROM projet WHERE id=? FOR UPDATE",id);
         String spaceName=jdbc.queryForObject("SELECT nom FROM espace_organisateur WHERE id=?",String.class,spaceId);
@@ -153,6 +155,8 @@ public class DraftController {
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Fermez puis rouvrez le brouillon avant de le soumettre.");
         if(((String)row.get("description")).isBlank() || ((String)row.get("objectif")).isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Complétez et enregistrez la description et l’objectif avant de soumettre le projet.");
+        if(jdbc.queryForObject("SELECT count(*) FROM projet WHERE auteur_id=? AND statut='SOUMIS' AND id<>?",Integer.class,userId,id)>=3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Vous avez déjà trois projets en attente. Attendez une décision avant d’en soumettre un autre.");
         boolean authorAdmin=Boolean.TRUE.equals(jdbc.queryForObject("""
             SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?
               AND role='ADMINISTRATEUR' AND statut='ACTIF')

@@ -141,12 +141,19 @@ public class GroupMembershipController {
         activeMemberships(user,space,id);
         var prior=jdbc.query("SELECT id FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getLong(1),user,id);
         if(!prior.isEmpty()) return request(prior.getFirst());
-        boolean admitted=Boolean.TRUE.equals(g.get("adhesion_ouverte")) || !membership(user,space,id).equals("AUCUNE");
-        if(admitted) admit(user,space,id);
+        boolean admitted=!membership(user,space,id).equals("AUCUNE");
+        // Every new group membership requires a decision from the space administrator.
         long request=jdbc.queryForObject("""
             INSERT INTO demande_adhesion_groupe(utilisateur_id,groupe_id,espace_id,statut,date_decision)
             VALUES (?,?,?,?,CASE WHEN ? THEN now() ELSE NULL END) RETURNING id
             """,Long.class,user,id,space,admitted?"ACCEPTEE":"EN_ATTENTE",admitted);
+        if (!admitted) jdbc.update("""
+            INSERT INTO notification_adhesion_groupe(utilisateur_id,demande_id,evenement)
+            SELECT a.utilisateur_id,?,'DEMANDE_RECUE' FROM appartenance_espace a
+            JOIN utilisateur u ON u.id=a.utilisateur_id AND u.statut='ACTIF'
+            WHERE a.espace_id=? AND a.role='ADMINISTRATEUR' AND a.statut='ACTIF' AND a.utilisateur_id<>?
+            ON CONFLICT DO NOTHING
+            """,request,space,user);
         audit(user,space,id,admitted?"ADHESION_OUVERTE":"ADHESION_DEMANDEE",0);
         return request(request);
     }
@@ -176,6 +183,10 @@ public class GroupMembershipController {
             admit(applicant,space,group);
         }
         jdbc.update("UPDATE demande_adhesion_groupe SET statut=?,motif=?,examinateur_id=?,date_decision=now(),version=version+1 WHERE id=?",body.status(),body.reason(),actor,id);
+        jdbc.update("""
+            INSERT INTO notification_adhesion_groupe(utilisateur_id,demande_id,evenement)
+            VALUES (?,?,?) ON CONFLICT DO NOTHING
+            """,applicant,id,body.status().equals("ACCEPTEE")?"DEMANDE_ACCEPTEE":"DEMANDE_REFUSEE");
         audit(actor,space,group,"ADHESION_"+body.status(),body.version()+1);
         return request(id);
     }

@@ -17,7 +17,7 @@ public class ProjectPublicationController {
  private final JdbcTemplate jdbc;
  public ProjectPublicationController(JdbcTemplate jdbc) {this.jdbc=jdbc;}
  public record Published(long id,String title,String description,String objective,String spaceName,String groupName,String visibility,LocalDate startsOn,LocalDate endsOn,String imageUrl,List<String> helpTypes,Long participationPriceCents,String meetingPlace,OffsetDateTime publishedAt) {}
- public record Managed(long id,String title,long spaceId,String spaceName,String visibility,boolean published,long version) {}
+ public record Managed(long id,String title,long spaceId,String spaceName,String visibility,boolean published,boolean finished,long version) {}
  public record Change(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
  private Long user(Authentication auth) {
   if(auth==null) return null;
@@ -28,7 +28,7 @@ public class ProjectPublicationController {
   SELECT p.*,e.nom AS espace_nom,g.nom AS groupe_nom,o.prix_centimes AS participation_prix_centimes,o.lieu_action AS lieu_rendez_vous FROM projet p
   JOIN espace_organisateur e ON e.id=p.espace_id LEFT JOIN groupe g ON g.id=p.groupe_id
   LEFT JOIN offre_participation_projet o ON o.projet_id=p.id AND o.active
-  WHERE p.publie AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
+  WHERE p.publie AND p.termine_le IS NULL AND NOT p.masque_moderation AND p.statut='APPROUVE' AND e.statut='ACTIF' AND (p.groupe_id IS NULL OR g.statut='ACTIF')
    AND (p.visibilite='PUBLIQUE' OR (p.visibilite='GROUPE' AND EXISTS (
     SELECT 1 FROM appartenance_groupe ag JOIN appartenance_espace ae
      ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id
@@ -45,7 +45,7 @@ public class ProjectPublicationController {
   var p=jdbc.query(PUBLIC_SELECT+" AND p.id=?",publicMapper,user(auth),id).stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Projet indisponible."));
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(p);
  }
- private final org.springframework.jdbc.core.RowMapper<Managed> managedMapper=(r,n)->new Managed(r.getLong("id"),r.getString("titre"),r.getLong("espace_id"),r.getString("espace_nom"),r.getString("visibilite"),r.getBoolean("publie"),r.getLong("version"));
+ private final org.springframework.jdbc.core.RowMapper<Managed> managedMapper=(r,n)->new Managed(r.getLong("id"),r.getString("titre"),r.getLong("espace_id"),r.getString("espace_nom"),r.getString("visibilite"),r.getBoolean("publie"),r.getObject("termine_le")!=null,r.getLong("version"));
  @GetMapping("/api/project-publications") @Transactional(readOnly=true)
  public List<Managed> manage(Authentication auth) {
   return jdbc.query("""
@@ -53,7 +53,29 @@ public class ProjectPublicationController {
    JOIN appartenance_espace ae ON ae.espace_id=p.espace_id
    WHERE p.statut='APPROUVE' AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF'
    ORDER BY p.date_modification DESC,p.id DESC
-   """,managedMapper,requiredUser(auth));
+  """,managedMapper,requiredUser(auth));
+ }
+ public record Page(List<Managed> items,int total,int page,int size) {}
+ @GetMapping("/api/project-publications/paged") @Transactional(readOnly=true)
+ public Page paged(Authentication auth,@RequestParam(defaultValue="ACTIVE") String mode,
+                   @RequestParam(required=false) Long spaceId,@RequestParam(defaultValue="0") int page) {
+  if(!List.of("ACTIVE","HISTORY","SETTLEMENT").contains(mode) || page<0 || page>100000 || spaceId!=null && spaceId<=0)
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Filtre ou page invalide.");
+  long uid=requiredUser(auth);
+  String where="""
+   FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id
+   JOIN appartenance_espace ae ON ae.espace_id=p.espace_id
+   WHERE p.statut='APPROUVE' AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF'
+   """;
+  where+=switch(mode) {
+   case "HISTORY" -> " AND p.termine_le IS NOT NULL";
+   case "SETTLEMENT" -> " AND p.publie AND p.termine_le IS NULL";
+   default -> " AND p.termine_le IS NULL";
+  };
+  where+=" AND (?::bigint IS NULL OR p.espace_id=?)";
+  int total=jdbc.queryForObject("SELECT count(*) "+where,Integer.class,uid,spaceId,spaceId);
+  var items=jdbc.query("SELECT p.*,e.nom AS espace_nom "+where+" ORDER BY p.date_modification DESC,p.id DESC LIMIT 12 OFFSET ?",managedMapper,uid,spaceId,spaceId,page*12);
+  return new Page(items,total,page,12);
  }
  @PostMapping("/api/project-publications/{id}") @Transactional
  public Managed change(Authentication auth,@PathVariable long id,@Valid @RequestBody Change body) {
@@ -75,6 +97,7 @@ public class ProjectPublicationController {
    if(body.published() && !"ACTIF".equals(group.get("statut")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Le groupe doit être actif pour publier.");
   }
   p=jdbc.queryForMap("SELECT * FROM projet WHERE id=? FOR UPDATE",id);
+  if(p.get("termine_le")!=null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet est terminé et ne peut plus être publié.");
   if(!body.published() && !jdbc.queryForList("""
     SELECT o.projet_id FROM offre_participation_projet o
     WHERE o.projet_id=? AND o.active LIMIT 1
@@ -92,4 +115,24 @@ public class ProjectPublicationController {
   }
   return jdbc.queryForObject("SELECT p.*,e.nom AS espace_nom FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",managedMapper,id);
  }
+ @PostMapping("/api/project-publications/{id}/finish") @Transactional
+ public Managed finish(Authentication auth,@PathVariable long id,@Valid @RequestBody Version body) {
+  long uid=requiredUser(auth);
+  var access=jdbc.queryForList("""
+   SELECT p.id FROM projet p JOIN appartenance_espace ae ON ae.espace_id=p.espace_id
+   JOIN utilisateur u ON u.id=ae.utilisateur_id
+   WHERE p.id=? AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF' AND u.statut='ACTIF'
+   FOR SHARE OF ae,u
+   """,id,uid);
+  if(access.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Projet introuvable dans vos espaces administrés.");
+  var p=jdbc.queryForMap("SELECT * FROM projet WHERE id=? FOR UPDATE",id);
+  if(p.get("termine_le")!=null)return jdbc.queryForObject("SELECT p.*,e.nom AS espace_nom FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",managedMapper,id);
+  if(((Number)p.get("version")).longValue()!=body.version())throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Actualisez la liste.");
+  if(!"APPROUVE".equals(p.get("statut")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Seul un projet approuvé peut être terminé.");
+  if(!jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? AND active LIMIT 1",id).isEmpty())
+   throw new ResponseStatusException(HttpStatus.CONFLICT,"Fermez d’abord les inscriptions au projet et terminez les remboursements éventuels.");
+  jdbc.update("UPDATE projet SET termine_le=now(),publie=false,version=version+1,date_modification=now() WHERE id=?",id);
+  return jdbc.queryForObject("SELECT p.*,e.nom AS espace_nom FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",managedMapper,id);
+ }
+ public record Version(@NotNull @Min(0) Long version) {}
 }

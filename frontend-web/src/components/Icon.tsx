@@ -1,4 +1,10 @@
 const paths: Record<string, string> = {
+  home: "m3 10 9-7 9 7 M5 9v12h14V9 M9 21v-7h6v7",
+  inbox: "M3 4h18v14H3z M3 13h5l2 3h4l2-3h5",
+  folder: "M3 6h7l2 2h9v12H3z",
+  document: "M6 2h8l4 4v16H6z M14 2v5h4 M9 12h6 M9 16h6",
+  chart: "M4 20V4 M4 20h16 M8 16v-4 M13 16V8 M18 16V5",
+  sidebar: "M3 4h18v16H3z M9 4v16",
   search: "m21 21-4.5-4.5 M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0",
   pin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0 M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
   calendar: "M4 5h16v16H4z M4 9h16 M8 2v6 M16 2v6",
@@ -17,6 +23,7 @@ const paths: Record<string, string> = {
   menu: "M4 6h16 M4 12h16 M4 18h16",
   close: "m6 6 12 12 M18 6 6 18",
   chevron: "m8 4 8 8-8 8",
+  bell: "M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9 M10 21h4",
 };
 export function Icon({
   name,

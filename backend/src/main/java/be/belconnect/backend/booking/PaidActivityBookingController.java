@@ -44,8 +44,8 @@ public class PaidActivityBookingController {
       @NotBlank @Email @Size(max=254) String email, @Size(max=30) String phone,
       @AssertTrue boolean acknowledged) {}
   public record Checkout(long id, String url, String status) {}
-  public record Status(long id, String activityId, int quantity, long amountCents, String status,
-      OffsetDateTime createdAt) {}
+  public record Status(long id, String activityId, String title, OffsetDateTime startsAt, String location,
+      String image, int quantity, long amountCents, String status, Long registrationId, OffsetDateTime createdAt) {}
   private record Pending(long id, String slug, String title, int quantity, long unitCents,
       long feeCents, String account, String session, String status) {}
 
@@ -150,14 +150,29 @@ public class PaidActivityBookingController {
     } catch(StripeException ex) { throw fail(HttpStatus.BAD_GATEWAY,"Stripe est temporairement indisponible."); }
   }
 
+  private final org.springframework.jdbc.core.RowMapper<Status> statusMapper=(r,n)->new Status(
+      r.getLong("id"),r.getString("slug"),r.getString("titre"),r.getObject("debut",OffsetDateTime.class),
+      r.getString("lieu"),r.getString("image"),r.getInt("quantite"),r.getLong("montant_centimes"),
+      r.getString("statut"),r.getObject("inscription_id",Long.class),r.getObject("date_creation",OffsetDateTime.class));
+
+  @GetMapping
+  public java.util.List<Status> mine(Authentication auth) {
+    return jdbc.query("""
+      SELECT r.id,r.quantite,r.montant_centimes,r.statut,r.inscription_id,r.date_creation,
+             a.slug,a.titre,a.debut,a.lieu,a.image
+      FROM reservation_payante_activite r JOIN activite a ON a.id=r.activite_id
+      WHERE r.utilisateur_id=? ORDER BY r.date_creation DESC,r.id DESC LIMIT 100
+      """,statusMapper,user(auth));
+  }
+
   @GetMapping("/{id}")
   public Status status(Authentication auth,@PathVariable long id) {
     return jdbc.query("""
-      SELECT r.id,a.slug,r.quantite,r.montant_centimes,r.statut,r.date_creation
+      SELECT r.id,r.quantite,r.montant_centimes,r.statut,r.inscription_id,r.date_creation,
+             a.slug,a.titre,a.debut,a.lieu,a.image
       FROM reservation_payante_activite r JOIN activite a ON a.id=r.activite_id
       WHERE r.id=? AND r.utilisateur_id=?
-      """,(r,n)->new Status(r.getLong(1),r.getString(2),r.getInt(3),r.getLong(4),r.getString(5),
-        r.getObject(6,OffsetDateTime.class)),id,user(auth)).stream().findFirst()
+      """,statusMapper,id,user(auth)).stream().findFirst()
       .orElseThrow(()->fail(HttpStatus.NOT_FOUND,"Réservation introuvable."));
   }
 }

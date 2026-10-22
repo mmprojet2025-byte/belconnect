@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
+import { Icon } from './Icon';
+import { readDemoProjectPayments, saveDemoProjectPayment } from '../lib/demoProjectPayments';
 
 type Offer = { projectId: number; description: string; priceCents: number; capacity: number; placesLeft: number; active: boolean; paymentReady: boolean; commissionPercent: number; startsAt: string | null; venue: string | null };
-type Enrollment = { id: number; projectId: number; projectTitle: string; priceCents: number; status: string };
-type FreeEnrollment = { id: number; projectId: number; projectTitle: string; status: string };
+type ProjectEnrollmentDetails = { id: number; projectId: number; projectTitle: string; spaceName: string; imageUrl: string | null; startsOn: string | null; endsOn: string | null; meetingPlace: string | null; status: string; createdAt: string };
+type Enrollment = ProjectEnrollmentDetails & { priceCents: number };
+type FreeEnrollment = ProjectEnrollmentDetails;
 const euro = (cents: number) => (cents / 100).toLocaleString('fr-BE', { style: 'currency', currency: 'EUR' });
 const meeting = (value: string) => new Intl.DateTimeFormat('fr-BE', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Brussels' }).format(new Date(value));
 const message = (cause: unknown) => cause instanceof Error ? cause.message : 'Une erreur est survenue.';
 
-export function PaidProjectParticipation({ projectId, signedIn }: { projectId: number; signedIn: boolean }) {
+export function PaidProjectParticipation({ projectId, signedIn, userId, demonstration = false, demoProject }: { projectId: number; signedIn: boolean; userId?: number; demonstration?: boolean; demoProject?: { projectTitle: string; spaceName: string; imageUrl: string | null; startsOn: string | null; endsOn: string | null } }) {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -17,6 +20,7 @@ export function PaidProjectParticipation({ projectId, signedIn }: { projectId: n
   const [booking, setBooking] = useState<Enrollment | null>(null);
   const [freeBooking, setFreeBooking] = useState<FreeEnrollment | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [demoCompleted, setDemoCompleted] = useState(() => userId ? readDemoProjectPayments(userId).some(item => item.projectId === projectId) : false);
   const returned = new URLSearchParams(window.location.search).get('participation');
   useEffect(() => {
     const c = new AbortController();
@@ -62,6 +66,11 @@ export function PaidProjectParticipation({ projectId, signedIn }: { projectId: n
     catch (cause) { setError(message(cause)); }
     finally { setBusy(false); }
   }
+  function simulate() {
+    if (!userId || !offer || !demoProject) return;
+    saveDemoProjectPayment(userId, { projectId, ...demoProject, priceCents: offer.priceCents, completedAt: new Date().toISOString() });
+    setDemoCompleted(true);
+  }
   return <section className="project-donation" aria-labelledby="paid-project-title">
     <h2 id="paid-project-title">S’inscrire à ce projet</h2>
     {!offer && !error && <p>L’organisateur n’a pas encore ouvert les inscriptions. Vous pouvez consulter le projet ou proposer une aide.</p>}
@@ -69,8 +78,10 @@ export function PaidProjectParticipation({ projectId, signedIn }: { projectId: n
       {freeBooking?.status === 'CONFIRMEE' && <p role="status">Inscription confirmée. <a href="/mon-espace#participations-projets">Voir mon inscription dans Mon espace</a></p>}
       {returned === 'annule' && <p role="status">Le paiement a été interrompu. La participation n'est pas confirmée.</p>}
       {booking && <p role="status">Votre participation : {booking.status === 'PAYE' ? 'confirmée' : booking.status === 'REMBOURSE' ? 'remboursée' : booking.status === 'REMBOURSEMENT_EN_COURS' ? 'remboursement en cours' : booking.status === 'EN_ATTENTE' ? 'en attente de confirmation ; vérification automatique en cours' : booking.status === 'ECHOUE' || booking.status === 'EXPIRE' ? 'paiement non abouti' : booking.status.toLowerCase()}.</p>}
+      {demonstration && offer.priceCents > 0 && <p>Projet de démonstration : le paiement est simulé. Aucune place n’est réservée.</p>}
+      {demoCompleted && <p role="status">Simulation terminée. <a href="/mon-espace#participations-projets">Voir mon essai dans Mes participations</a>.</p>}
       {signedIn && returned && /^\d+$/.test(returned) && (booking?.status === 'EN_ATTENTE' || error) && <button className="text-link" onClick={() => { setError(''); setRefresh(value => value + 1); }}>Revérifier la participation</button>}
-      {!offer.active ? <p>Les inscriptions sont fermées.</p> : !offer.startsAt || !offer.venue ? <p>La date et le lieu de la première rencontre doivent être précisés avant d’ouvrir les inscriptions.</p> : !offer.paymentReady ? <p>Les inscriptions ne sont pas encore ouvertes ou le projet a commencé.</p> : freeBooking?.status === 'CONFIRMEE' ? null : offer.placesLeft < 1 ? <p>Toutes les places sont réservées.</p> : !signedIn ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a> : offer.priceCents === 0 ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'Confirmer mon inscription gratuite'}</button> : <button className="button coral" disabled={busy} onClick={join}>{busy ? 'Ouverture du paiement…' : `S’inscrire pour ${euro(offer.priceCents)}`}</button>}</>}
+      {!offer.active ? <p>Les inscriptions sont fermées.</p> : !offer.startsAt || !offer.venue ? <p>La date et le lieu de la première rencontre doivent être précisés avant d’ouvrir les inscriptions.</p> : demonstration && offer.priceCents > 0 ? !signedIn || !userId ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour essayer la simulation</a> : <button className="button coral" onClick={simulate}>Simuler une inscription à {euro(offer.priceCents)}</button> : !offer.paymentReady ? <p>Les inscriptions ne sont pas encore ouvertes ou le projet a commencé.</p> : freeBooking?.status === 'CONFIRMEE' ? null : offer.placesLeft < 1 ? <p>Toutes les places sont réservées.</p> : !signedIn ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a> : offer.priceCents === 0 ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'Confirmer mon inscription gratuite'}</button> : <button className="button coral" disabled={busy} onClick={join}>{busy ? 'Ouverture du paiement…' : `S’inscrire pour ${euro(offer.priceCents)}`}</button>}</>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }
@@ -123,11 +134,13 @@ export function PaidProjectOfferEditor({ projectId, settlementOnly = false }: { 
   </div>;
 }
 
-export function MyPaidProjectParticipations() {
+export function MyPaidProjectParticipations({ userId }: { userId: number }) {
   const [items, setItems] = useState<Enrollment[] | null>(null);
   const [freeItems, setFreeItems] = useState<FreeEnrollment[] | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [filter, setFilter] = useState('all');
+  const [demoPayments] = useState(() => readDemoProjectPayments(userId));
   useEffect(() => {
     const c = new AbortController();
     Promise.all([
@@ -142,10 +155,18 @@ export function MyPaidProjectParticipations() {
     try { const updated: FreeEnrollment = await postJson(`/api/project-paid-participations/free/${id}/cancel`, {}); setFreeItems(current => current?.map(item => item.id === id ? updated : item) ?? null); }
     catch (cause) { setError(message(cause)); }
   }
-  return <section aria-labelledby="paid-participations-title"><div className="account-section-heading"><h2 id="paid-participations-title">Mes inscriptions aux projets</h2><button className="text-link" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
-    {error && <p role="alert">{error}</p>}{(items === null || freeItems === null) && !error && <p role="status">Chargement…</p>}
-    {items?.length === 0 && freeItems?.length === 0 && <p>Aucune inscription à un projet pour le moment.</p>}
-    {freeItems?.map(item => <article className="workspace-card" key={`free-${item.id}`}><h3><a href={`/projets/${item.projectId}`}>{item.projectTitle}</a></h3><p>Gratuit · {item.status === 'CONFIRMEE' ? 'Inscription confirmée' : 'Inscription annulée'}</p>{item.status === 'CONFIRMEE' && <button className="text-link" onClick={() => cancelFree(item.id)}>Annuler mon inscription</button>}</article>)}
-    {items?.map(item => <article className="workspace-card" key={item.id}><h3><a href={`/projets/${item.projectId}`}>{item.projectTitle}</a></h3><p>{euro(item.priceCents)} · {item.status === 'PAYE' ? 'Confirmée' : item.status === 'REMBOURSE' ? 'Remboursée' : item.status === 'EN_ATTENTE' ? 'Paiement en attente' : item.status === 'REMBOURSEMENT_EN_COURS' ? 'Remboursement en cours' : item.status}</p></article>)}
+  const all = [...(freeItems ?? []).map(item => ({...item, priceCents: 0})), ...(items ?? [])].sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const category = (item: Enrollment) => ['ANNULEE','ECHOUE','EXPIRE','REMBOURSE'].includes(item.status) ? 'cancelled' : item.endsOn && item.endsOn < new Date().toISOString().slice(0,10) ? 'past' : 'upcoming';
+  const visible = all.filter(item => filter === 'all' || category(item) === filter);
+  const demoCategory = (item: { endsOn: string | null }) => item.endsOn && item.endsOn < new Date().toISOString().slice(0,10) ? 'past' : 'upcoming';
+  const visibleDemos = demoPayments.filter(item => filter === 'all' || demoCategory(item) === filter);
+  const statusLabel = (item: Enrollment) => item.status === 'CONFIRMEE' || item.status === 'PAYE' ? 'Inscription confirmée' : item.status === 'EN_ATTENTE' ? 'Paiement en attente' : item.status === 'REMBOURSEMENT_EN_COURS' ? 'Remboursement en cours' : item.status === 'REMBOURSE' ? 'Remboursée' : item.status === 'ANNULEE' ? 'Inscription annulée' : 'Paiement non abouti';
+  const period = (item: Enrollment) => item.startsOn ? `${new Intl.DateTimeFormat('fr-BE', {dateStyle:'medium'}).format(new Date(`${item.startsOn}T12:00:00`))}${item.endsOn ? ` — ${new Intl.DateTimeFormat('fr-BE', {dateStyle:'medium'}).format(new Date(`${item.endsOn}T12:00:00`))}` : ''}` : 'Période à préciser';
+  return <section className="account-bookings" aria-labelledby="paid-participations-title"><div className="account-section-heading"><h2 id="paid-participations-title">Mes inscriptions aux projets</h2><span>{items && freeItems ? `${all.length + demoPayments.length} au total` : ''}</span><button className="text-link" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
+    {items && freeItems && <div className="account-filters" role="group" aria-label="Filtrer les inscriptions aux projets">{[['all','Toutes'],['upcoming','En cours / à venir'],['past','Terminées'],['cancelled','Annulées / échouées']].map(([value,label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{all.filter(item => value === 'all' || category(item) === value).length + demoPayments.filter(item => value === 'all' || demoCategory(item) === value).length}</span></button>)}</div>}
+    {error && <p role="alert">{error} <button className="text-link" onClick={() => { setError(''); setAttempt(value => value + 1); }}>Réessayer</button></p>}{(items === null || freeItems === null) && !error && <p role="status">Chargement…</p>}
+    {items && freeItems && visible.length === 0 && visibleDemos.length === 0 && <div className="account-empty"><span><Icon name="users" /></span><h3>{filter === 'all' ? 'Aucune inscription à un projet' : 'Aucune inscription dans cette catégorie'}</h3><p>Les inscriptions gratuites et payantes apparaissent ici avec leur état de paiement. Les simulations sont indiquées séparément.</p><a className="button navy" href="/projets">Découvrir les projets <Icon name="arrow" /></a></div>}
+    {visible.map(item => <article className={`account-booking-card ${category(item) === 'cancelled' ? 'is-cancelled' : ''}`} key={`${item.priceCents === 0 ? 'free' : 'paid'}-${item.id}`}><div className="account-booking-top"><span className="account-booking-image" aria-hidden="true">{item.imageUrl ? <img src={item.imageUrl} alt="" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/visuel-indisponible.svg'; }} /> : <Icon name="users" />}</span><div className="account-booking-info"><div className="account-card-meta"><span className={`account-status ${category(item) === 'cancelled' ? 'status-cancelled' : ''}`}>{statusLabel(item)}</span><span className="account-reference">Réf. #{item.id}</span></div><h3><a href={`/projets/${item.projectId}`}>{item.projectTitle}</a></h3><p className="account-booking-date"><Icon name="calendar" /> {period(item)}{item.meetingPlace ? ` · ${item.meetingPlace}` : ''}</p><p>{item.spaceName} · {item.priceCents === 0 ? 'Gratuit' : euro(item.priceCents)}</p></div></div>{item.status === 'EN_ATTENTE' && <p>La place sera confirmée après validation du paiement par Stripe.</p>}{item.priceCents === 0 && item.status === 'CONFIRMEE' && <div className="booking-actions"><button className="text-link" onClick={() => cancelFree(item.id)}>Annuler mon inscription</button></div>}</article>)}
+    {visibleDemos.map(item => <article className="account-booking-card" key={`demo-${item.projectId}`}><div className="account-booking-top"><span className="account-booking-image" aria-hidden="true">{item.imageUrl ? <img src={item.imageUrl} alt="" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/visuel-indisponible.svg'; }} /> : <Icon name="users" />}</span><div className="account-booking-info"><div className="account-card-meta"><span className="account-status status-cancelled">Simulation · aucune inscription</span></div><h3><a href={`/projets/${item.projectId}`}>{item.projectTitle}</a></h3><p>{item.spaceName} · {euro(item.priceCents)} simulés</p><p>Aucun paiement encaissé, aucune place réservée.</p></div></div></article>)}
   </section>;
 }

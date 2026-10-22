@@ -25,17 +25,20 @@ public class ActivityManagementController {
     private final TransactionTemplate tx;
     private final PaidActivityCancellation paidCancellation;
     private final String stripeKey,webhookSecret;
+    private final boolean demoPaidPublication;
     public ActivityManagementController(JdbcTemplate jdbc,TransactionTemplate tx,PaidActivityCancellation paidCancellation,
-        @Value("${STRIPE_SECRET_KEY:}") String stripeKey,@Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret) {
+        @Value("${STRIPE_SECRET_KEY:}") String stripeKey,@Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret,
+        @Value("${belconnect.demo-paid-publication:false}") boolean demoPaidPublication) {
       this.jdbc=jdbc; this.tx=tx; this.paidCancellation=paidCancellation;
       this.stripeKey=stripeKey; this.webhookSecret=webhookSecret;
+      this.demoPaidPublication=demoPaidPublication;
     }
     public record Content(@NotBlank @Size(min=5,max=250) String title,
       @NotNull @Pattern(regexp="art|gastronomie|nature|culture|savoir-faire|bien-etre") String category,
       @NotBlank @Size(max=120) String city,@NotBlank @Size(max=250) String location,
       @NotNull @DecimalMin("0.00") @DecimalMax("99999999.99") @Digits(integer=8,fraction=2) BigDecimal price,
       @NotNull @Pattern(regexp="balade|brasserie|ceramique|chocolat|cinema|potager|randonnee|street-art|velo") String image,
-      @NotNull OffsetDateTime startsAt,@NotNull OffsetDateTime closesAt,
+      @NotNull OffsetDateTime startsAt,OffsetDateTime endsAt,@NotNull OffsetDateTime closesAt,
       @NotBlank @Size(max=10000) String description,@NotBlank @Size(max=80) String duration,
       @NotNull @Min(1) @Max(100000) Integer capacity,
       @NotBlank @Size(max=200) String audience,@NotBlank @Size(max=250) String meetingPoint,
@@ -44,14 +47,19 @@ public class ActivityManagementController {
         public Content {
           if(price!=null) price=price.stripTrailingZeros();
           if(startsAt!=null) startsAt=startsAt.withOffsetSameInstant(java.time.ZoneOffset.UTC);
+          if(endsAt==null && startsAt!=null && duration!=null) {
+            var match=java.util.regex.Pattern.compile("^(\\d+) (?:h|heure)(?: (\\d+))?").matcher(duration);
+            endsAt=match.find()?startsAt.plusHours(Long.parseLong(match.group(1))).plusMinutes(match.group(2)==null?0:Long.parseLong(match.group(2))):startsAt.plusHours(2);
+          }
+          if(endsAt!=null) endsAt=endsAt.withOffsetSameInstant(java.time.ZoneOffset.UTC);
           if(closesAt!=null) closesAt=closesAt.withOffsetSameInstant(java.time.ZoneOffset.UTC);
         }
       }
     public record Creation(@NotNull UUID requestId,@NotNull Long spaceId,Long groupId,@NotNull @Valid Content content) {}
     public record Update(@NotNull @Min(0) Long version,@NotNull @Valid Content content) {}
-    public record Publication(@NotNull @Min(0) Long version,@NotNull Boolean published) {}
+    public record Publication(@NotNull @Min(0) Long version,@NotNull Boolean published,Boolean demonstration) {}
     public record Activity(long id,String slug,long spaceId,Long groupId,String spaceName,String groupName,
-      boolean published,boolean cancelled,long version,int bookings,int pendingCancellation,Content content) {}
+      boolean published,boolean cancelled,boolean demonstration,long version,int bookings,int pendingCancellation,Content content) {}
     private ResponseStatusException error(HttpStatus code,String text) { return new ResponseStatusException(code,text); }
     private long user(Authentication auth) {
       return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName()).stream().findFirst()
@@ -77,18 +85,19 @@ public class ActivityManagementController {
     }
     private void access(long user,long space,Long group,boolean write) { access(user,space,group,write,false); }
     private void dates(Content c) {
-      if(!c.startsAt().isAfter(OffsetDateTime.now()) || !c.closesAt().isAfter(OffsetDateTime.now()) || c.closesAt().isAfter(c.startsAt()))
-        throw error(HttpStatus.BAD_REQUEST,"Le début et la clôture doivent être futurs. La clôture ne peut pas dépasser le début.");
+      if(!c.startsAt().isAfter(OffsetDateTime.now()) || !c.closesAt().isAfter(OffsetDateTime.now()) || c.closesAt().isAfter(c.startsAt()) || !c.endsAt().isAfter(c.startsAt()))
+        throw error(HttpStatus.BAD_REQUEST,"Le début, la fin et la clôture doivent être cohérents et futurs.");
     }
-    private List<Activity> read(String where,Object... args) {
+    private List<Activity> read(String where,Object... args) { return read(where," ORDER BY a.date_creation DESC,a.id DESC",args); }
+    private List<Activity> read(String where,String suffix,Object... args) {
       return jdbc.query("""
         SELECT a.*,e.nom AS espace_nom,g.nom AS groupe_nom,
         (SELECT count(*) FROM inscription_activite i WHERE i.activite_id=a.id AND i.statut='CONFIRMEE') AS inscriptions,
         (SELECT count(*) FROM reservation_payante_activite r WHERE r.activite_id=a.id
           AND r.statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS')) AS paiements_a_traiter
         FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id LEFT JOIN groupe g ON g.id=a.groupe_id
-        """+where+" ORDER BY a.date_creation DESC,a.id DESC",(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getLong("version"),r.getInt("inscriptions"),r.getInt("paiements_a_traiter")+r.getInt("inscriptions"),
-          new Content(r.getString("titre"),r.getString("categorie"),r.getString("ville"),r.getString("lieu"),r.getBigDecimal("prix"),r.getString("image"),r.getObject("debut",OffsetDateTime.class),r.getObject("cloture_inscriptions",OffsetDateTime.class),r.getString("description"),r.getString("duree"),r.getInt("capacite"),r.getString("public_cible"),r.getString("rendez_vous"),r.getString("preparation"),r.getString("visibilite"))),args);
+        """+where+suffix,(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getBoolean("demonstration"),r.getLong("version"),r.getInt("inscriptions"),r.getInt("paiements_a_traiter")+r.getInt("inscriptions"),
+          new Content(r.getString("titre"),r.getString("categorie"),r.getString("ville"),r.getString("lieu"),r.getBigDecimal("prix"),r.getString("image"),r.getObject("debut",OffsetDateTime.class),r.getObject("fin",OffsetDateTime.class),r.getObject("cloture_inscriptions",OffsetDateTime.class),r.getString("description"),r.getString("duree"),r.getInt("capacite"),r.getString("public_cible"),r.getString("rendez_vous"),r.getString("preparation"),r.getString("visibilite"))),args);
     }
     private Activity activity(long id) { return read("WHERE a.id=?",id).stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Activité introuvable.")); }
     private Activity lock(long user,long id,boolean settlement) {
@@ -102,6 +111,61 @@ public class ActivityManagementController {
     public List<Activity> list(Authentication auth) {
       long u=user(auth);return read("WHERE e.statut IN ('ACTIF','SUSPENDU') AND EXISTS (SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id AND ae.utilisateur_id=? AND ae.statut='ACTIF' AND (ae.role='ADMINISTRATEUR' OR (e.statut='ACTIF' AND g.statut='ACTIF' AND g.referents_gerent_activites AND EXISTS (SELECT 1 FROM appartenance_groupe ag WHERE ag.groupe_id=a.groupe_id AND ag.espace_id=a.espace_id AND ag.utilisateur_id=ae.utilisateur_id AND ag.statut='ACTIF' AND ag.role='REFERENT'))))",u);
     }
+    public record Page(List<Activity> items,int total,int page,int size) {}
+    public record DashboardActivity(long id,long spaceId,String spaceName,String title,OffsetDateTime startsAt,int capacity,int remaining,
+      int paidTickets,long confirmedCents) {}
+    @GetMapping("/dashboard") @Transactional
+    public org.springframework.http.ResponseEntity<DashboardActivity> dashboard(Authentication auth,@RequestParam(required=false) Long spaceId) {
+      long u=user(auth);
+      if(spaceId!=null && (spaceId<=0 || !Boolean.TRUE.equals(jdbc.queryForObject("""
+        SELECT EXISTS(SELECT 1 FROM appartenance_espace ae JOIN espace_organisateur e ON e.id=ae.espace_id
+          WHERE ae.espace_id=? AND ae.utilisateur_id=? AND ae.statut='ACTIF'
+            AND ae.role='ADMINISTRATEUR' AND e.statut='ACTIF')
+        """,Boolean.class,spaceId,u))))
+        throw error(HttpStatus.FORBIDDEN,"Cet espace n’est pas accessible.");
+      var activity=jdbc.query("""
+        SELECT a.id,a.espace_id,e.nom AS espace_nom,a.titre,a.debut,a.capacite,a.places_disponibles,
+          COALESCE((SELECT SUM(r.quantite) FROM reservation_payante_activite r
+            WHERE r.activite_id=a.id AND r.statut='PAYE'),0) AS billets_payes,
+          COALESCE((SELECT SUM(r.montant_centimes) FROM reservation_payante_activite r
+            WHERE r.activite_id=a.id AND r.statut='PAYE'),0) AS montant_confirme
+        FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id
+        WHERE e.statut='ACTIF' AND a.publiee AND NOT a.annulee AND a.debut>now()
+          AND (CAST(? AS bigint) IS NULL OR a.espace_id=CAST(? AS bigint))
+          AND EXISTS (SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id
+            AND ae.utilisateur_id=? AND ae.statut='ACTIF' AND ae.role='ADMINISTRATEUR')
+        ORDER BY a.debut ASC,a.id ASC LIMIT 1
+        """,(r,n)->new DashboardActivity(r.getLong("id"),r.getLong("espace_id"),r.getString("espace_nom"),r.getString("titre"),
+          r.getObject("debut",OffsetDateTime.class),r.getInt("capacite"),r.getInt("places_disponibles"),
+          r.getInt("billets_payes"),r.getLong("montant_confirme")),spaceId,spaceId,u).stream().findFirst();
+      return activity.map(value->org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(value))
+        .orElseGet(()->org.springframework.http.ResponseEntity.noContent().build());
+    }
+    @GetMapping("/paged") @Transactional
+    public Page paged(Authentication auth,@RequestParam(defaultValue="ALL") String filter,@RequestParam(defaultValue="0") int page) {
+      if(!Set.of("ALL","PUBLISHED","DRAFT","HISTORY").contains(filter) || page<0 || page>100000)
+        throw error(HttpStatus.BAD_REQUEST,"Filtre ou page invalide.");
+      long u=user(auth);
+      String where="""
+        WHERE e.statut IN ('ACTIF','SUSPENDU') AND EXISTS (
+          SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id
+          AND ae.utilisateur_id=? AND ae.statut='ACTIF'
+          AND (ae.role='ADMINISTRATEUR' OR (e.statut='ACTIF' AND g.statut='ACTIF'
+            AND g.referents_gerent_activites AND EXISTS (
+              SELECT 1 FROM appartenance_groupe ag WHERE ag.groupe_id=a.groupe_id
+              AND ag.espace_id=a.espace_id AND ag.utilisateur_id=ae.utilisateur_id
+              AND ag.statut='ACTIF' AND ag.role='REFERENT'))))
+        """;
+      where += switch(filter) {
+        case "HISTORY" -> " AND (a.annulee OR a.fin <= now())";
+        case "PUBLISHED" -> " AND NOT a.annulee AND a.fin > now() AND a.publiee";
+        case "DRAFT" -> " AND NOT a.annulee AND a.fin > now() AND NOT a.publiee";
+        default -> " AND NOT a.annulee AND a.fin > now()";
+      };
+      int total=jdbc.queryForObject("SELECT count(*) FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id LEFT JOIN groupe g ON g.id=a.groupe_id "+where,Integer.class,u);
+      var items=read(where,filter.equals("HISTORY") ? " ORDER BY a.fin DESC,a.id DESC LIMIT 12 OFFSET ?" : " ORDER BY a.date_creation DESC,a.id DESC LIMIT 12 OFFSET ?",u,page*12);
+      return new Page(items,total,page,12);
+    }
     @PostMapping @Transactional @ResponseStatus(HttpStatus.CREATED)
     public Activity create(Authentication auth,@Valid @RequestBody Creation body) {
       long u=user(auth);access(u,body.spaceId(),body.groupId(),true);dates(body.content());
@@ -114,9 +178,9 @@ public class ActivityManagementController {
       var c=body.content();String host=jdbc.queryForObject("SELECT nom FROM espace_organisateur WHERE id=?",String.class,body.spaceId());
       long id=jdbc.queryForObject("""
         INSERT INTO activite(slug,titre,categorie,ville,lieu,organisateur_nom,prix,image,debut,description,duree,capacite,places_disponibles,
-          public_cible,rendez_vous,preparation,espace_id,groupe_id,createur_id,creation_request,visibilite,cloture_inscriptions)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
-        """,Long.class,"activite-"+UUID.randomUUID(),c.title(),c.category(),c.city(),c.location(),host,c.price(),c.image(),c.startsAt(),c.description(),c.duration(),c.capacity(),c.capacity(),c.audience(),c.meetingPoint(),c.preparation(),body.spaceId(),body.groupId(),u,body.requestId(),c.visibility(),c.closesAt());
+          public_cible,rendez_vous,preparation,espace_id,groupe_id,createur_id,creation_request,visibilite,cloture_inscriptions,fin)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
+        """,Long.class,"activite-"+UUID.randomUUID(),c.title(),c.category(),c.city(),c.location(),host,c.price(),c.image(),c.startsAt(),c.description(),c.duration(),c.capacity(),c.capacity(),c.audience(),c.meetingPoint(),c.preparation(),body.spaceId(),body.groupId(),u,body.requestId(),c.visibility(),c.closesAt(),c.endsAt());
       audit(id,u,"BROUILLON_CREE",0);return activity(id);
     }
     @PostMapping("/{id}") @Transactional
@@ -126,8 +190,8 @@ public class ActivityManagementController {
       var c=body.content();dates(c);
       jdbc.update("""
         UPDATE activite SET titre=?,categorie=?,ville=?,lieu=?,prix=?,image=?,debut=?,description=?,duree=?,capacite=?,places_disponibles=?,
-          public_cible=?,rendez_vous=?,preparation=?,visibilite=?,cloture_inscriptions=?,version=version+1 WHERE id=?
-        """,c.title(),c.category(),c.city(),c.location(),c.price(),c.image(),c.startsAt(),c.description(),c.duration(),c.capacity(),c.capacity(),c.audience(),c.meetingPoint(),c.preparation(),c.visibility(),c.closesAt(),id);
+          public_cible=?,rendez_vous=?,preparation=?,visibilite=?,cloture_inscriptions=?,fin=?,version=version+1 WHERE id=?
+        """,c.title(),c.category(),c.city(),c.location(),c.price(),c.image(),c.startsAt(),c.description(),c.duration(),c.capacity(),c.capacity(),c.audience(),c.meetingPoint(),c.preparation(),c.visibility(),c.closesAt(),c.endsAt(),id);
       audit(id,u,"BROUILLON_MODIFIE",a.version()+1);return activity(id);
     }
     @PostMapping("/{id}/publication") @Transactional
@@ -135,9 +199,12 @@ public class ActivityManagementController {
       long u=user(auth);var a=lock(u,id);version(a,body.version());
       if(a.cancelled()) throw error(HttpStatus.CONFLICT,"Cette activité est annulée et ne peut plus être publiée.");
       if(a.published()==body.published()) return a;
+      boolean demonstration=Boolean.TRUE.equals(body.demonstration());
+      if(demonstration && (!body.published() || a.content().price().signum()==0 || !demoPaidPublication))
+        throw error(HttpStatus.BAD_REQUEST,"La publication payante de démonstration n’est pas disponible dans cet environnement.");
       if(body.published()) {
         dates(a.content());
-        if(a.content().price().signum()>0) {
+        if(a.content().price().signum()>0 && !demonstration) {
           if(a.content().price().compareTo(new BigDecimal("0.50"))<0
               || a.content().price().compareTo(new BigDecimal("999999.99"))>0)
             throw error(HttpStatus.CONFLICT,"Le tarif payant doit être compris entre 0,50 € et 999 999,99 € par place.");
@@ -154,7 +221,8 @@ public class ActivityManagementController {
         }
       } else if(a.bookings()>0 || jdbc.queryForObject("SELECT count(*) FROM reservation_payante_activite WHERE activite_id=? AND statut='EN_ATTENTE'",Integer.class,id)>0)
         throw error(HttpStatus.CONFLICT,"Cette activité a des inscriptions ou paiements en cours. Utilisez l’annulation de l’activité.");
-      jdbc.update("UPDATE activite SET publiee=?,version=version+1 WHERE id=?",body.published(),id);
+      jdbc.update("UPDATE activite SET publiee=?,demonstration=CASE WHEN ? THEN ? ELSE demonstration END,version=version+1 WHERE id=?",
+        body.published(),body.published(),demonstration,id);
       audit(id,u,body.published()?"ACTIVITE_PUBLIEE":"PUBLICATION_RETIREE",a.version()+1);return activity(id);
     }
     public record Cancellation(@NotNull @Min(0) Long version) {}

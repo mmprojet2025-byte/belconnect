@@ -162,6 +162,12 @@ class DraftApiTests {
    assertEquals(200,first.get());assertEquals(200,second.get());
    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM soumission_projet WHERE projet_id=?",Integer.class,directId));
    assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT etape_validation FROM projet WHERE id=?",String.class,directId));
+   var fourth=creation(space,null); fourth.put("content",complete);
+   long fourthId=json.readTree(author.post("/api/project-drafts",fourth,true).body()).get("id").asLong();
+   assertEquals(409,author.post("/api/project-drafts/"+fourthId+"/submit",Map.of("version",0),true).statusCode());
+   assertEquals("BROUILLON",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,fourthId));
+   jdbc.update("UPDATE projet SET statut='REFUSE' WHERE id=?",fallbackId);
+   assertEquals(200,author.post("/api/project-drafts/"+fourthId+"/submit",Map.of("version",0),true).statusCode());
    direct.put("requestId",UUID.randomUUID());
    long deniedId=json.readTree(author.post("/api/project-drafts",direct,true).body()).get("id").asLong();
    jdbc.update("UPDATE appartenance_espace SET statut='SUSPENDU' WHERE utilisateur_id=?",uid);
@@ -328,6 +334,9 @@ class DraftApiTests {
    assertEquals(404,anonymous.get(publicPath).statusCode());
    jdbc.update("INSERT INTO validation_projet(projet_id,examinateur_id,decision,commentaire) VALUES (?,?,'APPROUVE','Remarque strictement privée')",id,aid);
    assertEquals(1,json.readTree(admin.get("/api/project-publications").body()).size());
+   var activePage=json.readTree(admin.get("/api/project-publications/paged?mode=ACTIVE&spaceId="+space+"&page=0").body());
+   assertEquals(1,activePage.get("total").asInt());
+   assertEquals(1,activePage.get("items").size());
    assertEquals(200,admin.post(path,publish,true).statusCode());
    assertEquals(200,admin.post(path,publish,true).statusCode());
    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM publication_projet WHERE projet_id=?",Integer.class,id));
@@ -345,6 +354,15 @@ class DraftApiTests {
    assertEquals(200,admin.post(path,Map.of("version",version,"published",false),true).statusCode());
    assertEquals(404,anonymous.get(publicPath).statusCode());assertFalse(anonymous.get("/api/projects").body().contains("Projet public test"));
    assertEquals("APPROUVE",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
+   long finishVersion=jdbc.queryForObject("SELECT version FROM projet WHERE id=?",Long.class,id);
+   assertEquals(404,author.post(path+"/finish",Map.of("version",finishVersion),true).statusCode());
+   assertEquals(200,admin.post(path+"/finish",Map.of("version",finishVersion),true).statusCode());
+   assertEquals(404,anonymous.get(publicPath).statusCode());
+   assertEquals(409,admin.post(path,Map.of("version",finishVersion+1,"published",true),true).statusCode());
+   assertTrue(Boolean.TRUE.equals(jdbc.queryForObject("SELECT termine_le IS NOT NULL FROM projet WHERE id=?",Boolean.class,id)));
+   var historyPage=json.readTree(admin.get("/api/project-publications/paged?mode=HISTORY&spaceId="+space+"&page=0").body());
+   assertEquals(1,historyPage.get("total").asInt());
+   assertEquals(0,json.readTree(admin.get("/api/project-publications/paged?mode=ACTIVE&spaceId="+space+"&page=0").body()).get("total").asInt());
    long restricted=jdbc.queryForObject("INSERT INTO projet(espace_id,groupe_id,auteur_id,titre,description,objectif,statut,visibilite) VALUES (?,?,?,'Projet réservé test','Contenu réservé','Objectif privé','APPROUVE','GROUPE') RETURNING id",Long.class,space,group,uid);
    String privatePath="/api/projects/"+restricted, managePath="/api/project-publications/"+restricted;
    assertEquals(200,admin.post(managePath,publish,true).statusCode());
