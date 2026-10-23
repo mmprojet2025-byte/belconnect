@@ -103,16 +103,20 @@ function App() {
   const detailTitle = selectedActivity?.title;
 
   useEffect(() => {
-    document.title = isNotFound ? "Page introuvable — Belconnect" : isLegalDraft ? "Informations légales (brouillons) — Belconnect" : isGroups ? "Groupes — Belconnect" : isProject ? "Projets — Belconnect" : isPasswordRecovery ? "Réinitialiser le mot de passe — Belconnect" : isAuth
-      ? isSignedIn ? "Mon espace — Belconnect" : "Connexion — Belconnect"
+    document.title = isNotFound ? `${tr(locale, 'Page introuvable', 'Page not found', 'Pagina niet gevonden')} — Belconnect` : isLegalDraft ? `${tr(locale, 'Informations légales (brouillons)', 'Legal information (drafts)', 'Juridische informatie (concepten)')} — Belconnect` : isGroups ? `${tr(locale, 'Groupes', 'Groups', 'Groepen')} — Belconnect` : isProject ? `${tr(locale, 'Projets', 'Projects', 'Projecten')} — Belconnect` : isPasswordRecovery ? `${tr(locale, 'Réinitialiser le mot de passe', 'Reset password', 'Wachtwoord herstellen')} — Belconnect` : isAuth
+      ? isSignedIn ? `${tr(locale, 'Mon espace', 'My space', 'Mijn ruimte')} — Belconnect` : `${tr(locale, 'Connexion', 'Sign in', 'Aanmelden')} — Belconnect`
       : isFlow
-        ? `Inscription · ${detailTitle} — Belconnect`
+        ? `${tr(locale, 'Inscription', 'Registration', 'Inschrijving')} · ${detailTitle} — Belconnect`
         : isDetail
-          ? `${detailTitle || "Activité introuvable"} — Belconnect`
+          ? `${detailTitle || tr(locale, 'Activité introuvable', 'Activity not found', 'Activiteit niet gevonden')} — Belconnect`
           : isCatalogue
-            ? "Activités en Belgique — Belconnect"
-            : "Belconnect — La Belgique, à vivre ensemble";
-    if (window.location.hash)
+            ? `${tr(locale, 'Activités en Belgique', 'Activities in Belgium', 'Activiteiten in België')} — Belconnect`
+            : `Belconnect — ${tr(locale, 'La Belgique, à vivre ensemble', 'Experience Belgium together', 'Beleef België samen')}`;
+  }, [isNotFound, isLegalDraft, isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, isSignedIn, locale]);
+  useEffect(() => {
+    if (pathname === "/mon-espace") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    } else if (window.location.hash)
       requestAnimationFrame(() =>
         document
           .getElementById(window.location.hash.slice(1))
@@ -124,7 +128,7 @@ function App() {
         .querySelector<HTMLElement>("main h1")
         ?.focus({ preventScroll: true });
     }
-  }, [isNotFound, isLegalDraft, isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, pathname, isSignedIn]);
+  }, [pathname]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
@@ -181,7 +185,7 @@ function App() {
           event.preventDefault();
           setMenuOpen(false);
           navigate(href);
-          if (href.includes("#"))
+          if (href.includes("#") && !href.startsWith("/mon-espace"))
             requestAnimationFrame(() =>
               document.getElementById(href.split("#")[1])?.scrollIntoView(),
             );

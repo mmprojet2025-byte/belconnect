@@ -1,3 +1,5 @@
+import { currentLocale, tr } from './locale';
+
 export type UserProfile = { id: number; firstName: string; lastName: string; email: string };
 export class HttpError extends Error {
   status: number;
@@ -6,16 +8,17 @@ export class HttpError extends Error {
 export async function result(response: Response) {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
+    const locale = currentLocale();
     const messages: Record<number, string> = {
-      400: "Vérifiez les informations saisies.",
-      401: "Votre session a expiré. Reconnectez-vous depuis Connexion.",
-      403: "Cette action n’est pas autorisée. Vérifiez vos droits ou actualisez la page si votre session a changé.",
-      404: "Cet élément est introuvable ou n’est plus accessible.",
-      409: "Cet élément a changé. Vérifiez son état avant de recommencer.",
-      429: "Trop de tentatives. Patientez un instant avant de réessayer.",
+      400: tr(locale, "Vérifiez les informations saisies.", "Check the information you entered.", "Controleer de ingevulde gegevens."),
+      401: tr(locale, "Votre session a expiré. Reconnectez-vous depuis Connexion.", "Your session has expired. Sign in again.", "Uw sessie is verlopen. Meld u opnieuw aan."),
+      403: tr(locale, "Cette action n’est pas autorisée. Vérifiez vos droits ou actualisez la page si votre session a changé.", "You are not allowed to do this. Check your permissions or refresh the page.", "U mag dit niet doen. Controleer uw rechten of vernieuw de pagina."),
+      404: tr(locale, "Cet élément est introuvable ou n’est plus accessible.", "This item could not be found or is no longer available.", "Dit item is niet gevonden of is niet meer beschikbaar."),
+      409: tr(locale, "Cet élément a changé. Vérifiez son état avant de recommencer.", "This item has changed. Check its status before trying again.", "Dit item is gewijzigd. Controleer de status voordat u opnieuw probeert."),
+      429: tr(locale, "Trop de tentatives. Patientez un instant avant de réessayer.", "Too many attempts. Wait a moment before trying again.", "Te veel pogingen. Wacht even voordat u opnieuw probeert."),
     };
     throw new HttpError(response.status, response.status < 500 && typeof body?.message === "string" && body.message.trim()
-      ? body.message : messages[response.status] ?? "Le service est momentanément indisponible. Réessayez dans un instant.");
+      ? body.message : messages[response.status] ?? tr(locale, "Le service est momentanément indisponible. Réessayez dans un instant.", "The service is temporarily unavailable. Try again shortly.", "De dienst is tijdelijk niet beschikbaar. Probeer het straks opnieuw."));
   }
   return response.json();
 }

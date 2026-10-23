@@ -183,6 +183,7 @@ public class GroupMembershipController {
             admit(applicant,space,group);
         }
         jdbc.update("UPDATE demande_adhesion_groupe SET statut=?,motif=?,examinateur_id=?,date_decision=now(),version=version+1 WHERE id=?",body.status(),body.reason(),actor,id);
+        jdbc.update("UPDATE notification_adhesion_groupe SET date_lecture=now() WHERE demande_id=? AND evenement='DEMANDE_RECUE' AND date_lecture IS NULL",id);
         jdbc.update("""
             INSERT INTO notification_adhesion_groupe(utilisateur_id,demande_id,evenement)
             VALUES (?,?,?) ON CONFLICT DO NOTHING

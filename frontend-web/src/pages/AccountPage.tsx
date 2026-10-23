@@ -5,6 +5,8 @@ import type { FormEvent } from "react";
 import { postJson } from "../lib/auth";
 import type { UserProfile } from "../lib/auth";
 import { MyWorkspace } from "../components/MyWorkspace";
+import { OwnerBilling } from "../components/OwnerBilling";
+import { OwnerMembers } from "../components/OwnerMembers";
 import { MyBookings } from "../components/MyBookings";
 import { AccountNotifications } from "../components/AccountNotifications";
 import { MyDonations } from "../components/MyDonations";
@@ -13,10 +15,13 @@ import { PaidActivityReturn } from "../components/PaidActivityReturn";
 import { Icon } from "../components/Icon";
 import { navigate, useLocation } from "../lib/navigation";
 import { confirmLeavingEditor, useUnsavedChanges } from "../lib/unsavedChanges";
+import { tr, useLocale } from '../lib/locale';
 import "./Enrollment.css";
 import "./AccountPage.css";
 
 export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProfile; onLogout: () => Promise<void>; onProfileSaved: (profile: UserProfile) => void }) {
+  const locale = useLocale();
+  const t = (fr: string, en: string, nl: string) => tr(locale, fr, en, nl);
   const location = useLocation();
   const acceptedLocation = useRef(location);
   useEffect(() => { acceptedLocation.current = location; }, [location]);
@@ -44,7 +49,7 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
   const createActivity = new URLSearchParams(location.split('?')[1]?.split('#')[0]).get('creation') === 'activite';
   const highlightActivityId = Number(new URLSearchParams(location.split('?')[1]?.split('#')[0]).get('activite')) || null;
   const section = hash === 'notifications' ? 'notifications' : hash === 'mon-profil' ? 'profile'
-    : isOwner ? hash === 'espaces' ? 'owner-spaces' : hash === 'suivi-belconnect' ? 'owner' : hash === 'demandes' ? 'requests' : hash === 'a-traiter' ? 'inbox' : 'dashboard'
+    : isOwner ? hash === 'espaces' ? 'owner-spaces' : hash === 'suivi-belconnect' ? 'owner' : hash === 'abonnements-factures' ? 'owner-billing' : hash === 'membres-roles' ? 'owner-members' : hash === 'demandes' ? 'requests' : hash === 'a-traiter' ? 'inbox' : 'dashboard'
     : hash === 'a-traiter' ? 'inbox' : hash === 'mes-activites' || createActivity ? 'activities' : hash === 'organisation' ? 'management' : hash === 'espaces' || stripeReturn ? 'spaces' : hash === 'mes-projets' ? 'projects'
     : hash === 'demandes' ? 'requests' : ['mes-inscriptions', 'participations-projets', 'aides-projets'].includes(hash) ? 'personal' : 'dashboard';
   const participationTab = hash === 'participations-projets' ? 'projects' : hash === 'aides-projets' ? 'helps' : 'activities';
@@ -78,22 +83,15 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
   useEffect(() => {
     if (isOwner === null) return;
     let active = true;
-    const refresh = () => Promise.all([
-      isOwner ? Promise.resolve([]) : fetch('/api/notifications', { credentials: 'same-origin', cache: 'no-store' }).then(response => response.ok ? response.json() : []),
-      fetch('/api/workspace/notifications', { credentials: 'same-origin', cache: 'no-store' }).then(response => response.ok ? response.json() : []),
-      isOwner ? Promise.resolve([]) : fetch('/api/group-memberships/notifications', { credentials: 'same-origin', cache: 'no-store' }).then(response => response.ok ? response.json() : []),
-    ]).then(([activities, spaces, groups]) => { if (active) setNotificationCount(activities.length + spaces.length + groups.length); }).catch(() => {});
-    const onCount = (event: Event) => setNotificationCount((event as CustomEvent<number>).detail);
+    const refresh = () => fetch('/api/notifications/count', { credentials: 'same-origin', cache: 'no-store' })
+      .then(response => { if (!response.ok) throw new Error('Notifications indisponibles'); return response.json(); })
+      .then((value: { unread: number }) => { if (active) setNotificationCount(value.unread); }).catch(() => {});
     void refresh();
     const interval = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     window.addEventListener('belconnect:notifications-changed', refresh);
-    window.addEventListener('belconnect:notification-count', onCount);
-    return () => { active = false; window.clearInterval(interval); window.removeEventListener('focus', refresh); window.removeEventListener('belconnect:notifications-changed', refresh); window.removeEventListener('belconnect:notification-count', onCount); };
+    return () => { active = false; window.clearInterval(interval); window.removeEventListener('focus', refresh); window.removeEventListener('belconnect:notifications-changed', refresh); };
   }, [isOwner, user.id]);
-  useEffect(() => {
-    requestAnimationFrame(() => document.querySelector(hash === 'notifications' ? '#notifications' : hash === 'aides-projets' && isOwner === false ? '#aides-projets' : '.account-main')?.scrollIntoView?.());
-  }, [hash, isOwner]);
   function openSection(next: string) {
     if (window.innerWidth <= 760) setSidebarOpen(false);
     navigate(`/mon-espace#${next}`);
@@ -114,61 +112,65 @@ export function AccountPage({ user, onLogout, onProfileSaved }: { user: UserProf
       const profile: UserProfile = await postJson('/api/auth/profile', { firstName: firstName.trim(), lastName: lastName.trim() });
       onProfileSaved(profile);
       setFirstName(profile.firstName); setLastName(profile.lastName);
-      setProfileNotice('Vos coordonnées ont été enregistrées.');
-    } catch (cause) { setProfileError(cause instanceof Error ? cause.message : 'Enregistrement impossible. Réessayez.'); }
+      setProfileNotice(t('Vos coordonnées ont été enregistrées.', 'Your details have been saved.', 'Uw gegevens zijn opgeslagen.'));
+    } catch (cause) { setProfileError(cause instanceof Error ? cause.message : t('Enregistrement impossible. Réessayez.', 'Could not save. Try again.', 'Opslaan mislukt. Probeer opnieuw.')); }
     finally { setProfileBusy(false); }
   }
   async function logout() {
     if (!confirmLeavingEditor()) return;
     setBusy(true); setError("");
     try { await onLogout(); }
-    catch { setError("La déconnexion a échoué. Réessayez."); }
+    catch { setError(t('La déconnexion a échoué. Réessayez.', 'Sign-out failed. Try again.', 'Afmelden mislukt. Probeer opnieuw.')); }
     finally { setBusy(false); }
   }
-  const headerControls = <div className="account-toolbar-actions" aria-label="Outils du compte">
-    <a className="account-toolbar-notifications" href="/mon-espace#notifications" aria-label={`Notifications${notificationCount ? `, ${notificationCount} non lues` : ''}`} aria-current={section === 'notifications' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('notifications'); }}><Icon name="bell" />{notificationCount > 0 && <span className="account-toolbar-badge">{notificationCount > 99 ? '99+' : notificationCount}</span>}</a>
-    <details className="account-profile-menu" ref={profileMenu}><summary aria-label="Ouvrir le profil" title="Profil">{user.firstName.slice(0, 1)}{user.lastName.slice(0, 1)}</summary><div className="account-profile-popover"><strong>{user.firstName} {user.lastName}</strong><span>{user.email}</span><small>{isOwner ? 'Propriétaire de Belconnect' : isOrganizer ? 'Organisateur' : isReferent ? 'Référent' : 'Membre'}</small><a href="/mon-espace#mon-profil" onClick={event => { event.preventDefault(); if (profileMenu.current) profileMenu.current.open = false; openSection('mon-profil'); }}>Mon profil</a><button disabled={busy} onClick={() => { if (profileMenu.current) profileMenu.current.open = false; void logout(); }}>{busy ? 'Déconnexion…' : 'Se déconnecter'}</button>{error && <p role="alert">{error}</p>}</div></details>
+  const headerControls = <div className="account-toolbar-actions" aria-label={t('Outils du compte', 'Account tools', 'Accounttools')}>
+    <a className="account-toolbar-notifications" href="/mon-espace#notifications" aria-label={`${t('Notifications', 'Notifications', 'Meldingen')}${notificationCount ? `, ${notificationCount} ${t('non lues', 'unread', 'ongelezen')}` : ''}`} aria-current={section === 'notifications' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('notifications'); }}><Icon name="bell" />{notificationCount > 0 && <span className="account-toolbar-badge">{notificationCount > 99 ? '99+' : notificationCount}</span>}</a>
+    <details className="account-profile-menu" ref={profileMenu}><summary aria-label={t('Ouvrir le profil', 'Open profile', 'Profiel openen')} title={t('Profil', 'Profile', 'Profiel')}>{user.firstName.slice(0, 1)}{user.lastName.slice(0, 1)}</summary><div className="account-profile-popover"><strong>{user.firstName} {user.lastName}</strong><span>{user.email}</span><small>{isOwner ? t('Propriétaire de Belconnect', 'Belconnect owner', 'Eigenaar van Belconnect') : isOrganizer ? t('Organisateur', 'Organiser', 'Organisator') : isReferent ? t('Référent', 'Group lead', 'Groepsverantwoordelijke') : t('Membre', 'Member', 'Lid')}</small><a href="/mon-espace#mon-profil" onClick={event => { event.preventDefault(); if (profileMenu.current) profileMenu.current.open = false; openSection('mon-profil'); }}>{t('Mon profil', 'My profile', 'Mijn profiel')}</a><button disabled={busy} onClick={() => { if (profileMenu.current) profileMenu.current.open = false; void logout(); }}>{busy ? t('Déconnexion…', 'Signing out…', 'Afmelden…') : t('Se déconnecter', 'Sign out', 'Afmelden')}</button>{error && <p role="alert">{error}</p>}</div></details>
   </div>;
-  const sidebarToggle = <button className="account-sidebar-toggle" type="button" aria-label={sidebarOpen ? 'Fermer le menu de mon espace' : 'Ouvrir le menu de mon espace'} aria-controls="account-side-nav" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(open => !open)}><Icon name="sidebar" /></button>;
+  const sidebarToggle = <button className="account-sidebar-toggle" type="button" aria-label={sidebarOpen ? t('Fermer le menu de mon espace', 'Close my space menu', 'Menu van mijn ruimte sluiten') : t('Ouvrir le menu de mon espace', 'Open my space menu', 'Menu van mijn ruimte openen')} aria-controls="account-side-nav" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(open => !open)}><Icon name="sidebar" /></button>;
   return <section className="account-page" data-sidebar-open={sidebarOpen} onClickCapture={event => {
     if (event.target instanceof Element && event.target.closest('a[href]') && !confirmLeavingEditor()) {
       event.preventDefault(); event.stopPropagation();
     }
   }}>
-    {sidebarOpen && <button className="account-sidebar-backdrop" type="button" aria-label="Fermer le volet de navigation" onClick={() => setSidebarOpen(false)} />}
+    {sidebarOpen && <button className="account-sidebar-backdrop" type="button" aria-label={t('Fermer le volet de navigation', 'Close navigation panel', 'Navigatiepaneel sluiten')} onClick={() => setSidebarOpen(false)} />}
     {headerTarget ? createPortal(headerControls, headerTarget) : <div className="account-tools-fallback">{headerControls}</div>}
     <div className="container">
-      <h1 className="sr-only">Mon espace</h1>
+      <h1 className="sr-only">{t('Mon espace', 'My space', 'Mijn ruimte')}</h1>
       <div className="account-layout">
         <div className="account-main">
-          {isOwner === null ? <p role="status">Chargement de vos accès…</p> : <>
+          {isOwner === null ? <p role="status">{t('Chargement de vos accès…', 'Loading your access…', 'Uw toegang wordt geladen…')}</p> : <>
             {!isOwner && <PaidActivityReturn userId={user.id} />}
             {section === 'notifications' && <AccountNotifications key={user.id} owner={isOwner} onOpenBookings={() => openSection('mes-inscriptions')} onOpenRequests={() => openSection(isOwner ? 'a-traiter' : 'demandes')} />}
-            {['dashboard', 'inbox', 'spaces', 'activities', 'management', 'projects', 'requests', 'owner', 'owner-spaces'].includes(section) && <MyWorkspace key={`${user.id}-${section}-${selectedSpaceId ?? ''}-${selectedRubrique ?? ''}`} firstName={user.firstName} selectedSpaceId={selectedSpaceId} selectedRubrique={selectedRubrique} createActivity={createActivity} highlightActivityId={highlightActivityId} view={section === 'dashboard' ? 'dashboard' : section === 'inbox' ? 'inbox' : section === 'spaces' ? 'spaces' : section === 'activities' ? 'activities' : section === 'management' ? 'management' : section === 'projects' ? 'projects' : section === 'owner-spaces' ? 'owner-spaces' : section === 'owner' ? 'owner' : 'requests'} onOwnerChange={setIsOwner} onOrganizerChange={setIsOrganizer} onReferentChange={setIsReferent} onActivityAccessChange={setCanCreateActivity} onTaskAccessChange={setCanManageTasks} />}
-            {section === 'profile' && <div className="account-welcome account-profile-main"><div><h2>Mon profil</h2><p>Modifiez vos coordonnées ci-dessous.</p></div><form className="account-profile-form" onSubmit={saveProfile}><label>Prénom<input required maxLength={80} value={firstName} onChange={event => setFirstName(event.target.value)} /></label><label>Nom<input required maxLength={80} value={lastName} onChange={event => setLastName(event.target.value)} /></label><p>Adresse e-mail : {user.email}</p><button className="button outline" disabled={profileBusy || !firstName.trim() || !lastName.trim()}>{profileBusy ? 'Enregistrement…' : 'Enregistrer mes coordonnées'}</button>{profileError && <p role="alert">{profileError}</p>}{profileNotice && <p role="status">{profileNotice}</p>}</form></div>}
-            {section === 'personal' && <div id="mes-inscriptions"><div className="account-welcome"><span className="account-welcome-icon"><Icon name="calendar" /></span><div><h2>Mes participations</h2><p>Retrouvez vos activités, contributions et aides aux projets.</p></div></div><nav className="account-participation-nav" aria-label="Types de participation"><a href="#mes-inscriptions" aria-current={participationTab === 'activities' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}>Activités</a><a href="#participations-projets" aria-current={participationTab === 'projects' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('participations-projets'); }}>Projets et dons</a><a href="#aides-projets" aria-current={participationTab === 'helps' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('aides-projets'); }}>Aides proposées</a></nav>{participationTab === 'activities' && <><MyBookings key={`bookings-${user.id}`} userId={user.id} /><p className="account-demo-note"><Icon name="ticket" /> Certaines activités du catalogue sont des exemples. Leur fiche indique quand le paiement est une simulation.</p></>}{participationTab === 'projects' && <div id="participations-projets"><MyPaidProjectParticipations key={`paid-projects-${user.id}`} userId={user.id} /><MyDonations key={`donations-${user.id}`} /></div>}{participationTab === 'helps' && <ProjectParticipations key={`helps-${user.id}`} />}</div>}
+            {['dashboard', 'inbox', 'spaces', 'activities', 'management', 'projects', 'requests', 'owner', 'owner-spaces'].includes(section) && <MyWorkspace key={user.id} firstName={user.firstName} selectedSpaceId={selectedSpaceId} selectedRubrique={selectedRubrique} createActivity={createActivity} highlightActivityId={highlightActivityId} view={section === 'dashboard' ? 'dashboard' : section === 'inbox' ? 'inbox' : section === 'spaces' ? 'spaces' : section === 'activities' ? 'activities' : section === 'management' ? 'management' : section === 'projects' ? 'projects' : section === 'owner-spaces' ? 'owner-spaces' : section === 'owner' ? 'owner' : 'requests'} onOwnerChange={setIsOwner} onOrganizerChange={setIsOrganizer} onReferentChange={setIsReferent} onActivityAccessChange={setCanCreateActivity} onTaskAccessChange={setCanManageTasks} />}
+            {section === 'owner-billing' && <OwnerBilling />}
+            {section === 'owner-members' && <OwnerMembers />}
+            {section === 'profile' && <div className="account-welcome account-profile-main"><div><h2>{t('Mon profil', 'My profile', 'Mijn profiel')}</h2><p>{t('Modifiez vos coordonnées ci-dessous.', 'Update your details below.', 'Wijzig hieronder uw gegevens.')}</p></div><form className="account-profile-form" onSubmit={saveProfile}><label>{t('Prénom', 'First name', 'Voornaam')}<input required maxLength={80} value={firstName} onChange={event => setFirstName(event.target.value)} /></label><label>{t('Nom', 'Last name', 'Achternaam')}<input required maxLength={80} value={lastName} onChange={event => setLastName(event.target.value)} /></label><p>{t('Adresse e-mail', 'Email address', 'E-mailadres')} : {user.email}</p><button className="button outline" disabled={profileBusy || !firstName.trim() || !lastName.trim()}>{profileBusy ? t('Enregistrement…', 'Saving…', 'Opslaan…') : t('Enregistrer mes coordonnées', 'Save my details', 'Mijn gegevens opslaan')}</button>{profileError && <p role="alert">{profileError}</p>}{profileNotice && <p role="status">{profileNotice}</p>}</form></div>}
+            {section === 'personal' && <div id="mes-inscriptions"><div className="account-welcome"><span className="account-welcome-icon"><Icon name="calendar" /></span><div><h2>{t('Mes participations', 'My registrations', 'Mijn deelnames')}</h2><p>{t('Retrouvez vos activités, contributions et aides aux projets.', 'Find your activities, project registrations and offers of help.', 'Bekijk uw activiteiten, projectinschrijvingen en aangeboden hulp.')}</p></div></div><nav className="account-participation-nav" aria-label={t('Types de participation', 'Types of participation', 'Soorten deelname')}><a href="#mes-inscriptions" aria-current={participationTab === 'activities' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}>{t('Activités', 'Activities', 'Activiteiten')}</a><a href="#participations-projets" aria-current={participationTab === 'projects' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('participations-projets'); }}>{t('Projets et dons', 'Projects and donations', 'Projecten en giften')}</a><a href="#aides-projets" aria-current={participationTab === 'helps' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('aides-projets'); }}>{t('Aides proposées', 'Offers of help', 'Aangeboden hulp')}</a></nav>{participationTab === 'activities' && <><MyBookings key={`bookings-${user.id}`} userId={user.id} /><p className="account-demo-note"><Icon name="ticket" /> {t('Certaines activités du catalogue sont des exemples. Leur fiche indique quand le paiement est une simulation.', 'Some catalogue activities are examples. Their pages indicate when payment is simulated.', 'Sommige activiteiten in de catalogus zijn voorbeelden. Hun pagina vermeldt wanneer de betaling gesimuleerd wordt.')}</p></>}{participationTab === 'projects' && <div id="participations-projets"><MyPaidProjectParticipations key={`paid-projects-${user.id}`} userId={user.id} /><MyDonations key={`donations-${user.id}`} /></div>}{participationTab === 'helps' && <ProjectParticipations key={`helps-${user.id}`} />}</div>}
           </>}
         </div>
-        <aside className="account-sidebar" aria-label="Navigation de mon espace">
+        <aside className="account-sidebar" aria-label={t('Navigation de mon espace', 'My space navigation', 'Navigatie in mijn ruimte')}>
           <section className="account-profile">
-            <div className="account-sidebar-top"><span>Mon espace</span>{sidebarToggle}</div>
-            <nav id="account-side-nav" className="account-side-nav" data-open={sidebarOpen} aria-label="Navigation de mon espace">
-              {isOwner !== null && <a href="#accueil" title="Tableau de bord" aria-current={section === 'dashboard' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('accueil'); }}><Icon name="home" /><span className="account-nav-text">Tableau de bord</span></a>}
-              {isOwner === null ? <span role="status">Chargement du menu…</span> : isOwner ? <>
-                <span className="account-nav-label">Gérer Belconnect</span>
-                <a href="#a-traiter" title="À traiter" aria-current={section === 'inbox' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('a-traiter'); }}><Icon name="inbox" /><span className="account-nav-text">À traiter</span></a>
-                <a href="#espaces" title="Espaces organisateurs" aria-current={section === 'owner-spaces' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /><span className="account-nav-text">Espaces organisateurs</span></a>
-                <a href="#suivi-belconnect" title="Suivi de Belconnect" aria-current={section === 'owner' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('suivi-belconnect'); }}><Icon name="chart" /><span className="account-nav-text">Suivi de Belconnect</span></a>
+            <div className="account-sidebar-top"><span>{t('Mon espace', 'My space', 'Mijn ruimte')}</span>{sidebarToggle}</div>
+            <nav id="account-side-nav" className="account-side-nav" data-open={sidebarOpen} aria-label={t('Navigation de mon espace', 'My space navigation', 'Navigatie in mijn ruimte')}>
+              {isOwner !== null && <a href="#accueil" title={t('Tableau de bord', 'Dashboard', 'Dashboard')} aria-current={section === 'dashboard' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('accueil'); }}><Icon name="home" /><span className="account-nav-text">{t('Tableau de bord', 'Dashboard', 'Dashboard')}</span></a>}
+              {isOwner === null ? <span role="status">{t('Chargement du menu…', 'Loading menu…', 'Menu wordt geladen…')}</span> : isOwner ? <>
+                <span className="account-nav-label">{t('Gérer Belconnect', 'Manage Belconnect', 'Belconnect beheren')}</span>
+                <a href="#a-traiter" title={t('Demandes à examiner', 'Requests to review', 'Aanvragen te beoordelen')} aria-current={section === 'inbox' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('a-traiter'); }}><Icon name="inbox" /><span className="account-nav-text">{t('Demandes à examiner', 'Requests to review', 'Aanvragen te beoordelen')}</span></a>
+                <a href="#espaces" title={t('Espaces organisateurs', 'Organiser spaces', 'Organisatieruimtes')} aria-current={section === 'owner-spaces' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /><span className="account-nav-text">{t('Espaces organisateurs', 'Organiser spaces', 'Organisatieruimtes')}</span></a>
+                <a href="#suivi-belconnect" title={t('Suivi de Belconnect', 'Belconnect overview', 'Belconnect-overzicht')} aria-current={section === 'owner' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('suivi-belconnect'); }}><Icon name="chart" /><span className="account-nav-text">{t('Suivi de Belconnect', 'Belconnect overview', 'Belconnect-overzicht')}</span></a>
+                <a href="#abonnements-factures" title={t('Abonnements et factures', 'Subscriptions and invoices', 'Abonnementen en facturen')} aria-current={section === 'owner-billing' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('abonnements-factures'); }}><Icon name="ticket" /><span className="account-nav-text">{t('Abonnements et factures', 'Subscriptions and invoices', 'Abonnementen en facturen')}</span></a>
+                <a href="#membres-roles" title={t('Membres et rôles', 'Members and roles', 'Leden en rollen')} aria-current={section === 'owner-members' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('membres-roles'); }}><Icon name="users" /><span className="account-nav-text">{t('Membres et rôles', 'Members and roles', 'Leden en rollen')}</span></a>
               </> : <>
-                {canManageTasks && <a href="#a-traiter" title="À traiter" aria-current={section === 'inbox' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('a-traiter'); }}><Icon name="inbox" /><span className="account-nav-text">À traiter</span></a>}
-                <span className="account-nav-label">Participer</span>
-                <a href="#mes-inscriptions" title="Mes participations" aria-current={section === 'personal' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}><Icon name="ticket" /><span className="account-nav-text">Mes participations</span></a>
-                <span className="account-nav-label">Mes espaces</span>
-                {canCreateActivity && <a href="#mes-activites" title="Mes activités" aria-current={section === 'activities' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-activites'); }}><Icon name="calendar" /><span className="account-nav-text">Mes activités</span></a>}
-                <a href="#espaces" title="Espaces et groupes" aria-current={section === 'spaces' || section === 'management' && !createActivity ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /><span className="account-nav-text">Espaces et groupes</span></a>
+                {canManageTasks && <a href="#a-traiter" title={t('Demandes à examiner', 'Requests to review', 'Aanvragen te beoordelen')} aria-current={section === 'inbox' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('a-traiter'); }}><Icon name="inbox" /><span className="account-nav-text">{t('Demandes à examiner', 'Requests to review', 'Aanvragen te beoordelen')}</span></a>}
+                <span className="account-nav-label">{t('Participer', 'Participate', 'Deelnemen')}</span>
+                <a href="#mes-inscriptions" title={t('Mes participations', 'My registrations', 'Mijn deelnames')} aria-current={section === 'personal' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-inscriptions'); }}><Icon name="ticket" /><span className="account-nav-text">{t('Mes participations', 'My registrations', 'Mijn deelnames')}</span></a>
+                <span className="account-nav-label">{t('Mes espaces', 'My spaces', 'Mijn ruimtes')}</span>
+                {canCreateActivity && <a href="#mes-activites" title={t('Mes activités', 'My activities', 'Mijn activiteiten')} aria-current={section === 'activities' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-activites'); }}><Icon name="calendar" /><span className="account-nav-text">{t('Mes activités', 'My activities', 'Mijn activiteiten')}</span></a>}
+                <a href="#espaces" title={t('Espaces et groupes', 'Spaces and groups', 'Ruimtes en groepen')} aria-current={section === 'spaces' || section === 'management' && !createActivity ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('espaces'); }}><Icon name="users" /><span className="account-nav-text">{t('Espaces et groupes', 'Spaces and groups', 'Ruimtes en groepen')}</span></a>
                 <div id="workspace-sidebar-slot" className="workspace-sidebar-slot" />
-                <a href="#mes-projets" title="Mes projets" aria-current={section === 'projects' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-projets'); }}><Icon name="folder" /><span className="account-nav-text">Mes projets</span></a>
-                <a href="#demandes" title="Mes demandes" aria-current={section === 'requests' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}><Icon name="document" /><span className="account-nav-text">Mes demandes</span></a>
+                <a href="#mes-projets" title={t('Mes projets', 'My projects', 'Mijn projecten')} aria-current={section === 'projects' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('mes-projets'); }}><Icon name="folder" /><span className="account-nav-text">{t('Mes projets', 'My projects', 'Mijn projecten')}</span></a>
+                <a href="#demandes" title={t('Mes demandes', 'My requests', 'Mijn aanvragen')} aria-current={section === 'requests' ? 'page' : undefined} onClick={event => { event.preventDefault(); openSection('demandes'); }}><Icon name="document" /><span className="account-nav-text">{t('Mes demandes', 'My requests', 'Mijn aanvragen')}</span></a>
               </>}
             </nav>
           </section>

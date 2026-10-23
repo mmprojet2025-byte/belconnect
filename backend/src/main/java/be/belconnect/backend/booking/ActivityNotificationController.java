@@ -31,6 +31,17 @@ public class ActivityNotificationController {
       """,(r,i)->new Notice(r.getLong("id"),r.getString("titre"),r.getObject("date_creation",OffsetDateTime.class)),user(auth));
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(notices);
   }
+  public record UnreadCount(long unread) {}
+  @GetMapping("/count") @Transactional(readOnly=true)
+  public ResponseEntity<UnreadCount> count(Authentication auth) {
+    long actor=user(auth);
+    Long count=jdbc.queryForObject("""
+      SELECT (SELECT count(*) FROM notification_activite WHERE utilisateur_id=? AND date_lecture IS NULL)
+           + (SELECT count(*) FROM notification_demande_espace WHERE utilisateur_id=? AND date_lecture IS NULL)
+           + (SELECT count(*) FROM notification_adhesion_groupe WHERE utilisateur_id=? AND date_lecture IS NULL)
+      """,Long.class,actor,actor,actor);
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new UnreadCount(count == null ? 0 : count));
+  }
   @PostMapping("/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
   public void read(Authentication auth,@PathVariable long id) {
     long actor=user(auth);

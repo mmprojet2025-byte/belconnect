@@ -11,6 +11,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.*;
 
 @org.springframework.test.context.ActiveProfiles("test")
+@org.springframework.test.context.TestPropertySource(properties="STRIPE_SECRET_KEY=")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class WorkspaceApiTests {
  @LocalServerPort int port;
@@ -33,6 +34,42 @@ class WorkspaceApiTests {
    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("firstName","Camille","lastName","Test","email",email,"password","Test-only-"+UUID.randomUUID())))).build(),HttpResponse.BodyHandlers.ofString());
   assertEquals(201,response.statusCode(),response.body());
   return json.readTree(response.body()).get("id").asLong();
+ }
+ @Test void ownerBillingAndMemberRolesArePrivateAndScoped() throws Exception {
+  String prefix="owner-roles-"+UUID.randomUUID();
+  long member=register(prefix+"-member@example.com");
+  long owner=register(prefix+"-owner@example.com");
+  Long space=null,group=null;
+  try {
+   for(String path:List.of("/api/workspace/owner/subscriptions","/api/workspace/owner/invoices","/api/workspace/owner/members"))
+    assertEquals(403,get(path).statusCode(),path);
+   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",owner);
+   space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",Long.class,prefix,member);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",member,space);
+   group=jdbc.queryForObject("INSERT INTO groupe(espace_id,nom) VALUES (?,?) RETURNING id",Long.class,space,prefix+" groupe");
+   jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'REFERENT')",member,space,group);
+   var subscriptions=json.readTree(get("/api/workspace/owner/subscriptions").body());
+   assertTrue(subscriptions.toString().contains(prefix));
+   assertTrue(subscriptions.toString().contains("STARTER"));
+   var invoices=json.readTree(get("/api/workspace/owner/invoices").body());
+   assertFalse(invoices.get("stripeConfigured").asBoolean());
+   var members=json.readTree(get("/api/workspace/owner/members").body());
+   assertTrue(members.toString().contains(prefix+"-member@example.com"));
+   assertTrue(members.toString().contains("ADMINISTRATEUR"));
+   assertTrue(members.toString().contains("REFERENT"));
+   assertTrue(members.toString().contains("PROPRIETAIRE") || members.toString().contains("\"owner\":true"));
+   var memberPage=json.readTree(get("/api/workspace/owner/members/paged?page=0&search="+prefix).body());
+   assertTrue(memberPage.get("total").asLong()>=1);
+   assertTrue(memberPage.get("items").toString().contains(prefix+"-member@example.com"));
+   assertEquals(0,json.readTree(get("/api/workspace/owner/members/paged?page=0&search=introuvable-"+prefix).body()).get("total").asInt());
+  } finally {
+   if(group!=null) jdbc.update("DELETE FROM appartenance_groupe WHERE groupe_id=?",group);
+   if(group!=null) jdbc.update("DELETE FROM groupe WHERE id=?",group);
+   if(space!=null) jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);
+   if(space!=null) jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
+   jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",owner);
+   jdbc.update("DELETE FROM utilisateur WHERE id IN (?,?)",owner,member);
+  }
  }
  @Test void scopedRolesPrivateDraftsAndRevocation() throws Exception {
   String prefix="workspace-"+UUID.randomUUID();

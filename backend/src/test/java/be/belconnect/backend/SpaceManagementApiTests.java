@@ -97,6 +97,26 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
+ @Test void administratorOnlySeesOwnSpaceInvoicesAndMemberRoles() throws Exception {
+  try {
+   var first=actor(); var second=actor(); var outsider=actor();
+   long firstSpace=setupSpace(first); setupSpace(second);
+   long group=setupGroup(firstSpace,"Groupe rôles test",false,"PRIVEE");
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE')",outsider.id,firstSpace);
+   jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'REFERENT')",outsider.id,firstSpace,group);
+   String membersPath="/api/workspace/spaces/"+firstSpace+"/members";
+   String invoicesPath="/api/workspace/spaces/"+firstSpace+"/subscription/invoices";
+   assertEquals(403,second.get(membersPath).statusCode());
+   assertEquals(404,second.get(invoicesPath).statusCode());
+   assertEquals(403,outsider.get(membersPath).statusCode());
+   assertEquals(404,outsider.get(invoicesPath).statusCode());
+   var members=ok(first.get(membersPath),200);
+   assertTrue(members.toString().contains("REFERENT"));
+   assertTrue(members.toString().contains("ADMINISTRATEUR"));
+   assertFalse(members.toString().contains(jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,second.id)));
+   assertEquals(200,first.get(invoicesPath).statusCode());
+  } finally { cleanup(); }
+ }
  @Test void ownerActivitySummaryIsPrivateAndExcludesDemoSpaces() throws Exception {
   try {
    var platform=actor();var member=actor();owner(platform);
@@ -137,14 +157,19 @@ class SpaceManagementApiTests {
    var opened=request(applicant,"Espace notification");
    var ownerNotices=ok(proprietor.get("/api/workspace/notifications"),200);
    assertEquals(1,ownerNotices.size());
+   assertEquals(1,ok(proprietor.get("/api/notifications/count"),200).get("unread").asInt());
+   assertEquals(0,ok(applicant.get("/api/notifications/count"),200).get("unread").asInt());
    assertEquals("DEMANDE_RECUE",ownerNotices.get(0).get("event").asText());
    assertEquals(200,proprietor.post("/api/workspace/notifications/"+ownerNotices.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
+   assertEquals(200,proprietor.post("/api/workspace/notifications/"+ownerNotices.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
+   assertEquals(0,ok(proprietor.get("/api/notifications/count"),200).get("unread").asInt());
    assertEquals(0,ok(proprietor.get("/api/workspace/notifications"),200).size());
    assertEquals(404,applicant.post("/api/workspace/notifications/"+ownerNotices.get(0).get("id").asLong()+"/read",Map.of(),true).statusCode());
    ok(proprietor.post("/api/workspace/opening-requests/"+opened.get("id").asLong()+"/decision",
        Map.of("version",opened.get("version").asLong(),"status","REFUSEE","reason","Informations insuffisantes"),true),200);
    var applicantNotices=ok(applicant.get("/api/workspace/notifications"),200);
    assertEquals(1,applicantNotices.size());
+   assertEquals(1,ok(applicant.get("/api/notifications/count"),200).get("unread").asInt());
    assertEquals("DEMANDE_REFUSEE",applicantNotices.get(0).get("event").asText());
   } finally { cleanup(); }
  }
@@ -296,6 +321,24 @@ class SpaceManagementApiTests {
   long id=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Espace test adhésions','ORGANISATEUR',?) RETURNING id",Long.class,admin.id);
   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",admin.id,id); return id;
  }
+ @Test void dashboardChartsAreLimitedToTheOwnerOrTheSelectedAdminSpace() throws Exception {
+  try {
+   var admin=actor(); var outsider=actor(); var platform=actor(); owner(platform);
+   long space=setupSpace(admin);
+   String scoped="/api/workspace/charts/spaces/"+space;
+   assertEquals(403,outsider.get(scoped).statusCode());
+   assertEquals(403,platform.get(scoped).statusCode());
+   assertEquals(403,admin.get("/api/workspace/charts/owner").statusCode());
+   var months=ok(platform.get("/api/workspace/charts/owner"),200);
+   assertEquals(6,months.size());
+   assertTrue(months.get(0).has("activityCents"));
+   var scopedData=ok(admin.get(scoped),200);
+   assertEquals(0,scopedData.get("activities").size());
+   assertEquals(6,scopedData.get("months").size());
+   jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=? AND espace_id=?",admin.id,space);
+   assertEquals(403,admin.get(scoped).statusCode());
+  } finally { cleanup(); }
+ }
  long setupGroup(long space,String name,boolean open,String visibility) {
   return jdbc.queryForObject("INSERT INTO groupe(espace_id,nom,adhesion_ouverte,visibilite) VALUES (?,?,?,?) RETURNING id",Long.class,space,name,open,visibility);
  }
@@ -351,6 +394,7 @@ class SpaceManagementApiTests {
    assertEquals(403,other.post(decision,accept,true).statusCode());assertEquals(403,platform.post(decision,accept,true).statusCode());
    assertEquals(403,admin.post(decision,accept,false).statusCode());
    assertEquals("ACCEPTEE",ok(admin.post(decision,accept,true),200).get("status").asText());
+   assertEquals(0,ok(admin.get("/api/group-memberships/notifications"),200).size());
    assertEquals("DEMANDE_ACCEPTEE",ok(member.get("/api/group-memberships/notifications"),200).get(0).get("event").asText());
    ok(admin.post(decision,accept,true),200);
    assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",String.class,member.id,space));

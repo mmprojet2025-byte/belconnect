@@ -15,7 +15,9 @@ export function useLocale(): Locale {
     document.documentElement.lang = locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en';
     const sync = () => update(currentLocale());
     window.addEventListener('belconnect-locale-change', sync);
-    return () => window.removeEventListener('belconnect-locale-change', sync);
+    const syncStorage = (event: StorageEvent) => { if (event.key === key) sync(); };
+    window.addEventListener('storage', syncStorage);
+    return () => { window.removeEventListener('belconnect-locale-change', sync); window.removeEventListener('storage', syncStorage); };
   }, [locale]);
   return locale;
 }

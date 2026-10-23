@@ -3,10 +3,14 @@ package be.belconnect.backend.workspace;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.model.Price;
+import com.stripe.model.Invoice;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.checkout.SessionCreateParams;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +36,9 @@ public class SpaceSubscriptionController {
   }
   public record Status(String plan,String status,int monthlyPriceCents,OffsetDateTime periodEnd,boolean testCheckoutReady) {}
   public record Link(String url) {}
+  public record InvoiceRow(String id,String number,String status,long amountDueCents,long amountPaidCents,
+      String currency,long createdAt,String hostedUrl,String pdfUrl) {}
+  public record Invoices(List<InvoiceRow> items,String nextCursor,boolean stripeConfigured) {}
   public record CheckoutRequest(@NotNull UUID requestId) {}
   private ResponseStatusException fail(HttpStatus code,String message) { return new ResponseStatusException(code,message); }
   private long admin(Authentication auth,long spaceId) {
@@ -57,6 +64,32 @@ public class SpaceSubscriptionController {
       """,(r,n)->new Status("ACTIF".equals(r.getString("statut"))?"PRO":"STARTER",r.getString("statut"),1000,
         r.getObject("fin_periode",OffsetDateTime.class),ready()),spaceId);
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(rows.isEmpty()?new Status("STARTER","GRATUIT",1000,null,ready()):rows.getFirst());
+  }
+  @GetMapping("/invoices")
+  public ResponseEntity<Invoices> invoices(Authentication auth,@PathVariable long spaceId,
+      @RequestParam(required=false) String cursor) {
+    admin(auth,spaceId);
+    if(cursor!=null && !cursor.matches("in_[A-Za-z0-9]+"))
+      throw fail(HttpStatus.BAD_REQUEST,"Curseur de factures invalide.");
+    if(!secret.startsWith("sk_test_"))
+      return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Invoices(List.of(),null,false));
+    var customers=jdbc.query("SELECT client_stripe FROM abonnement_espace WHERE espace_id=? AND client_stripe IS NOT NULL",
+      (r,n)->r.getString(1),spaceId);
+    if(customers.isEmpty())
+      return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Invoices(List.of(),null,true));
+    Map<String,Object> params=new HashMap<>();
+    params.put("customer",customers.getFirst());params.put("limit",50);
+    if(cursor!=null) params.put("starting_after",cursor);
+    try {
+      var page=Invoice.list(params,RequestOptions.builder().setApiKey(secret).build());
+      var items=page.getData().stream().map(i->new InvoiceRow(i.getId(),i.getNumber(),i.getStatus(),
+        i.getAmountDue()==null?0:i.getAmountDue(),i.getAmountPaid()==null?0:i.getAmountPaid(),i.getCurrency(),
+        i.getCreated()==null?0:i.getCreated(),i.getHostedInvoiceUrl(),i.getInvoicePdf())).toList();
+      String next=page.getHasMore() && !page.getData().isEmpty()?page.getData().getLast().getId():null;
+      return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Invoices(items,next,true));
+    } catch(StripeException ex) {
+      throw fail(HttpStatus.BAD_GATEWAY,"Les factures Stripe sont momentanément indisponibles.");
+    }
   }
   @PostMapping("/checkout") @Transactional
   public ResponseEntity<Link> checkout(Authentication auth,@PathVariable long spaceId,@Valid @RequestBody CheckoutRequest body) {

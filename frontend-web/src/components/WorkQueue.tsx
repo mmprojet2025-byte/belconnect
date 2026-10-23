@@ -27,7 +27,7 @@ export function WorkQueue() {
   }, [revision]);
   const refresh = () => { setLoading(true); setError(''); setRevision(value => value + 1); };
   return <section className="work-queue" aria-labelledby="work-queue-title">
-    <div className="account-section-heading"><h2 id="work-queue-title">À traiter</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
+    <div className="account-section-heading"><h2 id="work-queue-title">Demandes à examiner</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
     <p className="workspace-description">Les demandes qui attendent votre décision. Ouvrez le dossier pour consulter les détails avant de répondre.</p>
     {loading && <p role="status">Chargement des tâches…</p>}
     {error && <p role="alert" className="draft-error">{error}</p>}

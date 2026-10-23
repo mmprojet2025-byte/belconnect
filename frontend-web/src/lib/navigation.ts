@@ -10,6 +10,9 @@ export function useLocation() {
 }
 export function navigate(url: string, replace = false) {
   if (url === snapshot()) return;
+  if (window.location.pathname === "/mon-espace" && url.startsWith("/mon-espace") && !replace) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
   window.history[replace ? "replaceState" : "pushState"](null, "", url);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }

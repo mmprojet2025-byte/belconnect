@@ -30,7 +30,9 @@ public class SpaceRequestNotificationController {
     }
     @PostMapping("/{id}/read") @Transactional
     public void read(Authentication auth,@PathVariable long id) {
-        if(jdbc.update("UPDATE notification_demande_espace SET date_lecture=now() WHERE id=? AND utilisateur_id=? AND date_lecture IS NULL",id,user(auth))==0)
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Notification introuvable ou déjà lue.");
+        long actor=user(auth);
+        if(jdbc.update("UPDATE notification_demande_espace SET date_lecture=now() WHERE id=? AND utilisateur_id=? AND date_lecture IS NULL",id,actor)==0
+            && jdbc.queryForList("SELECT id FROM notification_demande_espace WHERE id=? AND utilisateur_id=?",id,actor).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Notification introuvable.");
     }
 }

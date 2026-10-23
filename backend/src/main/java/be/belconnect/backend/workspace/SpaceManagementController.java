@@ -156,6 +156,7 @@ public class SpaceManagementController {
         }
         jdbc.update("UPDATE demande_espace SET statut=?,espace_id=?,examinateur_id=?,motif=?,date_decision=now(),version=version+1 WHERE id=?",
             body.status(),space,user,body.reason(),id);
+        jdbc.update("UPDATE notification_demande_espace SET date_lecture=now() WHERE demande_id=? AND evenement='DEMANDE_RECUE' AND date_lecture IS NULL",id);
         jdbc.update("""
             INSERT INTO notification_demande_espace(utilisateur_id,demande_id,evenement)
             VALUES (?,?,?) ON CONFLICT DO NOTHING

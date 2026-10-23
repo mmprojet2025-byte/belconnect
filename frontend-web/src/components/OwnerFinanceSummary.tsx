@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { result } from '../lib/auth';
+import { OwnerDashboardCharts } from './DashboardCharts';
 
 type Summary = {
   activeSpaces: number;
@@ -32,12 +33,11 @@ export function OwnerFinanceSummary() {
     {error && <p role="alert">{error} Les derniers chiffres chargés restent affichés.</p>}
     {!summary && !error && <p role="status">Chargement du suivi…</p>}
     {summary && <div className="owner-finance-grid">
-      <div className="workspace-card"><strong>{summary.activeSpaces}</strong><span>espaces actifs</span></div>
-      <div className="workspace-card"><strong>{summary.proSpaces}</strong><span>abonnements Pro actifs</span></div>
       <div className="workspace-card"><strong>{summary.paidTransactions}</strong><span>paiements confirmés</span></div>
       <div className="workspace-card"><strong>{money(summary.confirmedCommissionCents)}</strong><span>commissions sur paiements confirmés</span></div>
-      <div className="workspace-card"><strong>{summary.pendingRefunds}</strong><span>remboursements en cours</span></div>
+      <div className="workspace-card"><strong>{summary.pendingRefunds}</strong><span>remboursements en cours dans les espaces</span></div>
     </div>}
-    <p className="workspace-description">Les revenus des abonnements ne figurent pas ici : leur historique de facturation doit être rapproché avec Stripe.</p>
+    <OwnerDashboardCharts key={attempt} />
+    <p className="workspace-description">Les revenus des abonnements ne figurent pas dans ces indicateurs. Consultez « Abonnements et factures » pour voir la facturation Stripe test.</p>
   </section>;
 }

@@ -71,7 +71,9 @@ p {
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 90px;
+  scrollbar-gutter: stable;
 }
+html:has(.account-page) { scroll-behavior: auto; }
 ::selection {
   background: #c8eff0;
 }

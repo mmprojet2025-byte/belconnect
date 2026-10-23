@@ -4,19 +4,36 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { AccountPage } from './pages/AccountPage';
 import { CatalogProvider } from './context/CatalogContext';
 import { WorkspaceDashboard } from './components/WorkspaceDashboard';
+import { OwnerFinanceSummary } from './components/OwnerFinanceSummary';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it('limite le suivi administrateur à l’espace choisi', async () => {
-  const fetcher = vi.fn((input: string) => Promise.resolve(new Response(input.startsWith('/api/managed-activities/dashboard')
-    ? JSON.stringify({ id: 9, spaceId: Number(new URL(input, 'http://localhost').searchParams.get('spaceId')), spaceName: 'Espace choisi', title: 'Atelier', startsAt: '2099-06-20T10:00:00Z', capacity: 10, remaining: 4, paidTickets: 3, confirmedCents: 3000 })
+  const fetcher = vi.fn((input: string) => Promise.resolve(new Response(input.startsWith('/api/workspace/charts/spaces/')
+    ? JSON.stringify({ activities: [{ id: 9, title: 'Atelier', capacity: 10, remaining: 4, confirmedPlaces: 3 }], months: [] })
     : JSON.stringify([]), { status: 200 })));
   vi.stubGlobal('fetch', fetcher);
-  render(<WorkspaceDashboard data={{ owner: false, spaces: [{ id: 11, name: 'Premier espace', role: 'ADMINISTRATEUR' }, { id: 12, name: 'Second espace', role: 'ADMINISTRATEUR' }], groups: [], projects: [] }} firstName="Noor" onRefresh={() => {}} />);
-  expect(await screen.findByText('4 / 10')).toBeTruthy();
-  fireEvent.change(screen.getByRole('combobox', { name: 'Espace' }), { target: { value: '12' } });
-  await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url === '/api/managed-activities/dashboard?spaceId=12')).toBe(true));
-  expect(screen.getByText('3', { selector: '.dashboard-activity-sales strong' })).toBeTruthy();
+  const data = { owner: false, spaces: [{ id: 11, name: 'Premier espace', role: 'ADMINISTRATEUR' }, { id: 12, name: 'Second espace', role: 'ADMINISTRATEUR' }], groups: [], projects: [] };
+  const view = render(<WorkspaceDashboard data={data} firstName="Noor" onRefresh={() => {}} />);
+  expect(await screen.findByText('3 confirmées · 4 disponibles / 10')).toBeTruthy();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Espace suivi' }), { target: { value: '12' } });
+  await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url === '/api/workspace/charts/spaces/12')).toBe(true));
+  expect(screen.getByText('3 confirmées · 4 disponibles / 10')).toBeTruthy();
+  view.rerender(<WorkspaceDashboard data={data} firstName="Noor" refreshToken={1} onRefresh={() => {}} />);
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace/charts/spaces/12')).toHaveLength(2));
+});
+
+it('actualise ensemble les indicateurs et graphiques du propriétaire', async () => {
+  const fetcher = vi.fn((input: string) => Promise.resolve(new Response(JSON.stringify(
+    input === '/api/workspace/owner/finance' ? { activeSpaces: 1, proSpaces: 0, paidTransactions: 0, confirmedCommissionCents: 0, pendingRefunds: 0 }
+      : input === '/api/workspace/charts/owner' ? [{ month: '2026-10-01', activityCents: 0, projectCents: 0, donationCents: 0 }]
+      : []), { status: 200 })));
+  vi.stubGlobal('fetch', fetcher);
+  render(<OwnerFinanceSummary />);
+  expect(await screen.findByRole('heading', { name: 'Commissions confirmées · 6 mois' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Actualiser' }));
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace/charts/owner')).toHaveLength(2));
+  expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace/owner/finance')).toHaveLength(2);
 });
 
 it('montre au membre sa prochaine inscription confirmée et ses groupes', async () => {
@@ -59,7 +76,7 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   await waitFor(() => expect(document.getElementById('mes-inscriptions')).not.toBeNull());
   expect(fetcher.mock.calls.some(([url]) => url === '/api/workspace')).toBe(true);
   expect(screen.queryByRole('link', { name: 'Mes activités' })).toBeNull();
-  expect(screen.queryByRole('link', { name: 'À traiter' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Demandes à examiner' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Notifications' })).toBeTruthy();
   expect(within(screen.getByRole('navigation', { name: 'Navigation de mon espace' })).queryByRole('link', { name: 'Notifications' })).toBeNull();
   fireEvent.click(screen.getByLabelText('Ouvrir le profil'));
@@ -89,17 +106,34 @@ it('sépare les demandes, les espaces et le suivi du propriétaire', async () =>
       : []), { status: 200 }))));
   render(<CatalogProvider><AccountPage user={{ id: 13, firstName: 'Noor', lastName: 'Test', email: 'owner@example.test' }}
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
-  expect(await screen.findByRole('link', { name: 'À traiter' })).toBeTruthy();
+  expect(await screen.findByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Tableau de bord' }).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('link', { name: 'Suivi de Belconnect' }));
   expect(screen.getByRole('link', { name: 'Suivi de Belconnect' }).getAttribute('aria-current')).toBe('page');
   expect(screen.queryByRole('link', { name: 'Mes participations' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Mes projets' })).toBeNull();
-  expect(screen.getByRole('link', { name: 'À traiter' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
   expect(await screen.findByText('Indicateurs de la plateforme en mode test.')).toBeTruthy();
   fireEvent.click(screen.getByRole('link', { name: 'Espaces organisateurs' }));
   expect(await screen.findByRole('combobox', { name: 'Espace à examiner' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Espaces actifs' })).toBeNull();
+});
+
+it('affiche les abonnements et les rôles dans deux rubriques réservées au propriétaire', async () => {
+  window.history.replaceState(null, '', '/mon-espace#accueil');
+  vi.stubGlobal('scrollTo', vi.fn());
+  vi.stubGlobal('fetch', vi.fn((input: string) => Promise.resolve(new Response(JSON.stringify(
+    input === '/api/workspace' ? { owner: true, spaces: [], groups: [], projects: [], managedSpaces: [] }
+      : input === '/api/workspace/owner/subscriptions' ? [{ spaceId: 7, spaceName: 'Atelier local', spaceStatus: 'ACTIF', administrator: 'Camille', plan: 'PRO', status: 'ACTIF', periodEnd: null, stripeLinked: true }]
+      : input === '/api/workspace/owner/invoices' ? { items: [], nextCursor: null, stripeConfigured: true }
+      : input === '/api/workspace/owner/members/paged?page=0&search=' ? { items: [{ id: 3, name: 'Camille Test', email: 'camille@example.test', status: 'ACTIF', owner: false, roles: [{ scope: 'ESPACE', name: 'Atelier local', role: 'ADMINISTRATEUR', status: 'ACTIF' }] }], total: 1, page: 0, pageSize: 20 }
+      : []), { status: 200 }))));
+  render(<CatalogProvider><AccountPage user={{ id: 13, firstName: 'Noor', lastName: 'Test', email: 'owner@example.test' }} onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
+  fireEvent.click(await screen.findByRole('link', { name: 'Abonnements et factures' }));
+  expect(await screen.findByText('Compte de facturation Stripe associé')).toBeTruthy();
+  fireEvent.click(screen.getByRole('link', { name: 'Membres et rôles' }));
+  expect(await screen.findByText('camille@example.test · Actif')).toBeTruthy();
+  expect(screen.getByText(/Espace Atelier local/)).toBeTruthy();
 });
 
 it('affiche les vraies demandes et les indicateurs accessibles au propriétaire', async () => {
@@ -169,7 +203,7 @@ it('ouvre le volet mobile au-dessus du contenu et le referme depuis le fond', as
 it('garde un seul espace comme contexte de gestion après navigation', async () => {
   window.history.replaceState(null, '', '/mon-espace#espaces');
   vi.stubGlobal('scrollTo', vi.fn());
-  vi.stubGlobal('fetch', vi.fn((input: string) => Promise.resolve(new Response(JSON.stringify(
+  const fetcher = vi.fn((input: string) => Promise.resolve(new Response(JSON.stringify(
     input === '/api/workspace/owner/access' ? false : input === '/api/workspace/spaces/1/management'
       ? { space: { id: 1, name: 'Espace Alpha', type: 'ASSOCIATION', description: '' }, groups: [] }
       : input === '/api/workspace'
@@ -178,7 +212,8 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
         { id: 2, name: 'Espace Beta', role: 'ADMINISTRATEUR' },
       ], groups: [], projects: [], managedSpaces: [] }
       : input.startsWith('/api/managed-activities/paged') ? { items: [], total: 0, page: 0, size: 12 }
-      : []), { status: 200 }))));
+      : []), { status: 200 })));
+  vi.stubGlobal('fetch', fetcher);
   render(<CatalogProvider><AccountPage user={{ id: 14, firstName: 'Noor', lastName: 'Test', email: 'admin@example.test' }}
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
   fireEvent.click(await screen.findAllByRole('button', { name: 'Gérer cet espace' }).then(buttons => buttons[0]));
@@ -192,13 +227,16 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   expect(management.getAllByRole('button')).toHaveLength(7);
   expect(management.queryByRole('button', { name: 'Activités' })).toBeNull();
   expect(management.getByRole('button', { name: 'Groupes' }).getAttribute('aria-current')).toBe('page');
+  const workspaceLoads = fetcher.mock.calls.filter(([url]) => url === '/api/workspace').length;
   fireEvent.click(management.getByRole('button', { name: 'À examiner' }));
   const projectManagement = within(await screen.findByRole('navigation', { name: 'Gérer Espace Alpha' }));
   expect(projectManagement.getByRole('button', { name: 'À examiner' }).getAttribute('aria-current')).toBe('page');
   expect(within(screen.getByLabelText('Rubrique actuelle')).getByText('Projets à examiner')).toBeTruthy();
   expect(window.location.search).toBe('?espace=1&rubrique=projets-a-examiner');
+  expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace')).toHaveLength(workspaceLoads);
+  expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
   fireEvent.click(projectManagement.getByRole('button', { name: 'Réglages' }));
-  expect(within(await screen.findByRole('navigation', { name: 'Réglages de l’espace' })).getAllByRole('button')).toHaveLength(2);
+  expect(within(await screen.findByRole('navigation', { name: 'Réglages de l’espace' })).getAllByRole('button')).toHaveLength(3);
   fireEvent.click(screen.getByRole('button', { name: 'Retour à mes espaces' }));
   expect(window.location.search).toBe('');
   expect(await screen.findByRole('heading', { name: 'Mes espaces et groupes' })).toBeTruthy();
@@ -245,7 +283,7 @@ it('montre au référent uniquement les tâches de son groupe, sans réglages d�
   render(<CatalogProvider><AccountPage user={{ id: 18, firstName: 'Noor', lastName: 'Test', email: 'referent@example.test' }}
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
   fireEvent.click(await screen.findByRole('button', { name: 'Groupes (1)' }));
-  expect(screen.getByRole('link', { name: 'À traiter' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
   expect(screen.getByText('Référent du groupe')).toBeTruthy();
   expect(screen.getByText('Projets et annonces · Activités')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Voir le groupe →' }).getAttribute('href')).toBe('/groupes?groupe=17');

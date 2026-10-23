@@ -33,7 +33,9 @@ public class GroupMembershipNotificationController {
     }
     @PostMapping("/{id}/read") @Transactional
     public void read(Authentication auth,@PathVariable long id) {
-        if(jdbc.update("UPDATE notification_adhesion_groupe SET date_lecture=now() WHERE id=? AND utilisateur_id=? AND date_lecture IS NULL",id,user(auth))==0)
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Notification introuvable ou déjà lue.");
+        long actor=user(auth);
+        if(jdbc.update("UPDATE notification_adhesion_groupe SET date_lecture=now() WHERE id=? AND utilisateur_id=? AND date_lecture IS NULL",id,actor)==0
+            && jdbc.queryForList("SELECT id FROM notification_adhesion_groupe WHERE id=? AND utilisateur_id=?",id,actor).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Notification introuvable.");
     }
 }
