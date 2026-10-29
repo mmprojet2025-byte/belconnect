@@ -33,6 +33,13 @@ class MobileAuthApiTests {
     return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
   }
 
+  HttpResponse<String> api(String method,String path,Object body,String token) throws Exception {
+    var builder=HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).header("Accept","application/json").header("Authorization","Bearer "+token);
+    if(body!=null) builder.header("Content-Type","application/json").method(method,HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
+    else builder.method(method,HttpRequest.BodyPublishers.noBody());
+    return client.send(builder.build(),HttpResponse.BodyHandlers.ofString());
+  }
+
   @Test void mobileTokenLifecycle() throws Exception {
     String email="mobile-"+UUID.randomUUID()+"@example.com",password="Mobile-test-"+UUID.randomUUID();
     try {
@@ -53,5 +60,32 @@ class MobileAuthApiTests {
       jdbc.update("UPDATE utilisateur SET mot_de_passe_hash=? WHERE email=?",passwords.encode("Replacement-"+UUID.randomUUID()),email);
       assertEquals(401,request("GET","me",null,second).statusCode());
     } finally { jdbc.update("DELETE FROM utilisateur WHERE email=?",email); }
+  }
+
+  @Test void mobileTokenCanCreateListAndCancelBooking() throws Exception {
+    String marker=UUID.randomUUID().toString(),email="mobile-booking-"+marker+"@example.com",slug="mobile-booking-"+marker;
+    jdbc.update("""
+      INSERT INTO activite(slug,titre,categorie,ville,lieu,organisateur_nom,prix,image,debut,description,duree,capacite,places_disponibles,public_cible,rendez_vous,preparation,publiee,demonstration)
+      SELECT ?, 'Balade mobile',categorie,ville,lieu,organisateur_nom,0,image,now()+interval '7 days',description,duree,3,3,public_cible,rendez_vous,preparation,true,true
+      FROM activite WHERE slug='chocolat'
+      """,slug);
+    try {
+      var created=request("POST","register",Map.of("email",email,"password","Mobile-booking-"+marker,"firstName","Nora","lastName","Mobile"),null);
+      assertEquals(201,created.statusCode(),created.body());
+      String token=json.readTree(created.body()).get("token").asText();
+      var body=Map.of("activityId",slug,"quantity",2,"firstName","Nora","lastName","Mobile","email",email,"phone","","acknowledged",true);
+      var booking=api("POST","/api/bookings",body,token);
+      assertEquals(201,booking.statusCode(),booking.body());
+      long id=json.readTree(booking.body()).get("id").asLong();
+      var listed=json.readTree(api("GET","/api/bookings",null,token).body());
+      assertEquals(1,listed.size());assertEquals(2,listed.get(0).get("quantity").asInt());
+      assertEquals(204,api("POST","/api/bookings/"+id+"/cancel",Map.of(),token).statusCode());
+      assertEquals("ANNULEE",json.readTree(api("GET","/api/bookings",null,token).body()).get(0).get("status").asText());
+      assertEquals(3,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE slug=?",Integer.class,slug));
+    } finally {
+      jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+      jdbc.update("DELETE FROM activite WHERE slug=?",slug);
+      jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
+    }
   }
 }
