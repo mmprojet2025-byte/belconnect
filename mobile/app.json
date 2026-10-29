@@ -36,11 +36,24 @@
         }
       ],
       "expo-secure-store",
-      ["expo-notifications", { "color": "#176B52", "defaultChannel": "belconnect" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#176B52",
+          "defaultChannel": "belconnect"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cd12c786-bcd9-490f-b561-777957ba8d1a"
+      }
+    },
+    "owner": "mardochemalaba"
   }
 }
