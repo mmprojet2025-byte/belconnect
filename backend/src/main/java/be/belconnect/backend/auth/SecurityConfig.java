@@ -23,18 +23,20 @@ public class SecurityConfig {
     }
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
     @Bean HttpSessionSecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts, JdbcTemplate jdbc) throws Exception {
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts, MobileTokenService mobileTokens, JdbcTemplate jdbc) throws Exception {
         return http
             .securityContext(context -> context.securityContextRepository(repository))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/groups", "/api/projects", "/api/projects/*", "/api/project-paid-participations/offer/*", "/api/activities", "/api/activities/*", "/api/auth/csrf", "/actuator/health").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/password/recovery", "/api/auth/password/reset").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/mobile/auth/register", "/api/mobile/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/stripe/webhook", "/api/stripe/subscriptions/webhook").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated())
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/stripe/webhook", "/api/stripe/subscriptions/webhook"))
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/stripe/webhook", "/api/stripe/subscriptions/webhook", "/api/mobile/auth/register", "/api/mobile/auth/login")
+                .ignoringRequestMatchers(request -> { var value=request.getHeader("Authorization"); return value!=null && value.startsWith("Bearer "); }))
             .requestCache(AbstractHttpConfigurer::disable)
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, exception) -> response.sendError(401))
@@ -43,7 +45,8 @@ public class SecurityConfig {
                 .clearAuthentication(true).deleteCookies("JSESSIONID")
                 .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
             .addFilterAfter(new CredentialSessionFilter(accounts), SecurityContextHolderFilter.class)
-            .addFilterAfter(new PlatformOwnerWorkflowFilter(jdbc), CredentialSessionFilter.class)
+            .addFilterAfter(new MobileBearerFilter(mobileTokens), CredentialSessionFilter.class)
+            .addFilterAfter(new PlatformOwnerWorkflowFilter(jdbc), MobileBearerFilter.class)
             .build(); // Default CSRF protection remains enabled, including login and registration.
     }
 }

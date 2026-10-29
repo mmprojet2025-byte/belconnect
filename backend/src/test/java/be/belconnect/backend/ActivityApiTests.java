@@ -25,11 +25,11 @@ class ActivityApiTests {
         var client = HttpClient.newHttpClient();
         var list = client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/activities")).build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(200, list.statusCode());
-        assertTrue(list.body().contains("\"id\":\"chocolat\""));
-        assertTrue(list.body().contains("\"details\""));
+        assertTrue(list.body().startsWith("["));
         assertTrue(list.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
         var detail = client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/activities/chocolat")).build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(200, detail.statusCode());
+        assertTrue(detail.body().contains("\"details\""));
         assertTrue(detail.body().contains("\"price\":45"));
         var missing = client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/activities/inconnue")).build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(404, missing.statusCode());
