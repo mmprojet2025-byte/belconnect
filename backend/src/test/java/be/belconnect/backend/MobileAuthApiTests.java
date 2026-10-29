@@ -82,7 +82,16 @@ class MobileAuthApiTests {
       assertEquals(204,api("POST","/api/bookings/"+id+"/cancel",Map.of(),token).statusCode());
       assertEquals("ANNULEE",json.readTree(api("GET","/api/bookings",null,token).body()).get(0).get("status").asText());
       assertEquals(3,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE slug=?",Integer.class,slug));
+      long userId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,email);
+      long activityId=jdbc.queryForObject("SELECT id FROM activite WHERE slug=?",Long.class,slug);
+      jdbc.update("""
+        INSERT INTO reservation_payante_activite(activite_id,utilisateur_id,demande,quantite,prenom,nom,email,montant_centimes,commission_centimes,compte_stripe)
+        VALUES (?,?,?,1,'Nora','Mobile',?,2500,200,'acct_testExample123')
+        """,activityId,userId,UUID.randomUUID(),email);
+      var attempts=json.readTree(api("GET","/api/paid-activity-bookings",null,token).body());
+      assertEquals(1,attempts.size());assertEquals("EN_ATTENTE",attempts.get(0).get("status").asText());
     } finally {
+      jdbc.update("DELETE FROM reservation_payante_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
       jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
       jdbc.update("DELETE FROM activite WHERE slug=?",slug);
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
