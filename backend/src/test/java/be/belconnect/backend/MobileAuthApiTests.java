@@ -73,6 +73,10 @@ class MobileAuthApiTests {
       var created=request("POST","register",Map.of("email",email,"password","Mobile-booking-"+marker,"firstName","Nora","lastName","Mobile"),null);
       assertEquals(201,created.statusCode(),created.body());
       String token=json.readTree(created.body()).get("token").asText();
+      UUID deviceId=UUID.randomUUID();
+      assertEquals(204,api("POST","/api/mobile/devices",Map.of("deviceId",deviceId.toString(),"expoPushToken","ExpoPushToken[test_mobile_token]","platform","ios"),token).statusCode());
+      assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM appareil_push_mobile WHERE id_appareil=?",Integer.class,deviceId));
+      assertEquals(0,json.readTree(api("GET","/api/mobile/notifications",null,token).body()).size());
       var body=Map.of("activityId",slug,"quantity",2,"firstName","Nora","lastName","Mobile","email",email,"phone","","acknowledged",true);
       var booking=api("POST","/api/bookings",body,token);
       assertEquals(201,booking.statusCode(),booking.body());

@@ -8,9 +8,11 @@
     "scheme": "belconnect",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "be.belconnect.mobile",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "be.belconnect.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,7 +35,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-notifications", { "color": "#176B52", "defaultChannel": "belconnect" }]
     ],
     "experiments": {
       "typedRoutes": true,

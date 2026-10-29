@@ -17,6 +17,7 @@ export default function TabsLayout() {
     }}>
       <Tabs.Screen name="index" options={{ title: 'Accueil', tabBarLabel: 'Accueil' }} />
       <Tabs.Screen name="activities" options={{ title: 'Activités', tabBarLabel: 'Activités' }} />
+      <Tabs.Screen name="notifications" options={{ title: 'Notifications', tabBarLabel: 'Notifications' }} />
       <Tabs.Screen name="account" options={{ title: 'Mon espace', tabBarLabel: 'Mon espace' }} />
     </Tabs>
   );
