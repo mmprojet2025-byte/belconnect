@@ -23,7 +23,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
           <ThemedText type="subtitle" style={styles.title} numberOfLines={2}>{activity.title}</ThemedText>
           <ThemedText type="smallBold" style={styles.date}>{date.format(new Date(activity.startsAt))}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.city} · {activity.location}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{activity.likedByMe ? '♥' : '♡'} {activity.likeCount} J’aime</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">{activity.likedByMe ? '♥' : '♡'} {activity.likeCount} J’aime · {activity.commentCount} commentaire{activity.commentCount > 1 ? 's' : ''}</ThemedText>
           <View style={styles.footer}><ThemedText type="small" themeColor="textSecondary">{available ? `${activity.details.remaining} places disponibles` : 'Complet'}</ThemedText><ThemedText type="smallBold" style={styles.action}>{free && available ? 'Participer →' : 'Voir l’activité →'}</ThemedText></View>
         </View>
       </ThemedView>

@@ -39,7 +39,8 @@ public class ActivityRepository {
 
     private static String likes() {
         return "(SELECT count(*) FROM like_activite l WHERE l.activite_id=a.id) AS like_count, "
-            + "EXISTS(SELECT 1 FROM like_activite l WHERE l.activite_id=a.id AND l.utilisateur_id=?) AS liked_by_me";
+            + "EXISTS(SELECT 1 FROM like_activite l WHERE l.activite_id=a.id AND l.utilisateur_id=?) AS liked_by_me, "
+            + "(SELECT count(*) FROM commentaire_activite c WHERE c.activite_id=a.id) AS comment_count";
     }
 
     private ActivityView map(ResultSet row, int index) throws SQLException {
@@ -50,7 +51,7 @@ public class ActivityRepository {
                 new ActivityView.Details(row.getString("duree"), row.getInt("capacite"),
                         row.getInt("places_visibles"), row.getString("public_cible"), row.getString("rendez_vous"),
                         strings(row, "programme"), strings(row, "inclus"), row.getString("preparation")),
-                row.getLong("like_count"), row.getBoolean("liked_by_me"));
+                row.getLong("like_count"), row.getBoolean("liked_by_me"), row.getLong("comment_count"));
     }
 
     private List<String> strings(ResultSet row, String column) throws SQLException {

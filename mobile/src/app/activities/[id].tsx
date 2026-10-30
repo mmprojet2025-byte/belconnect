@@ -12,6 +12,7 @@ import { Activity, getActivity, setActivityLike } from '@/lib/api';
 import { createBooking } from '@/lib/bookings';
 import { createPaidCheckout } from '@/lib/paid-bookings';
 import { useAuth } from '@/context/auth-context';
+import { ActivityComments } from '@/components/activity-comments';
 
 const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Brussels' });
 
@@ -51,7 +52,7 @@ export default function ActivityDetailScreen() {
       {confirmed?<View style={styles.success}><ThemedText type="smallBold" style={styles.brand}>Réservation confirmée.</ThemedText><Pressable onPress={()=>router.navigate('/(tabs)/account')}><ThemedText type="linkPrimary">Voir mes réservations</ThemedText></Pressable></View>:activity.price>0&&activity.demonstration?<ThemedText themeColor="textSecondary">Cette activité est une démonstration : aucun paiement réel ne sera effectué.</ThemedText>:activity.details.remaining<1?<ThemedText themeColor="textSecondary">Cette activité est complète.</ThemedText>:<><View style={styles.quantity}><ThemedText type="smallBold">Participants</ThemedText><View style={styles.stepper}><Pressable accessibilityLabel="Retirer un participant" disabled={quantity===1} style={styles.stepButton} onPress={()=>setQuantity(value=>Math.max(1,value-1))}><ThemedText type="subtitle">−</ThemedText></Pressable><ThemedText type="smallBold">{quantity}</ThemedText><Pressable accessibilityLabel="Ajouter un participant" disabled={quantity===Math.min(4,activity.details.remaining)} style={styles.stepButton} onPress={()=>setQuantity(value=>Math.min(4,activity.details.remaining,value+1))}><ThemedText type="subtitle">+</ThemedText></Pressable></View></View>
         {auth.profile&&<View style={styles.field}><ThemedText type="smallBold">Téléphone (facultatif)</ThemedText><TextInput accessibilityLabel="Téléphone" keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="+32…" placeholderTextColor="#777" style={styles.input}/></View>}
         {!!bookingError&&<ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{bookingError}</ThemedText>}<Pressable disabled={busy} style={({pressed})=>[styles.primaryButton,(pressed||busy)&&styles.pressed]} onPress={book}><ThemedText type="smallBold" style={styles.buttonText}>{busy?(activity.price>0?'Ouverture de Stripe…':'Réservation…'):auth.profile?(activity.price>0?'Payer avec Stripe':'Confirmer la réservation'):'Se connecter pour réserver'}</ThemedText></Pressable><ThemedText type="small" themeColor="textSecondary">{activity.price>0?'Le paiement sécurisé s’ouvrira dans votre navigateur. Revenez ensuite dans Mon espace pour vérifier sa confirmation.':'En confirmant, vous acceptez les conditions de participation de l’organisateur.'}</ThemedText></>}
-    </View></>}
+    </View><ActivityComments key={`${activity.id}-${auth.token ?? 'guest'}`} activityId={activity.id} count={activity.commentCount} onCountChange={count => setActivity(value => value && value.id === activity.id ? { ...value, commentCount: count } : value)} /></>}
   </SafeAreaView></ScrollView></ThemedView>;
 }
 

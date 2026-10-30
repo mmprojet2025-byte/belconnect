@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 export type Activity = {
   id: string; title: string; category: string; city: string; location: string; host: string;
   image: string; startsAt: string; price: number; description: string; badge?: string; demonstration: boolean;
-  likeCount: number; likedByMe: boolean;
+  likeCount: number; likedByMe: boolean; commentCount: number;
   details: { duration: string; audience: string; meetingPoint: string; preparation: string; capacity: number; remaining: number; program: string[]; included: string[] };
 };
 
