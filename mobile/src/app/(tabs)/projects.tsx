@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProjectFeedCard } from '@/components/project-feed-card';
 import { SocialIcon } from '@/components/social-icon';
@@ -9,6 +10,8 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { getProjects, Project } from '@/lib/projects';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 export default function ProjectsScreen() {
   const { token } = useAuth();
@@ -17,6 +20,7 @@ export default function ProjectsScreen() {
 
 function ProjectsContent({ token }: { token: string | null }) {
   const theme = useTheme();
+  const {locale}=useLocale();
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,7 +38,7 @@ function ProjectsContent({ token }: { token: string | null }) {
 
   return <ThemedView style={styles.screen}><SafeAreaView style={styles.safe} edges={['left', 'right']}><FlatList data={visible} keyExtractor={item => String(item.id)} contentContainerStyle={styles.list} ListHeaderComponent={<View style={styles.header}>
     <ThemedText type="eyebrow" themeColor="accent">FIL DE PROJETS</ThemedText><ThemedText type="title" style={styles.title}>Des idées à découvrir</ThemedText><ThemedText themeColor="textSecondary">Faites défiler les projets des communautés.</ThemedText>
-    <View style={[styles.search, { backgroundColor: theme.surface, borderColor: theme.border }]}><SocialIcon name="search" color={theme.textSecondary} size={20} /><TextInput accessibilityLabel="Rechercher un projet" placeholder="Un projet, un objectif…" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={[styles.searchInput, { color: theme.text }]} /></View>
+    <View style={[styles.search, { backgroundColor: theme.surface, borderColor: theme.border }]}><SocialIcon name="search" color={theme.textSecondary} size={20} /><TextInput accessibilityLabel={translate(locale,'Rechercher un projet')} placeholder={translate(locale,'Un projet, un objectif…')} placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={[styles.searchInput, { color: theme.text }]} /></View>
     {!loading && !error && <ThemedText type="small" themeColor="textSecondary">{visible.length} projet{visible.length > 1 ? 's' : ''} à découvrir</ThemedText>}
   </View>} renderItem={({ item }) => <ProjectFeedCard project={item} />} ItemSeparatorComponent={() => <View style={styles.separator} />} ListEmptyComponent={loading ? <ThemedText accessibilityLiveRegion="polite">Chargement des projets…</ThemedText> : error ? <ThemedView type="surface" style={styles.empty}><ThemedText>{error}</ThemedText><Pressable accessibilityRole="button" onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></ThemedView> : <ThemedView type="surface" style={styles.empty}><ThemedText type="smallBold">{query ? 'Aucun résultat' : 'Aucun projet publié'}</ThemedText><ThemedText themeColor="textSecondary">{query ? 'Essayez une autre recherche.' : 'Revenez bientôt découvrir de nouvelles idées.'}</ThemedText></ThemedView>} refreshing={loading && projects.length > 0} onRefresh={retry} /></SafeAreaView></ThemedView>;
 }

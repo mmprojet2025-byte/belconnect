@@ -1,16 +1,18 @@
 import { router } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/context/auth-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { ActivityComment, deleteActivityComment, getActivityComments, postActivityComment } from '@/lib/activity-comments';
-
-const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Brussels' });
+import { useLocale } from '@/context/locale-context';
 
 export function ActivityComments({ activityId, count, onCountChange }: { activityId: string; count: number; onCountChange: (count: number) => void }) {
+  const {locale}=useLocale();
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Brussels'});
   const { token } = useAuth();
   const [items, setItems] = useState<ActivityComment[]>([]);
   const [content, setContent] = useState('');

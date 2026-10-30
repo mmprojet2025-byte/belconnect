@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityCard } from '@/components/activity-card';
 import { ThemedText } from '@/components/themed-text';
@@ -7,9 +8,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useActivities } from '@/hooks/use-activities';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 export default function ActivitiesScreen() {
   const theme = useTheme();
+  const {locale}=useLocale();
   const { activities, loading, error, retry } = useActivities();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'free' | 'soon'>('all');
@@ -22,7 +26,7 @@ export default function ActivitiesScreen() {
   }), [activities, query, filter, today]);
   return <ThemedView style={styles.screen}><SafeAreaView style={styles.safe} edges={['left', 'right']}><FlatList data={visible} keyExtractor={item => item.id} renderItem={({ item }) => <ActivityCard activity={item} />} contentContainerStyle={styles.list} ItemSeparatorComponent={() => <View style={styles.separator} />} ListHeaderComponent={<View style={styles.header}>
     <ThemedText type="eyebrow" themeColor="accent">FIL D’ACTIVITÉS</ThemedText><ThemedText type="title" style={styles.title}>À faire près de vous</ThemedText><ThemedText themeColor="textSecondary">Faites défiler les sorties proposées par les communautés.</ThemedText>
-    <TextInput accessibilityLabel="Rechercher une activité ou une ville" placeholder="Une activité, une ville…" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={[styles.search, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} />
+    <TextInput accessibilityLabel={translate(locale,'Rechercher une activité ou une ville')} placeholder={translate(locale,'Une activité, une ville…')} placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={[styles.search, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} />
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{([['all', 'Tout voir'], ['free', 'Gratuit'], ['soon', 'Cette semaine']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[styles.chip, { borderColor: theme.border }, filter === value && styles.chipSelected]}><ThemedText type="smallBold" style={filter === value ? styles.chipTextSelected : { color: theme.accent }}>{label}</ThemedText></Pressable>)}</ScrollView>
     {!loading && !error && <ThemedText type="small" themeColor="textSecondary">{visible.length} activité{visible.length > 1 ? 's' : ''}</ThemedText>}
   </View>} ListEmptyComponent={loading ? <ThemedText accessibilityLiveRegion="polite">Chargement…</ThemedText> : error ? <View style={styles.header}><ThemedText>Impossible de charger les activités.</ThemedText><Pressable onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></View> : <ThemedText>Aucune activité ne correspond à votre recherche.</ThemedText>} refreshing={loading && activities.length > 0} onRefresh={retry} /></SafeAreaView></ThemedView>;

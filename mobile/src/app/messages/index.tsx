@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialAvatar } from '@/components/social-avatar';
 import { SocialIcon } from '@/components/social-icon';
@@ -10,11 +11,12 @@ import { useAuth } from '@/context/auth-context';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Conversation, getConversations } from '@/lib/private-messages';
-
-const date = new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'short', timeZone: 'Europe/Brussels' });
+import { useLocale } from '@/context/locale-context';
 
 function ConversationRow({ item }: { item: Conversation }) {
   const theme = useTheme();
+  const {locale}=useLocale();
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{day:'numeric',month:'short',timeZone:'Europe/Brussels'});
   return <Pressable accessibilityRole="button" accessibilityLabel={`Conversation avec ${item.otherName}, ${item.unreadCount} message non lu`} onPress={() => router.push({ pathname: '/messages/[id]', params: { id: item.id } })} style={({ pressed }) => [styles.row, { borderColor: theme.border }, pressed && styles.pressed]}>
     <SocialAvatar name={item.otherName} size={58} ring={item.unreadCount > 0} />
     <View style={styles.rowCopy}><View style={styles.rowTop}><ThemedText type="smallBold" style={styles.name} numberOfLines={1}>{item.otherName}</ThemedText>{item.lastAt && <ThemedText type="small" themeColor="textSecondary">{date.format(new Date(item.lastAt))}</ThemedText>}</View><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{item.groupName}</ThemedText><ThemedText numberOfLines={1} style={item.unreadCount > 0 && styles.previewUnread}>{item.lastMessage ?? 'Commencez la conversation'}</ThemedText></View>

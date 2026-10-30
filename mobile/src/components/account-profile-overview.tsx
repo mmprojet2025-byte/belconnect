@@ -8,11 +8,14 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getGroups, Group } from '@/lib/groups';
 import { Profile } from '@/lib/mobile-auth';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 type Props = { profile: Profile; token: string | null; bookingCount: number };
 
 export function AccountProfileOverview({ profile, token, bookingCount }: Props) {
   const theme = useTheme();
+  const {locale}=useLocale();
   const [groups, setGroups] = useState<Group[]>([]);
   useEffect(() => {
     if (!token) return;
@@ -27,7 +30,7 @@ export function AccountProfileOverview({ profile, token, bookingCount }: Props) 
   return <View style={styles.container}>
     <View style={styles.heading}><SocialAvatar name={name} size={78} /><View style={styles.identity}><ThemedText type="title" style={styles.name} numberOfLines={2}>{name}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{profile.email}</ThemedText></View></View>
     <ThemedText themeColor="textSecondary">Vos rencontres et communautés BelConnect, au même endroit.</ThemedText>
-    <View style={[styles.stats, { borderColor: theme.border }]}><View style={styles.stat}><ThemedText type="subtitle">{groups.length}</ThemedText><ThemedText type="small" themeColor="textSecondary">groupe{groups.length > 1 ? 's' : ''}</ThemedText></View><View style={[styles.divider, { backgroundColor: theme.border }]} /><View style={styles.stat}><ThemedText type="subtitle">{bookingCount}</ThemedText><ThemedText type="small" themeColor="textSecondary">réservation{bookingCount > 1 ? 's' : ''}</ThemedText></View></View>
+    <View style={[styles.stats, { borderColor: theme.border }]}><View style={styles.stat}><ThemedText type="subtitle">{groups.length}</ThemedText><ThemedText type="small" themeColor="textSecondary">{translate(locale,groups.length>1?'groupes':'groupe')}</ThemedText></View><View style={[styles.divider, { backgroundColor: theme.border }]} /><View style={styles.stat}><ThemedText type="subtitle">{bookingCount}</ThemedText><ThemedText type="small" themeColor="textSecondary">{translate(locale,bookingCount>1?'réservations':'réservation')}</ThemedText></View></View>
     <View style={styles.actions}><Link href="/groups" asChild><Pressable accessibilityRole="button" style={styles.primaryAction}><SocialIcon name="group" color={Colors.onBrand} size={18} /><ThemedText type="smallBold" style={styles.primaryText}>Mes groupes</ThemedText></Pressable></Link><Link href="/messages" asChild><Pressable accessibilityRole="button" style={StyleSheet.flatten([styles.secondaryAction, { borderColor: theme.border, backgroundColor: theme.surface }])}><SocialIcon name="message" color={theme.accent} size={18} /><ThemedText type="smallBold" style={{ color: theme.accent }}>Messages</ThemedText></Pressable></Link></View>
   </View>;
 }

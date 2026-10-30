@@ -8,9 +8,13 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { getGroups, Group, joinGroup } from '@/lib/groups';
 import { useAuth } from '@/context/auth-context';
 import { GroupFeed } from '@/components/group-feed';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 export default function GroupDetailScreen() {
   const auth = useAuth();
+  const {locale}=useLocale();
+  const t=(text:string)=>translate(locale,text);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [group, setGroup] = useState<Group>();
   const [error, setError] = useState(false);
@@ -34,9 +38,9 @@ export default function GroupDetailScreen() {
     {!group ? <ThemedText>{error ? 'Groupe indisponible.' : 'Chargement du groupe…'}</ThemedText> : <View style={styles.body}>
       {group.coverUrl ? <Image source={{ uri: group.coverUrl }} style={styles.image} resizeMode="cover" /> : <View style={styles.initial}><ThemedText type="title" style={styles.initialText}>{group.name.charAt(0).toUpperCase()}</ThemedText></View>}
       <ThemedText type="title">{group.name}</ThemedText>
-      <ThemedText type="smallBold">Espace {group.spaceName}</ThemedText>
+      <ThemedText type="smallBold">{t('Espace')} {group.spaceName}</ThemedText>
       <ThemedText>{group.description || 'Un groupe pour se rencontrer et partager.'}</ThemedText>
-      {group.membershipStatus === 'AUCUNE' ? <Pressable disabled={joining} accessibilityRole="button" style={styles.joinButton} onPress={() => auth.token ? Alert.alert('Rejoindre ce groupe ?', 'Votre demande sera examinée par un administrateur de l’espace.', [{ text: 'Annuler', style: 'cancel' }, { text: 'Envoyer ma demande', onPress: () => void requestToJoin() }]) : router.navigate('/(tabs)/account')}><ThemedText type="smallBold" style={styles.joinText}>{joining ? 'Envoi…' : auth.token ? 'Demander à rejoindre' : 'Se connecter pour rejoindre'}</ThemedText></Pressable> : <ThemedText type="smallBold" style={styles.initialText}>{group.membershipStatus === 'EN_ATTENTE' ? 'Demande en attente' : group.membershipStatus === 'MEMBRE' ? 'Vous êtes membre' : group.membershipStatus === 'ADMINISTRATEUR' ? 'Vous administrez ce groupe' : group.membershipStatus === 'REFUSEE' ? 'Demande refusée' : 'Adhésion enregistrée'}</ThemedText>}
+      {group.membershipStatus === 'AUCUNE' ? <Pressable disabled={joining} accessibilityRole="button" style={styles.joinButton} onPress={() => auth.token ? Alert.alert(t('Rejoindre ce groupe ?'), t('Votre demande sera examinée par un administrateur de l’espace.'), [{ text: t('Annuler'), style: 'cancel' }, { text: t('Envoyer ma demande'), onPress: () => void requestToJoin() }]) : router.navigate('/(tabs)/account')}><ThemedText type="smallBold" style={styles.joinText}>{joining ? 'Envoi…' : auth.token ? 'Demander à rejoindre' : 'Se connecter pour rejoindre'}</ThemedText></Pressable> : <ThemedText type="smallBold" style={styles.initialText}>{group.membershipStatus === 'EN_ATTENTE' ? 'Demande en attente' : group.membershipStatus === 'MEMBRE' ? 'Vous êtes membre' : group.membershipStatus === 'ADMINISTRATEUR' ? 'Vous administrez ce groupe' : group.membershipStatus === 'REFUSEE' ? 'Demande refusée' : 'Adhésion enregistrée'}</ThemedText>}
       {!!joinError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{joinError}</ThemedText>}
       {(group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR') && auth.token && <Pressable accessibilityRole="button" style={styles.messageButton} onPress={() => router.push({ pathname: '/messages/new', params: { groupId: group.id } })}><ThemedText type="smallBold" style={styles.joinText}>Écrire à un membre du groupe →</ThemedText></Pressable>}
       {(group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR') && auth.token && <GroupFeed key={`${group.id}-${auth.token}`} groupId={group.id} />}

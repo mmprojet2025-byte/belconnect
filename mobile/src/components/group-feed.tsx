@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { SocialAvatar } from '@/components/social-avatar';
@@ -8,10 +9,11 @@ import { SocialIcon } from '@/components/social-icon';
 import { useAuth } from '@/context/auth-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { deleteGroupPost, getGroupAnnouncements, getGroupPosts, GroupAnnouncement, GroupPost, publishGroupPost } from '@/lib/group-feed';
-
-const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Brussels' });
+import { useLocale } from '@/context/locale-context';
 
 export function GroupFeed({ groupId }: { groupId: number }) {
+  const {locale}=useLocale();
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Brussels'});
   const { token } = useAuth();
   const [announcements, setAnnouncements] = useState<GroupAnnouncement[]>([]);
   const [posts, setPosts] = useState<GroupPost[]>([]);

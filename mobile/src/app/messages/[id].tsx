@@ -1,7 +1,8 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,8 +11,8 @@ import { SocialIcon } from '@/components/social-icon';
 import { useAuth } from '@/context/auth-context';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { blockMessageUser, Conversation, getConversation, getPrivateMessages, markConversationRead, PrivateMessage, reportPrivateMessage, sendPrivateMessage, unblockMessageUser } from '@/lib/private-messages';
-
-const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Brussels' });
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,6 +21,9 @@ export default function ConversationScreen() {
 }
 
 function ConversationContent({ id, token }: { id: string | undefined; token: string | null }) {
+  const {locale}=useLocale();
+  const t=(text:string)=>translate(locale,text);
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Brussels'});
   const conversationId = Number(id);
   const [conversation, setConversation] = useState<Conversation>();
   const [items, setItems] = useState<PrivateMessage[]>([]);
@@ -102,16 +106,16 @@ function ConversationContent({ id, token }: { id: string | undefined; token: str
   function confirmBlock() {
     if (!conversation) return;
     if (conversation.blockedByMe) { void changeBlock(false); return; }
-    Alert.alert('Bloquer ce membre ?', 'Vous ne pourrez plus échanger de nouveaux messages ensemble. L’historique restera visible.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Bloquer', style: 'destructive', onPress: () => void changeBlock(true) },
+    Alert.alert(t('Bloquer ce membre ?'), t('Vous ne pourrez plus échanger de nouveaux messages ensemble. L’historique restera visible.'), [
+      { text: t('Annuler'), style: 'cancel' },
+      { text: t('Bloquer'), style: 'destructive', onPress: () => void changeBlock(true) },
     ]);
   }
 
   async function report() {
     if (!token || !reportId || !reason.trim() || busy) return;
     setBusy(true); setError('');
-    try { await reportPrivateMessage(reportId, reason.trim(), token); setReportId(undefined); setReason(''); Alert.alert('Signalement envoyé', 'Merci. Le message a été signalé.'); }
+    try { await reportPrivateMessage(reportId, reason.trim(), token); setReportId(undefined); setReason(''); Alert.alert(t('Signalement envoyé'), t('Merci. Le message a été signalé.')); }
     catch (value) { setError(value instanceof Error ? value.message : 'Signalement impossible.'); }
     finally { setBusy(false); }
   }

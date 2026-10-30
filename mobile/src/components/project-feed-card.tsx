@@ -7,17 +7,20 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Project, projectImages } from '@/lib/projects';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
-const date = new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'long' });
 const helpLabels: Record<string, string> = { BENEVOLAT: 'Bénévolat', COMPETENCES: 'Compétences', PARTAGE: 'Partage' };
 
 export function ProjectFeedCard({ project }: { project: Project }) {
   const theme = useTheme();
+  const {locale}=useLocale();
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{day:'numeric',month:'long'});
   return <Link href={{ pathname: '/projects/[id]', params: { id: project.id } }} asChild><Pressable accessibilityRole="button" accessibilityLabel={`Découvrir le projet ${project.title}`} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}><ThemedView type="surface" style={[styles.card, { borderColor: theme.border }]}>
     <View style={styles.publisher}><SocialAvatar name={project.spaceName} size={40} /><View style={styles.publisherCopy}><ThemedText type="smallBold" numberOfLines={1}>{project.spaceName}</ThemedText><ThemedText type="small" themeColor="textSecondary">Projet local</ThemedText></View><SocialIcon name="chevron" color={theme.textSecondary} size={18} /></View>
     {project.imageUrl && projectImages[project.imageUrl] ? <Image source={projectImages[project.imageUrl]} style={styles.image} resizeMode="cover" accessibilityLabel={`Image du projet ${project.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="project" color={theme.accent} size={44} /></View>}
     <View style={styles.content}><View style={styles.categoryBadge}><ThemedText type="eyebrow" style={styles.categoryText}>PROJET</ThemedText></View><ThemedText type="subtitle" style={styles.title} numberOfLines={2}>{project.title}</ThemedText><ThemedText themeColor="textSecondary" numberOfLines={2}>{project.objective}</ThemedText>
-      <View style={styles.meta}>{project.startsOn && <ThemedText type="small" themeColor="textSecondary">Dès le {date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText>}{project.helpTypes.length > 0 && <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{project.helpTypes.map(value => helpLabels[value] ?? value).join(' · ')}</ThemedText>}</View>
+      <View style={styles.meta}>{project.startsOn && <ThemedText type="small" themeColor="textSecondary">{translate(locale,'Dès le')} {date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText>}{project.helpTypes.length > 0 && <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{project.helpTypes.map(value => translate(locale,helpLabels[value] ?? value)).join(' · ')}</ThemedText>}</View>
       <View style={[styles.footer, { borderColor: theme.border }]}><ThemedText type="smallBold" themeColor="accent">Découvrir le projet →</ThemedText></View>
     </View>
   </ThemedView></Pressable></Link>;

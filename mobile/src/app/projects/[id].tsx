@@ -9,9 +9,8 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { getProject, Project, projectImages } from '@/lib/projects';
+import { useLocale } from '@/context/locale-context';
 
-const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'long' });
-const money = new Intl.NumberFormat('fr-BE', { style: 'currency', currency: 'EUR' });
 const helpLabels: Record<string, string> = { BENEVOLAT: 'Donner du temps', COMPETENCES: 'Partager une compétence', PARTAGE: 'Faire connaître' };
 
 export default function ProjectDetailScreen() {
@@ -22,6 +21,9 @@ export default function ProjectDetailScreen() {
 
 function ProjectContent({ id, token }: { id: string | undefined; token: string | null }) {
   const theme = useTheme();
+  const {locale}=useLocale();
+  const date=new Intl.DateTimeFormat(`${locale}-BE`,{dateStyle:'long'});
+  const money=new Intl.NumberFormat(`${locale}-BE`,{style:'currency',currency:'EUR'});
   const [project, setProject] = useState<Project>();
   const [error, setError] = useState(false);
   useEffect(() => {

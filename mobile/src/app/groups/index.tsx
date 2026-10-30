@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialAvatar } from '@/components/social-avatar';
 import { SocialIcon } from '@/components/social-icon';

@@ -8,15 +8,17 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing } from '@/constants/theme';
 import { Activity } from '@/lib/api';
 import { useTheme } from '@/hooks/use-theme';
-
-const date = new Intl.DateTimeFormat('fr-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Brussels' });
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 export function ActivityCard({ activity }: { activity: Activity }) {
   const theme = useTheme();
+  const {locale}=useLocale();
+  const date = new Intl.DateTimeFormat(`${locale}-BE`, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Brussels' });
   const available = activity.details.remaining > 0;
   const free = activity.price === 0;
   return <Link href={{ pathname: '/activities/[id]', params: { id: activity.id } }} asChild>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Voir ${activity.title}, ${free ? 'gratuit' : `${activity.price} euros`}`} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${translate(locale,'Voir →')} ${activity.title}, ${free ? translate(locale,'Gratuit') : `${activity.price} euros`}`} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
       <ThemedView type="surface" style={[styles.card, { borderColor: theme.border }]}>
         <View style={styles.publisher}><SocialAvatar name={activity.host} size={40} /><View style={styles.publisherCopy}><ThemedText type="smallBold" numberOfLines={1}>{activity.host}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.city} · {date.format(new Date(activity.startsAt))}</ThemedText></View><SocialIcon name="chevron" color={theme.textSecondary} size={18} /></View>
         <View style={styles.media}>
@@ -26,7 +28,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
         <View style={styles.content}>
           <View style={styles.topline}><View style={styles.categoryBadge}><ThemedText type="eyebrow" style={styles.categoryText}>{activity.category}</ThemedText></View>{activity.demonstration && <ThemedText type="small" themeColor="textSecondary">Démo</ThemedText>}</View>
           <ThemedText type="subtitle" style={styles.title} numberOfLines={2}>{activity.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.location} · {available ? `${activity.details.remaining} places restantes` : 'Complet'}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.location} · {available ? `${activity.details.remaining} ${translate(locale,'places restantes')}` : translate(locale,'Complet')}</ThemedText>
           <View style={[styles.social, { borderColor: theme.border }]}><View style={styles.metric}><SocialIcon name={activity.likedByMe ? 'heartFilled' : 'heart'} color={activity.likedByMe ? Colors.accent : theme.text} size={21} /><ThemedText type="smallBold">{activity.likeCount}</ThemedText></View><View style={styles.metric}><SocialIcon name="comment" color={theme.text} size={20} /><ThemedText type="smallBold">{activity.commentCount}</ThemedText></View><ThemedText type="smallBold" style={[styles.action, { color: theme.accent }]}>Voir →</ThemedText></View>
         </View>
       </ThemedView>
