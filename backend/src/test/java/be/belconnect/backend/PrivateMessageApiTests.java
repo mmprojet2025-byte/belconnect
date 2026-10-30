@@ -68,6 +68,10 @@ class PrivateMessageApiTests {
             assertEquals(conversation, json.readTree(call("POST", base + "/conversations", member.token(), body).body()).get("id").asLong());
             String path = base + "/conversations/" + conversation;
             assertEquals(404, call("GET", path, outsider.token(), null).statusCode());
+            assertEquals(404, call("GET", path + "/profile", outsider.token(), null).statusCode());
+            var profile = call("GET", path + "/profile", member.token(), null);
+            assertEquals(200, profile.statusCode(), profile.body());
+            assertEquals("dm-admin-" + marker + "@example.com", json.readTree(profile.body()).get("email").asText());
             assertEquals(404, call("GET", path + "/items", outsider.token(), null).statusCode());
             var messageBody = Map.of("requestId", UUID.randomUUID(), "content", "Salut, on se voit samedi ?");
             var sent = call("POST", path + "/items", member.token(), messageBody);
@@ -96,6 +100,7 @@ class PrivateMessageApiTests {
             assertEquals(403, call("POST", path + "/items", member.token(), Map.of("requestId", UUID.randomUUID(), "content", "Autre message")).statusCode());
             assertEquals(204, call("DELETE", base + "/blocks/" + member.id(), admin.token(), null).statusCode());
             jdbc.update("UPDATE appartenance_groupe SET statut='SUSPENDU' WHERE utilisateur_id=? AND groupe_id=?", member.id(), group);
+            assertEquals(404, call("GET", path + "/profile", member.token(), null).statusCode());
             assertEquals(404, call("POST", path + "/items", member.token(), Map.of("requestId", UUID.randomUUID(), "content", "Encore un message")).statusCode());
             assertEquals(200, call("GET", path + "/items", member.token(), null).statusCode());
         } finally {

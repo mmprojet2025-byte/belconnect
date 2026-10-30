@@ -38,6 +38,7 @@ public class PrivateMessageController {
     public record Report(@NotBlank @Size(max = 500) String reason) {}
     public record Conversation(long id, Long groupId, String groupName, long otherUserId, String otherName,
             String lastMessage, OffsetDateTime lastAt, long unreadCount, boolean blockedByMe, boolean canSend) {}
+    public record ContactProfile(String name, String email, String groupName) {}
     public record Message(long id, String content, OffsetDateTime createdAt, OffsetDateTime readAt, boolean mine) {}
 
     private ResponseStatusException missing() { return new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation indisponible."); }
@@ -137,6 +138,22 @@ public class PrivateMessageController {
     @Transactional(readOnly = true)
     public ResponseEntity<Conversation> conversation(@PathVariable long id, Authentication auth) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(conversation(id, user(auth)));
+    }
+
+    @GetMapping("/conversations/{id}/profile")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ContactProfile> profile(@PathVariable long id, Authentication auth) {
+        long actor = user(auth);
+        Pair pair = pair(id, actor);
+        sharedGroup(pair.group(), actor, pair.other(), false);
+        if (blocked(actor, pair.other())) throw missing();
+        var profiles = jdbc.query("""
+            SELECT concat_ws(' ',u.prenom,u.nom) AS name,u.email,g.nom AS group_name
+            FROM utilisateur u JOIN groupe g ON g.id=?
+            WHERE u.id=? AND u.statut='ACTIF'
+            """, (row, index) -> new ContactProfile(row.getString("name"), row.getString("email"), row.getString("group_name")),
+            pair.group(), pair.other());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(profiles.stream().findFirst().orElseThrow(this::missing));
     }
 
     @GetMapping("/groups/{groupId}/members")

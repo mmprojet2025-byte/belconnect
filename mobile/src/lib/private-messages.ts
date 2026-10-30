@@ -7,6 +7,7 @@ export type Conversation = {
   lastAt: string | null; unreadCount: number; blockedByMe: boolean; canSend: boolean;
 };
 export type PrivateMessage = { id: number; content: string; createdAt: string; readAt: string | null; mine: boolean };
+export type ContactProfile = { name: string; email: string; groupName: string };
 
 const base = `${apiUrl}/api/mobile/messages`;
 
@@ -27,6 +28,7 @@ async function call<T>(path: string, token: string, options: RequestInit = {}): 
 
 export const getConversations = (token: string, signal?: AbortSignal) => call<Conversation[]>('/conversations', token, { signal });
 export const getConversation = (id: number, token: string, signal?: AbortSignal) => call<Conversation>(`/conversations/${id}`, token, { signal });
+export const getContactProfile = (id: number, token: string) => call<ContactProfile>(`/conversations/${id}/profile`, token);
 export const getMessageMembers = (groupId: number, token: string, signal?: AbortSignal) => call<MessageMember[]>(`/groups/${groupId}/members`, token, { signal });
 export const startConversation = (groupId: number, recipientId: number, token: string) => call<Conversation>('/conversations', token, { method: 'POST', body: JSON.stringify({ groupId, recipientId }) });
 export const getPrivateMessages = (id: number, token: string, before?: number, signal?: AbortSignal) => call<PrivateMessage[]>(`/conversations/${id}/items${before ? `?before=${before}` : ''}`, token, { signal });

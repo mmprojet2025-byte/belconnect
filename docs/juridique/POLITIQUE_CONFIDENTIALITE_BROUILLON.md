@@ -12,6 +12,8 @@ Belconnect traite les données fournies lors de la création du compte (nom, pr�
 
 Une personne qui publie un projet ou une annonce ne doit pas y inclure de données personnelles concernant autrui sans disposer d'un motif valable et des autorisations nécessaires. Les coordonnées fournies pour une inscription peuvent être consultées par l'organisateur autorisé de l'activité pour la gérer.
 
+Dans une conversation privée entre membres d'un même groupe, chaque participant peut consulter le nom et l'adresse e-mail de l'autre participant dans sa fiche de conversation, tant que les deux personnes disposent encore de l'accès au groupe et que la conversation n'est pas bloquée. Ce partage doit être confirmé dans l'information remise lors de l'inscription avant l'ouverture au public.
+
 ## Pourquoi et sur quelle base
 
 Les traitements à documenter sont : fonctionnement du compte et des inscriptions ; gestion des espaces, groupes et projets ; paiement, abonnement et remboursement ; assistance et sécurité ; obligations comptables et légales. **[Déterminer et documenter une base juridique pour chaque traitement, sans faire du consentement une base générale par défaut.]** Toute prospection commerciale ou mesure d'audience non nécessaire doit être décrite séparément avant son activation.
