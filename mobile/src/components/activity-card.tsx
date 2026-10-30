@@ -19,7 +19,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
   const free = activity.price === 0;
   return <Link href={{ pathname: '/activities/[id]', params: { id: activity.id } }} asChild>
     <Pressable accessibilityRole="button" accessibilityLabel={`${translate(locale,'Voir →')} ${activity.title}, ${free ? translate(locale,'Gratuit') : `${activity.price} euros`}`} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
-      <ThemedView type="surface" style={[styles.card, { borderColor: theme.border }]}>
+      <ThemedView type="surface" style={[styles.card, { borderColor: Colors.orangeBorder }]}>
         <View style={styles.publisher}><SocialAvatar name={activity.host} size={40} /><View style={styles.publisherCopy}><ThemedText type="smallBold" numberOfLines={1}>{activity.host}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.city} · {date.format(new Date(activity.startsAt))}</ThemedText></View><SocialIcon name="chevron" color={theme.textSecondary} size={18} /></View>
         <View style={styles.media}>
           {activityImages[activity.image] ? <Image source={activityImages[activity.image]} style={styles.image} resizeMode="cover" accessibilityLabel={`Photo de ${activity.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="activity" color={theme.accent} size={42} /></View>}
