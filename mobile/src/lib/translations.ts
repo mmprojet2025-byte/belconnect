@@ -1,6 +1,9 @@
 import { Locale } from '@/context/locale-context';
 
 const entries: Record<string, [string, string]> = {
+  'Préférences': ['Preferences', 'Voorkeuren'], 'Confidentialité': ['Privacy', 'Privacy'], 'Compte': ['Account', 'Account'],
+  'Désactivation et suppression': ['Deactivation and deletion', 'Deactiveren en verwijderen'],
+  'Ces options ne sont pas encore disponibles. Elles nécessitent un parcours sécurisé et la gestion des données liées au compte.': ['These options are not available yet. They require a secure process and handling of data linked to the account.', 'Deze opties zijn nog niet beschikbaar. Ze vereisen een veilig proces en beheer van gegevens die aan het account zijn gekoppeld.'],
   'Activité': ['Activity', 'Activiteit'], 'Projet': ['Project', 'Project'], 'Groupes': ['Groups', 'Groepen'], 'Groupe': ['Group', 'Groep'],
   'Nouveau message': ['New message', 'Nieuw bericht'], 'Conversation': ['Conversation', 'Gesprek'], 'Retour': ['Back', 'Terug'],
   'Gratuit': ['Free', 'Gratis'], 'Tout voir': ['See all', 'Alles bekijken'], 'Cette semaine': ['This week', 'Deze week'],
