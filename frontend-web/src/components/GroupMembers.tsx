@@ -6,7 +6,7 @@ type Roster = { id: number; name: string; spaceName: string; version: number; ca
 type Change = { member: Member; role: string } | { delegation: boolean } | { activities: boolean };
 const message = (e: unknown) => e instanceof Error ? e.message : 'Impossible de joindre le serveur.';
 
-export function GroupMembers({ groupId, onChanged, onClose }: { groupId: number; onChanged: () => void; onClose: () => void }) {
+export function GroupMembers({ groupId, onChanged, onClose, onInvite }: { groupId: number; onChanged: () => void; onClose: () => void; onInvite?: () => Promise<void> }) {
   const [data, setData] = useState<Roster | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -32,6 +32,7 @@ export function GroupMembers({ groupId, onChanged, onClose }: { groupId: number;
   }
   return <section className="group-members-panel" aria-label="Membres et référents du groupe">
     <div className="account-section-heading"><div><p className="eyebrow teal">MEMBRES ET RÉFÉRENTS</p><h3>{data?.name ?? 'Membres du groupe'}</h3></div><button className="text-link" disabled={busy} onClick={onClose}>Fermer les membres</button></div>
+    {onInvite && <div className="group-invite-action"><button className="button coral" type="button" onClick={() => void onInvite().then(() => setNotice('Lien copié. Collez-le dans un message à votre invité.')).catch(() => setError('Copie impossible. Réessayez dans un navigateur autorisant le presse-papiers.'))}>Inviter une personne</button><p>Copiez le lien et envoyez-le à la personne que vous souhaitez inviter.</p></div>}
     <button className="text-link" disabled={busy} onClick={() => { setPending(null); setNotice(''); setAttempt(n => n + 1); onChanged(); }}>Actualiser les membres</button>
     {error && <p className="draft-error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
     {!data && !error && <p role="status">Chargement des membres…</p>}

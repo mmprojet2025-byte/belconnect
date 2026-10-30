@@ -156,6 +156,8 @@
 .account-notice-category .icon { width:16px; height:16px; }
 .account-notice--activity .account-notice-category { background:#fff0e3; color:#b84e0b; }
 .account-notice--message .account-notice-category { background:#eaf3fc; color:#245f9b; }
+.group-invite-action { display:flex; align-items:center; flex-wrap:wrap; gap:10px 16px; margin:12px 0 16px; padding:14px; border:1px solid #cde6d7; border-radius:14px; background:#f3faf5; }
+.group-invite-action p { margin:0; color:#50675a; }
 .account-notice-new { color:#176b52; background:#e3f2e9; border-radius:20px; padding:4px 9px; font-size:12px; font-weight:700; }
 .account-notifications .account-notice .account-notice-event { color:#176b52; font-size:13px; font-weight:800; }
 .account-notifications .account-notice--activity .account-notice-event { color:#b84e0b; }
