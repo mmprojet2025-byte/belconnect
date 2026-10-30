@@ -101,4 +101,37 @@ class MobileAuthApiTests {
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
     }
   }
+
+  @Test void readActivityCancellationRemainsInMobileHistory() throws Exception {
+    String marker=UUID.randomUUID().toString(),email="mobile-notice-"+marker+"@example.com",slug="mobile-notice-"+marker;
+    jdbc.update("""
+      INSERT INTO activite(slug,titre,categorie,ville,lieu,organisateur_nom,prix,image,debut,description,duree,capacite,places_disponibles,public_cible,rendez_vous,preparation,publiee,demonstration)
+      SELECT ?, 'Balade annulée',categorie,ville,lieu,organisateur_nom,0,image,now()+interval '7 days',description,duree,3,3,public_cible,rendez_vous,preparation,true,true
+      FROM activite WHERE slug='chocolat'
+      """,slug);
+    try {
+      var created=request("POST","register",Map.of("email",email,"password","Mobile-notice-"+marker,"firstName","Nora","lastName","Mobile"),null);
+      assertEquals(201,created.statusCode(),created.body());
+      String token=json.readTree(created.body()).get("token").asText();
+      var booking=api("POST","/api/bookings",Map.of("activityId",slug,"quantity",1,"firstName","Nora","lastName","Mobile","email",email,"phone","","acknowledged",true),token);
+      assertEquals(201,booking.statusCode(),booking.body());
+      long registrationId=json.readTree(booking.body()).get("id").asLong();
+      long userId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,email);
+      long activityId=jdbc.queryForObject("SELECT id FROM activite WHERE slug=?",Long.class,slug);
+      jdbc.update("INSERT INTO notification_activite(utilisateur_id,inscription_id,activite_id) VALUES (?,?,?)",userId,registrationId,activityId);
+      var unread=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
+      assertEquals(1,unread.size());
+      assertEquals(activityId,unread.get(0).get("activityId").asLong());
+      assertTrue(unread.get(0).get("readAt").isNull());
+      assertEquals(204,api("POST","/api/mobile/notifications/activity/"+unread.get(0).get("id").asLong()+"/read",Map.of(),token).statusCode());
+      var history=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
+      assertEquals(1,history.size());
+      assertFalse(history.get(0).get("readAt").isNull());
+    } finally {
+      jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+      jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+      jdbc.update("DELETE FROM activite WHERE slug=?",slug);
+      jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
+    }
+  }
 }
