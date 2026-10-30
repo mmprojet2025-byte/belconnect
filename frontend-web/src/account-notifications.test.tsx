@@ -26,6 +26,10 @@ it('shows the same inbox as mobile and keeps read notifications in history', asy
   expect(bookings).not.toHaveBeenCalled();
   expect(fetcher.mock.calls.some(([url, options]) => url === '/api/mobile/notifications/workspace/1/read' && options?.method === 'POST')).toBe(true);
   expect(await screen.findAllByRole('article')).toHaveLength(4);
+  vi.stubGlobal('confirm', vi.fn(() => true));
+  fireEvent.click(screen.getByText('Atelier').closest('article')!.querySelector('button')!);
+  await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
+  expect(fetcher.mock.calls.some(([url, options]) => url === '/api/mobile/notifications/activity/2/hide' && options?.method === 'POST')).toBe(true);
 });
 
 it('opens a group invitation from the notification itself', async () => {

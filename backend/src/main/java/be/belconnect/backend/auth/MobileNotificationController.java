@@ -29,8 +29,11 @@ public class MobileNotificationController {
       UNION ALL SELECT 'group',n.id,g.nom,CASE n.evenement WHEN 'DEMANDE_RECUE' THEN 'Nouvelle demande d’adhésion reçue.' WHEN 'DEMANDE_ACCEPTEE' THEN 'Votre adhésion a été acceptée.' ELSE 'Votre adhésion a été refusée.' END,n.date_creation,n.date_lecture,NULL::bigint,NULL::bigint,NULL::bigint,n.evenement,d.espace_id FROM notification_adhesion_groupe n JOIN demande_adhesion_groupe d ON d.id=n.demande_id JOIN groupe g ON g.id=d.groupe_id WHERE n.utilisateur_id=?
       UNION ALL SELECT 'message',m.id,concat_ws(' ',sender.prenom,sender.nom),'Nouveau message reçu.',m.date_creation,m.date_lecture,NULL::bigint,NULL::bigint,m.conversation_id,NULL::varchar,NULL::bigint FROM message_prive m JOIN conversation_privee c ON c.id=m.conversation_id JOIN utilisateur sender ON sender.id=m.expediteur_id WHERE (c.participant_a_id=? OR c.participant_b_id=?) AND m.expediteur_id<>?
       UNION ALL SELECT 'group-invite',i.id,g.nom,CASE i.statut WHEN 'EN_ATTENTE' THEN 'Vous êtes invité à rejoindre ce groupe privé.' WHEN 'ACCEPTEE' THEN 'Invitation acceptée.' ELSE 'Invitation refusée.' END,i.date_creation,i.date_lecture,NULL::bigint,NULL::bigint,NULL::bigint,i.statut,g.espace_id FROM invitation_groupe i JOIN groupe g ON g.id=i.groupe_id WHERE i.invite_id=?
-    ) notices ORDER BY created_at DESC,id DESC LIMIT 50
-    """,(r,n)->new Notice(r.getString(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class),r.getObject(6,OffsetDateTime.class),r.getObject(7,Long.class),r.getObject(8,Long.class),r.getObject(9,Long.class),r.getString(10),r.getObject(11,Long.class)),user,user,user,user,user,user,user,user);}
+    ) notices WHERE NOT EXISTS (
+      SELECT 1 FROM notification_masquee hidden
+      WHERE hidden.utilisateur_id=? AND hidden.source=notices.source AND hidden.notification_id=notices.id
+    ) ORDER BY created_at DESC,id DESC LIMIT 50
+    """,(r,n)->new Notice(r.getString(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,OffsetDateTime.class),r.getObject(6,OffsetDateTime.class),r.getObject(7,Long.class),r.getObject(8,Long.class),r.getObject(9,Long.class),r.getString(10),r.getObject(11,Long.class)),user,user,user,user,user,user,user,user,user);}
   @PostMapping("/notifications/{source}/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
   public void read(Authentication auth,@PathVariable String source,@PathVariable long id){long user=user(auth);if(source.equals("message")){if(jdbc.update("""
     UPDATE message_prive m SET date_lecture=COALESCE(m.date_lecture,now()) FROM conversation_privee c
@@ -38,6 +41,25 @@ public class MobileNotificationController {
     """,id,user,user,user)==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);return;}
     if(source.equals("group-invite")){if(jdbc.update("UPDATE invitation_groupe SET date_lecture=COALESCE(date_lecture,now()) WHERE id=? AND invite_id=?",id,user)==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);return;}
     String table=switch(source){case "activity"->"notification_activite";case "project"->"notification_projet";case "workspace"->"notification_demande_espace";case "group"->"notification_adhesion_groupe";default->throw new ResponseStatusException(HttpStatus.NOT_FOUND);};if(jdbc.update("UPDATE "+table+" SET date_lecture=COALESCE(date_lecture,now()) WHERE id=? AND utilisateur_id=?",id,user)==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);}
+  @PostMapping("/notifications/{source}/{id}/hide") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
+  public void hide(Authentication auth,@PathVariable String source,@PathVariable long id){
+    long currentUser=user(auth);
+    List<java.util.Map<String,Object>> rows;
+    if(source.equals("message")) rows=jdbc.queryForList("""
+      SELECT m.date_lecture FROM message_prive m JOIN conversation_privee c ON c.id=m.conversation_id
+      WHERE m.id=? AND m.expediteur_id<>? AND (c.participant_a_id=? OR c.participant_b_id=?)
+      """,id,currentUser,currentUser,currentUser);
+    else if(source.equals("group-invite")) rows=jdbc.queryForList("SELECT date_lecture FROM invitation_groupe WHERE id=? AND invite_id=?",id,currentUser);
+    else {
+      String table=switch(source){case "activity"->"notification_activite";case "project"->"notification_projet";
+        case "workspace"->"notification_demande_espace";case "group"->"notification_adhesion_groupe";
+        default->throw new ResponseStatusException(HttpStatus.NOT_FOUND);};
+      rows=jdbc.queryForList("SELECT date_lecture FROM "+table+" WHERE id=? AND utilisateur_id=?",id,currentUser);
+    }
+    if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    if(rows.getFirst().get("date_lecture")==null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Marquez d’abord cette notification comme lue.");
+    jdbc.update("INSERT INTO notification_masquee(utilisateur_id,source,notification_id) VALUES (?,?,?) ON CONFLICT DO NOTHING",currentUser,source,id);
+  }
   @PostMapping("/devices") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
   public void device(Authentication auth,@Valid @RequestBody Device body){UUID id;try{id=UUID.fromString(body.deviceId());}catch(IllegalArgumentException e){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Appareil invalide.");}jdbc.update("DELETE FROM appareil_push_mobile WHERE jeton_expo=? AND id_appareil<>?",body.expoPushToken(),id);jdbc.update("""
     INSERT INTO appareil_push_mobile(id_appareil,utilisateur_id,jeton_expo,plateforme) VALUES (?,?,?,?)

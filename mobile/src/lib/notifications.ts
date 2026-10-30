@@ -13,6 +13,7 @@ Notifications.setNotificationHandler({handleNotification:async()=>({shouldShowBa
 async function call<T>(path:string,token:string,options:RequestInit={}){const response=await fetch(`${apiUrl}/api/mobile${path}`,{...options,headers:{Accept:'application/json',Authorization:`Bearer ${token}`,...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});if(!response.ok)throw new Error(response.status===401?'Votre session a expiré.':'Le service de notifications est indisponible.');return response.status===204?undefined as T:response.json() as Promise<T>;}
 export const getNotifications=(token:string)=>call<MobileNotice[]>('/notifications',token);
 export const markNotificationRead=(token:string,notice:MobileNotice)=>call<void>(`/notifications/${notice.source}/${notice.id}/read`,token,{method:'POST',body:'{}'});
+export const hideNotification=(token:string,notice:MobileNotice)=>call<void>(`/notifications/${notice.source}/${notice.id}/hide`,token,{method:'POST',body:'{}'});
 
 export async function enablePush(token:string){
   if(Platform.OS==='web')throw new Error('Les notifications push seront disponibles dans l’application Android ou iOS.');

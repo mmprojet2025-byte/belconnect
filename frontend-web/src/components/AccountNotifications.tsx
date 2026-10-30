@@ -57,6 +57,18 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     } finally { setBusyKey(''); }
   }
 
+  async function hide(notice: Notice) {
+    if (!notice.readAt || !window.confirm(t('Retirer cette notification de votre liste ?', 'Remove this notification from your list?', 'Deze melding uit uw lijst verwijderen?'))) return;
+    const key = `${notice.source}-${notice.id}`;
+    setBusyKey(key); setError('');
+    try {
+      await postJson(`/api/mobile/notifications/${notice.source}/${notice.id}/hide`);
+      setNotices(items => items.filter(item => `${item.source}-${item.id}` !== key));
+    } catch {
+      setError(t('Impossible de retirer cette notification. Réessayez.', 'Could not remove this notification. Try again.', 'Deze melding kon niet worden verwijderd. Probeer opnieuw.'));
+    } finally { setBusyKey(''); }
+  }
+
   function label(notice: Notice) {
     if (notice.source === 'activity') return t('Activité annulée', 'Activity cancelled', 'Activiteit geannuleerd');
     if (notice.source === 'project') return notice.event === 'TERMINE' ? t('Projet terminé', 'Project completed', 'Project afgerond') : t('Projet retiré', 'Project withdrawn', 'Project verwijderd');
@@ -88,6 +100,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
       <div className="management-actions">
         {destination && <a className="text-link" href={destination} onClick={event => { event.preventDefault(); void acknowledge(notice, true); }}>{action}</a>}
         {!notice.readAt && <button className="text-link" disabled={Boolean(busyKey)} onClick={() => void acknowledge(notice)}>{busyKey === key ? t('Enregistrement…', 'Saving…', 'Opslaan') : t('Marquer comme lu', 'Mark as read', 'Markeren als gelezen')}</button>}
+        {notice.readAt && <button className="text-link" disabled={Boolean(busyKey)} onClick={() => void hide(notice)}>{t('Retirer de ma liste', 'Remove from my list', 'Uit mijn lijst verwijderen')}</button>}
       </div>
     </article>;
   };
