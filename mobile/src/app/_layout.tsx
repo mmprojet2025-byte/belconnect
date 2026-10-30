@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="messages/index" options={{ title: 'Messages', headerBackTitle: 'Accueil' }} />
         <Stack.Screen name="messages/new" options={{ title: 'Nouveau message', headerBackTitle: 'Groupe' }} />
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation', headerBackTitle: 'Messages' }} />
+        <Stack.Screen name="privacy" options={{ title: 'Confidentialité et données', headerBackTitle: 'Retour' }} />
       </Stack>
       <StatusBar style="dark" />
     </ThemeProvider></AuthProvider>
