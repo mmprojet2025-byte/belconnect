@@ -1,5 +1,7 @@
 package be.belconnect.backend;
 
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -161,5 +163,22 @@ class MobileAuthApiTests {
       if(projectId!=null){jdbc.update("DELETE FROM notification_projet WHERE projet_id=?",projectId);jdbc.update("DELETE FROM projet WHERE id=?",projectId);}
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
     }
+  }
+
+  @Test void webSessionCanReadTheSameNotificationInbox() throws Exception {
+    String marker=UUID.randomUUID().toString(),email="web-inbox-"+marker+"@example.com";
+    var web=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();
+    try {
+      var csrf=web.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/csrf")).GET().build(),HttpResponse.BodyHandlers.ofString());
+      assertEquals(200,csrf.statusCode());
+      var token=json.readTree(csrf.body());
+      var registration=web.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/register"))
+        .header("Content-Type","application/json").header(token.get("headerName").asText(),token.get("token").asText())
+        .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("email",email,"password","Web-inbox-"+marker,"firstName","Nora","lastName","Web")))).build(),HttpResponse.BodyHandlers.ofString());
+      assertEquals(201,registration.statusCode(),registration.body());
+      var inbox=web.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/mobile/notifications")).GET().build(),HttpResponse.BodyHandlers.ofString());
+      assertEquals(200,inbox.statusCode(),inbox.body());
+      assertTrue(json.readTree(inbox.body()).isArray());
+    } finally { jdbc.update("DELETE FROM utilisateur WHERE email=?",email); }
   }
 }
