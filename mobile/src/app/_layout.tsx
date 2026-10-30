@@ -25,6 +25,7 @@ function AppStack() {
         <Stack.Screen name="messages/new" options={{ title: label('Nouveau message'), headerBackTitle: label('Groupe') }} />
         <Stack.Screen name="messages/[id]" options={{ title: label('Conversation'), headerBackTitle: label('Messages') }} />
         <Stack.Screen name="privacy" options={{ title: label('Confidentialité et données'), headerBackTitle: label('Retour') }} />
+        <Stack.Screen name="legal" options={{ title: label('Informations légales'), headerBackTitle: label('Réglages') }} />
         <Stack.Screen name="settings" options={{ title: label('Réglages'), headerBackTitle: label('Mon espace') }} />
       </Stack>
       <StatusBar style="dark" />

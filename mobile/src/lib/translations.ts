@@ -1,6 +1,17 @@
 import { Locale } from '@/context/locale-context';
 
 const entries: Record<string, [string, string]> = {
+  'Informations légales': ['Legal information', 'Juridische informatie'],
+  'Documents en préparation': ['Documents in preparation', 'Documenten in voorbereiding'],
+  'BelConnect est en développement. Les textes ci-dessous ne sont pas encore des conditions ou mentions légales en vigueur.': ['BelConnect is in development. The texts below are not yet effective terms or legal notices.', 'BelConnect is in ontwikkeling. De onderstaande teksten zijn nog geen geldende voorwaarden of wettelijke vermeldingen.'],
+  'Mentions légales': ['Legal notice', 'Wettelijke vermeldingen'],
+  'L’identité de l’exploitant, son adresse et ses coordonnées professionnelles doivent être confirmées avant la publication.': ['The operator’s identity, address and business contact details must be confirmed before publication.', 'De identiteit, het adres en de professionele contactgegevens van de exploitant moeten vóór publicatie worden bevestigd.'],
+  'Conditions d’utilisation': ['Terms of use', 'Gebruiksvoorwaarden'],
+  'Les règles des comptes, des activités, des projets et des contenus sont en préparation. Elles devront être accessibles avant l’inscription.': ['The rules for accounts, activities, projects and content are being prepared. They must be available before registration.', 'De regels voor accounts, activiteiten, projecten en inhoud worden voorbereid. Ze moeten vóór registratie beschikbaar zijn.'],
+  'Paiements et remboursements': ['Payments and refunds', 'Betalingen en terugbetalingen'],
+  'Avant un paiement, le prix total, le vendeur et les conditions d’annulation ou de remboursement devront être indiqués sur le parcours concerné.': ['Before payment, the full price, seller, and cancellation or refund terms must be shown in the relevant flow.', 'Vóór betaling moeten de totale prijs, verkoper en annulerings- of terugbetalingsvoorwaarden in het betreffende proces worden getoond.'],
+  'Protection des données': ['Data protection', 'Gegevensbescherming'],
+  'La politique de confidentialité et la suppression du compte doivent être finalisées avant l’ouverture au public. La page Confidentialité et données présente l’état actuel.': ['The privacy policy and account deletion must be completed before public launch. The Privacy and data page shows the current status.', 'Het privacybeleid en de verwijdering van accounts moeten vóór de publieke lancering worden afgerond. De pagina Privacy en gegevens toont de huidige stand.'],
   'Préférences': ['Preferences', 'Voorkeuren'], 'Confidentialité': ['Privacy', 'Privacy'], 'Compte': ['Account', 'Account'],
   'Désactivation et suppression': ['Deactivation and deletion', 'Deactiveren en verwijderen'],
   'Ces options ne sont pas encore disponibles. Elles nécessitent un parcours sécurisé et la gestion des données liées au compte.': ['These options are not available yet. They require a secure process and handling of data linked to the account.', 'Deze opties zijn nog niet beschikbaar. Ze vereisen een veilig proces en beheer van gegevens die aan het account zijn gekoppeld.'],

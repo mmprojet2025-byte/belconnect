@@ -36,6 +36,7 @@ export default function AccountScreen(){
     <Pressable disabled={busy} style={({pressed})=>[styles.primaryButton,(pressed||busy)&&styles.pressed]} onPress={submit}><ThemedText type="smallBold" style={styles.buttonText}>{busy?'Patientez…':mode==='login'?'Se connecter':'Créer mon compte'}</ThemedText></Pressable>
     <Pressable onPress={()=>{setError('');setMode(value=>value==='login'?'register':'login');}}><ThemedText type="linkPrimary">{mode==='login'?'Pas encore de compte ? S’inscrire':'Déjà un compte ? Se connecter'}</ThemedText></Pressable>
     <Link href="/privacy"><ThemedText type="linkPrimary">Confidentialité et données</ThemedText></Link>
+    <Link href="/legal"><ThemedText type="linkPrimary">{t('Informations légales')}</ThemedText></Link>
   </SafeAreaView></ScrollView></KeyboardAvoidingView></ThemedView>;
 }
 

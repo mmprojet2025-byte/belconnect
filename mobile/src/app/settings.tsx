@@ -22,6 +22,7 @@ export default function SettingsScreen() {
     <View style={styles.section}><LanguagePicker /></View>
     <ThemedText type="subtitle">{t('Confidentialité')}</ThemedText>
     <Link href="/privacy" asChild><Pressable accessibilityRole="button" style={styles.row}><ThemedText type="smallBold">{t('Confidentialité et données')}</ThemedText><ThemedText style={styles.accent}>→</ThemedText></Pressable></Link>
+    <Link href="/legal" asChild><Pressable accessibilityRole="button" style={styles.row}><ThemedText type="smallBold">{t('Informations légales')}</ThemedText><ThemedText style={styles.accent}>→</ThemedText></Pressable></Link>
     {auth.profile && <><ThemedText type="subtitle">{t('Compte')}</ThemedText><View style={styles.section}><ThemedText type="smallBold">{t('Désactivation et suppression')}</ThemedText><ThemedText type="small" themeColor="textSecondary">{t('Ces options ne sont pas encore disponibles. Elles nécessitent un parcours sécurisé et la gestion des données liées au compte.')}</ThemedText></View><Pressable accessibilityRole="button" style={styles.row} onPress={confirmSignOut}><ThemedText type="smallBold" style={styles.signOut}>{t('Se déconnecter')}</ThemedText></Pressable></>}
   </SafeAreaView></ScrollView></ThemedView>;
 }
