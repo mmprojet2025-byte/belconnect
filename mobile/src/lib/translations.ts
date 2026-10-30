@@ -78,6 +78,7 @@ const entries: Record<string, [string, string]> = {
   'Activité': ['Activity', 'Activiteit'], 'Projet': ['Project', 'Project'], 'Groupes': ['Groups', 'Groepen'], 'Groupe': ['Group', 'Groep'],
   'Nouveau message': ['New message', 'Nieuw bericht'], 'Conversation': ['Conversation', 'Gesprek'], 'Retour': ['Back', 'Terug'],
   'Gratuit': ['Free', 'Gratis'], 'Tout voir': ['See all', 'Alles bekijken'], 'Cette semaine': ['This week', 'Deze week'],
+  'Toutes les catégories': ['All categories', 'Alle categorieën'],
   'Aucun résultat': ['No results', 'Geen resultaten'], 'Aucun projet publié': ['No projects published', 'Geen projecten gepubliceerd'],
   'Essayez une autre recherche.': ['Try another search.', 'Probeer een andere zoekopdracht.'],
   'Revenez bientôt découvrir de nouvelles idées.': ['Come back soon for new ideas.', 'Kom binnenkort terug voor nieuwe ideeën.'],
