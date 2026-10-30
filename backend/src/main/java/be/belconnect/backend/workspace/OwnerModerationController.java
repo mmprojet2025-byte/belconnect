@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class OwnerModerationController {
   public record Space(long id,String name,String status,String reason,long administrators) {}
   public record Content(long id,String title,String type,boolean hidden) {}
   public record Entry(long id,long spaceId,Long activityId,Long projectId,String action,String reason,OffsetDateTime at) {}
+  public record MessageReport(long id,long messageId,String groupName,String reporter,String sender,String content,String reason,OffsetDateTime at) {}
   public record Overview(List<Space> spaces,List<Entry> recent) {}
   public record Change(@NotBlank @Size(min=10,max=1000) String reason) {}
   private ResponseStatusException error(HttpStatus status,String text) { return new ResponseStatusException(status,text); }
@@ -62,6 +65,32 @@ public class OwnerModerationController {
       WHERE espace_id=? AND publie AND statut='APPROUVE'
       ORDER BY type,id DESC
       """,(r,n)->new Content(r.getLong("id"),r.getString("titre"),r.getString("type"),r.getBoolean("masque")),spaceId,spaceId);
+  }
+  @GetMapping("/message-reports") @Transactional(readOnly=true)
+  public ResponseEntity<List<MessageReport>> messageReports(Authentication auth) {
+    owner(auth);
+    var reports=jdbc.query("""
+      SELECT s.id,s.message_id,COALESCE(g.nom,'Ancien groupe') AS groupe_nom,
+        concat_ws(' ',a.prenom,a.nom) AS auteur_signalement,
+        concat_ws(' ',u.prenom,u.nom) AS expediteur,
+        m.contenu,s.motif,s.date_creation
+      FROM signalement_message_prive s
+      JOIN message_prive m ON m.id=s.message_id
+      JOIN conversation_privee c ON c.id=m.conversation_id
+      LEFT JOIN groupe g ON g.id=c.groupe_id
+      JOIN utilisateur a ON a.id=s.auteur_id
+      JOIN utilisateur u ON u.id=m.expediteur_id
+      WHERE s.date_traitement IS NULL ORDER BY s.id DESC LIMIT 100
+      """,(r,n)->new MessageReport(r.getLong("id"),r.getLong("message_id"),r.getString("groupe_nom"),
+        r.getString("auteur_signalement"),r.getString("expediteur"),r.getString("contenu"),
+        r.getString("motif"),r.getObject("date_creation",OffsetDateTime.class)));
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(reports);
+  }
+  @PostMapping("/message-reports/{id}/review") @Transactional @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void reviewMessageReport(Authentication auth,@PathVariable long id) {
+    long actor=owner(auth);
+    if(jdbc.update("UPDATE signalement_message_prive SET date_traitement=now(),traitant_id=? WHERE id=? AND date_traitement IS NULL",actor,id)==0)
+      throw error(HttpStatus.NOT_FOUND,"Signalement introuvable ou déjà examiné.");
   }
   @PostMapping("/spaces/{spaceId}/{action:suspend|reactivate}") @Transactional @ResponseStatus(HttpStatus.NO_CONTENT)
   public void space(Authentication auth,@PathVariable long spaceId,@PathVariable String action,@Valid @RequestBody Change body) {

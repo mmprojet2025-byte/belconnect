@@ -82,6 +82,15 @@ class PrivateMessageApiTests {
             assertEquals(404, call("POST", base + "/items/" + message + "/reports", outsider.token(), Map.of("reason", "Spam")).statusCode());
             assertEquals(204, call("POST", base + "/items/" + message + "/reports", admin.token(), Map.of("reason", "Message gênant")).statusCode());
             assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM signalement_message_prive WHERE message_id=?", Integer.class, message));
+            String moderation = "/api/workspace/owner/moderation/message-reports";
+            assertEquals(403, call("GET", moderation, member.token(), null).statusCode());
+            jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')", outsider.id());
+            var reports = json.readTree(call("GET", moderation, outsider.token(), null).body());
+            long reportId = jdbc.queryForObject("SELECT id FROM signalement_message_prive WHERE message_id=?", Long.class, message);
+            assertTrue(reports.toString().contains("Message gênant"));
+            assertEquals(204, call("POST", moderation + "/" + reportId + "/review", outsider.token(), null).statusCode());
+            assertFalse(json.readTree(call("GET", moderation, outsider.token(), null).body()).toString().contains("Message gênant"));
+            jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?", outsider.id());
             assertEquals(204, call("PUT", base + "/blocks/" + member.id(), admin.token(), null).statusCode());
             assertFalse(json.readTree(call("GET", path, admin.token(), null).body()).get("canSend").asBoolean());
             assertEquals(403, call("POST", path + "/items", member.token(), Map.of("requestId", UUID.randomUUID(), "content", "Autre message")).statusCode());
@@ -90,6 +99,7 @@ class PrivateMessageApiTests {
             assertEquals(404, call("POST", path + "/items", member.token(), Map.of("requestId", UUID.randomUUID(), "content", "Encore un message")).statusCode());
             assertEquals(200, call("GET", path + "/items", member.token(), null).statusCode());
         } finally {
+            jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?", outsider.id());
             jdbc.update("DELETE FROM signalement_message_prive WHERE auteur_id IN (?,?,?)", admin.id(), member.id(), outsider.id());
             jdbc.update("DELETE FROM blocage_message_prive WHERE bloqueur_id IN (?,?,?) OR bloque_id IN (?,?,?)",
                 admin.id(), member.id(), outsider.id(), admin.id(), member.id(), outsider.id());
