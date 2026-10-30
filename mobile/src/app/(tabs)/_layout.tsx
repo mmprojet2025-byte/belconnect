@@ -20,6 +20,7 @@ export default function TabsLayout() {
     }}>
       <Tabs.Screen name="index" options={{ title: 'Accueil', tabBarLabel: 'Accueil', tabBarIcon: ({ color, size }) => <SocialIcon name="home" color={color} size={size} /> }} />
       <Tabs.Screen name="activities" options={{ title: 'Activités', tabBarLabel: 'Activités', tabBarIcon: ({ color, size }) => <SocialIcon name="activity" color={color} size={size} /> }} />
+      <Tabs.Screen name="projects" options={{ title: 'Projets', tabBarLabel: 'Projets', tabBarIcon: ({ color, size }) => <SocialIcon name="project" color={color} size={size} /> }} />
       <Tabs.Screen name="notifications" options={{ title: 'Notifications', tabBarLabel: 'Notifications', tabBarIcon: ({ color, size }) => <SocialIcon name="notification" color={color} size={size} /> }} />
       <Tabs.Screen name="account" options={{ title: 'Mon espace', tabBarLabel: 'Mon espace', tabBarIcon: ({ color, size }) => <SocialIcon name="account" color={color} size={size} /> }} />
     </Tabs>
