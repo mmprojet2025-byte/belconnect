@@ -2,13 +2,11 @@ import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActivityCard } from '@/components/activity-card';
 import { SocialAvatar } from '@/components/social-avatar';
 import { SocialIcon } from '@/components/social-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useActivities } from '@/hooks/use-activities';
 import { useAuth } from '@/context/auth-context';
 import { getGroups, Group } from '@/lib/groups';
 import { useTheme } from '@/hooks/use-theme';
@@ -16,7 +14,6 @@ import { useTheme } from '@/hooks/use-theme';
 export default function HomeScreen() {
   const { token } = useAuth();
   const theme = useTheme();
-  const { activities, loading, error, retry } = useActivities();
   const [groupState, setGroupState] = useState<{ token: string | null; items: Group[] }>({ token: null, items: [] });
   const groups = groupState.token === token ? groupState.items : [];
   useEffect(() => {
@@ -26,15 +23,10 @@ export default function HomeScreen() {
   }, [token]);
   return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.container} edges={['left', 'right']}>
     <View style={styles.topbar}><View><ThemedText type="eyebrow" style={styles.brand}>LA BELGIQUE SE RENCONTRE</ThemedText><ThemedText type="subtitle" style={styles.wordmark}>BelConnect</ThemedText></View><Link href="/messages" asChild><Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes messages" style={styles.messageIcon}><SocialIcon name="message" color={Colors.brand} size={25} /></Pressable></Link></View>
-    <View style={styles.hero}><ThemedText type="eyebrow" style={styles.heroEyebrow}>PRÈS DE VOUS</ThemedText><ThemedText type="title" style={heroStyles.heading}>On se retrouve dehors ?</ThemedText><ThemedText style={styles.lead}>Des sorties, des projets et des personnes à rencontrer en Belgique.</ThemedText><Link href="/activities" asChild><Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && styles.pressed]}><ThemedText type="smallBold" style={styles.buttonText}>Explorer les activités →</ThemedText></Pressable></Link></View>
+    <View style={styles.hero}><ThemedText type="eyebrow" style={styles.heroEyebrow}>PRÈS DE VOUS</ThemedText><ThemedText type="title" style={heroStyles.heading}>Bienvenue sur BelConnect</ThemedText><ThemedText style={styles.lead}>Retrouvez vos communautés et échangez avec les personnes qui font vivre BelConnect.</ThemedText><Link href="/groups" asChild><Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && styles.pressed]}><ThemedText type="smallBold" style={styles.buttonText}>Découvrir les groupes →</ThemedText></Pressable></Link></View>
     <View style={styles.sectionHeader}><ThemedText type="subtitle">Communautés</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">Tout voir</ThemedText></Link></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communities}>{groups.slice(0, 6).map(group => <Link key={group.id} href={{ pathname: '/groups/[id]', params: { id: group.id } }} asChild><Pressable accessibilityRole="button" accessibilityLabel={`Ouvrir le groupe ${group.name}`} style={StyleSheet.flatten([styles.communityCard, { backgroundColor: theme.surface, borderColor: theme.border }])}>{group.coverUrl ? <Image source={{ uri: group.coverUrl }} style={styles.communityImage} resizeMode="cover" accessibilityLabel={`Photo du groupe ${group.name}`} /> : <View style={styles.communityFallback}><SocialAvatar name={group.name} size={48} /></View>}<View style={styles.communityBody}><ThemedText type="smallBold" numberOfLines={1}>{group.name}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{group.spaceName}</ThemedText></View></Pressable></Link>)}<Link href="/groups" asChild><Pressable accessibilityRole="button" accessibilityLabel="Découvrir tous les groupes" style={StyleSheet.flatten([styles.communityCard, styles.communityAll, { backgroundColor: theme.surface, borderColor: theme.border }])}><View style={styles.communityDiscover}><SocialIcon name="group" color={Colors.brand} size={26} /></View><ThemedText type="smallBold">Tous les groupes</ThemedText><ThemedText type="small" themeColor="textSecondary">Explorer →</ThemedText></Pressable></Link></ScrollView>
     <Link href="/messages" asChild><Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes conversations privées" style={styles.messageShortcut}><View style={styles.messageShortcutIcon}><SocialIcon name="message" color={Colors.brand} size={23} /></View><View style={styles.messageCopy}><ThemedText type="smallBold">Vos messages</ThemedText><ThemedText type="small" themeColor="textSecondary">Retrouvez les personnes de vos groupes</ThemedText></View><SocialIcon name="chevron" color={Colors.brand} size={18} /></Pressable></Link>
-    <View style={styles.sectionHeader}><View><ThemedText type="eyebrow" style={styles.brand}>POUR VOUS</ThemedText><ThemedText type="subtitle">À découvrir</ThemedText></View><Link href="/activities"><ThemedText type="linkPrimary">Tout voir →</ThemedText></Link></View>
-    {loading && <ThemedText accessibilityLiveRegion="polite">Chargement des activités…</ThemedText>}
-    {error && <ThemedView type="surface" style={styles.error}><ThemedText type="smallBold">Le catalogue est momentanément indisponible.</ThemedText><Pressable accessibilityRole="button" onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></ThemedView>}
-    <View style={styles.list}>{activities.slice(0, 3).map(item => <ActivityCard key={item.id} activity={item} />)}</View>
-    <View style={styles.projectHero}><ThemedText type="eyebrow" style={styles.brand}>PROJETS LOCAUX</ThemedText><ThemedText type="subtitle">Des idées qui rassemblent</ThemedText><ThemedText themeColor="textSecondary">Découvrez les projets citoyens et les façons d’y contribuer.</ThemedText><Link href="/projects" asChild><Pressable accessibilityRole="button" style={({ pressed }) => [styles.projectButton, pressed && styles.pressed]}><ThemedText type="smallBold" style={styles.projectButtonText}>Explorer les projets →</ThemedText></Pressable></Link></View>
   </SafeAreaView></ScrollView></ThemedView>;
 }
 

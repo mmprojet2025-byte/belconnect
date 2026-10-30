@@ -1,14 +1,31 @@
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityCard } from '@/components/activity-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useActivities } from '@/hooks/use-activities';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function ActivitiesScreen() {
+  const theme = useTheme();
   const { activities, loading, error, retry } = useActivities();
-  return <ThemedView style={styles.screen}><SafeAreaView style={styles.safe} edges={['left', 'right']}><FlatList data={activities} keyExtractor={item => item.id} renderItem={({ item }) => <ActivityCard activity={item} />} contentContainerStyle={styles.list} ItemSeparatorComponent={() => <View style={styles.separator} />} ListHeaderComponent={<View style={styles.header}><ThemedText type="title">Bougez, partagez, rencontrez.</ThemedText><ThemedText themeColor="textSecondary">Des rendez-vous proposés par les communautés locales.</ThemedText></View>} ListEmptyComponent={loading ? <ThemedText accessibilityLiveRegion="polite">Chargement…</ThemedText> : error ? <View style={styles.header}><ThemedText>Impossible de charger les activités.</ThemedText><Pressable onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></View> : <ThemedText>Aucune activité publiée pour le moment.</ThemedText>} refreshing={loading && activities.length > 0} onRefresh={retry} /></SafeAreaView></ThemedView>;
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'free' | 'soon'>('all');
+  const [today] = useState(() => Date.now());
+  const visible = useMemo(() => activities.filter(item => {
+    const matches = `${item.title} ${item.city} ${item.category}`.toLocaleLowerCase('fr').includes(query.trim().toLocaleLowerCase('fr'));
+    const start = new Date(item.startsAt).getTime();
+    const withinWeek = start >= today && start < today + 7 * 24 * 60 * 60 * 1000;
+    return matches && (filter === 'all' || (filter === 'free' ? item.price === 0 : withinWeek));
+  }), [activities, query, filter, today]);
+  return <ThemedView style={styles.screen}><SafeAreaView style={styles.safe} edges={['left', 'right']}><FlatList data={visible} keyExtractor={item => item.id} renderItem={({ item }) => <ActivityCard activity={item} />} contentContainerStyle={styles.list} ItemSeparatorComponent={() => <View style={styles.separator} />} ListHeaderComponent={<View style={styles.header}>
+    <ThemedText type="eyebrow" style={styles.brand}>DÉCOUVRIR</ThemedText><ThemedText type="title" style={styles.title}>Vos prochaines sorties</ThemedText><ThemedText themeColor="textSecondary">Des rencontres et des activités près de chez vous.</ThemedText>
+    <TextInput accessibilityLabel="Rechercher une activité ou une ville" placeholder="Une activité, une ville…" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={[styles.search, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{([['all', 'Tout voir'], ['free', 'Gratuit'], ['soon', 'Cette semaine']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[styles.chip, { borderColor: theme.border }, filter === value && styles.chipSelected]}><ThemedText type="smallBold" style={filter === value ? styles.chipTextSelected : styles.chipText}>{label}</ThemedText></Pressable>)}</ScrollView>
+    {!loading && !error && <ThemedText type="small" themeColor="textSecondary">{visible.length} activité{visible.length > 1 ? 's' : ''}</ThemedText>}
+  </View>} ListEmptyComponent={loading ? <ThemedText accessibilityLiveRegion="polite">Chargement…</ThemedText> : error ? <View style={styles.header}><ThemedText>Impossible de charger les activités.</ThemedText><Pressable onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></View> : <ThemedText>Aucune activité ne correspond à votre recherche.</ThemedText>} refreshing={loading && activities.length > 0} onRefresh={retry} /></SafeAreaView></ThemedView>;
 }
 
-const styles = StyleSheet.create({ screen: { flex: 1 }, safe: { flex: 1, alignItems: 'center' }, list: { width: '100%', maxWidth: MaxContentWidth, padding: Spacing.four, paddingBottom: Spacing.six }, header: { gap: Spacing.two, marginBottom: Spacing.four }, separator: { height: Spacing.three } });
+const styles = StyleSheet.create({ screen: { flex: 1 }, safe: { flex: 1, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }, list: { padding: Spacing.four, paddingBottom: Spacing.six }, header: { gap: Spacing.two, marginBottom: Spacing.four }, brand: { color: Colors.brand }, title: { fontSize: 32, lineHeight: 38 }, search: { marginTop: Spacing.two, minHeight: 52, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, paddingHorizontal: 16, fontSize: 16, color: '#111', backgroundColor: '#FFF' }, filters: { gap: Spacing.two, paddingVertical: Spacing.two }, chip: { borderWidth: 1, borderColor: Colors.border, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10 }, chipSelected: { backgroundColor: Colors.brand, borderColor: Colors.brand }, chipText: { color: Colors.brand }, chipTextSelected: { color: Colors.onBrand }, separator: { height: Spacing.three } });
