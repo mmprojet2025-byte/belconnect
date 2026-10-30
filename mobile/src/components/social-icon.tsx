@@ -12,6 +12,8 @@ const names = {
   heartFilled: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
   comment: { ios: 'bubble.left', android: 'chat_bubble', web: 'chat_bubble' },
   search: { ios: 'magnifyingglass', android: 'search', web: 'search' },
+  location: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
+  filter: { ios: 'slider.horizontal.3', android: 'tune', web: 'tune' },
   chevron: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   send: { ios: 'paperplane.fill', android: 'send', web: 'send' },
   add: { ios: 'plus', android: 'add', web: 'add' },
