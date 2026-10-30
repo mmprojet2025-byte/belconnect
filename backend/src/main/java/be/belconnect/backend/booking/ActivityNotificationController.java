@@ -40,9 +40,10 @@ public class ActivityNotificationController {
            + (SELECT count(*) FROM notification_demande_espace WHERE utilisateur_id=? AND date_lecture IS NULL)
            + (SELECT count(*) FROM notification_adhesion_groupe WHERE utilisateur_id=? AND date_lecture IS NULL)
            + (SELECT count(*) FROM notification_projet WHERE utilisateur_id=? AND date_lecture IS NULL)
+           + (SELECT count(*) FROM invitation_groupe WHERE invite_id=? AND statut='EN_ATTENTE' AND date_lecture IS NULL)
            + (SELECT count(*) FROM message_prive m JOIN conversation_privee c ON c.id=m.conversation_id
               WHERE (c.participant_a_id=? OR c.participant_b_id=?) AND m.expediteur_id<>? AND m.date_lecture IS NULL)
-      """,Long.class,actor,actor,actor,actor,actor,actor,actor);
+      """,Long.class,actor,actor,actor,actor,actor,actor,actor,actor);
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new UnreadCount(count == null ? 0 : count));
   }
   @PostMapping("/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional

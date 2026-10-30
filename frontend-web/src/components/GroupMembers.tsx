@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { postJson, result } from '../lib/auth';
 
 type Member = { id: number; name: string; role: string; version: number };
@@ -14,6 +15,13 @@ export function GroupMembers({ groupId, onChanged, onClose, invitationUrl }: { g
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [showInvitation, setShowInvitation] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  async function invite(event: FormEvent){
+    event.preventDefault(); setInviteBusy(true); setError(''); setNotice('');
+    try { await postJson(`/api/groups/${groupId}/invite`,{email:inviteEmail.trim()}); setNotice('Invitation envoyée dans BelConnect. La personne peut l’accepter dans Groupes.'); setInviteEmail(''); }
+    catch(e){setError(message(e));} finally {setInviteBusy(false);}
+  }
   useEffect(() => {
     const c = new AbortController();
     fetch(`/api/workspace/groups/${groupId}/members`, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([c.signal, AbortSignal.timeout(15000)]) })
@@ -33,7 +41,7 @@ export function GroupMembers({ groupId, onChanged, onClose, invitationUrl }: { g
   }
   return <section className="group-members-panel" aria-label="Membres et référents du groupe">
     <div className="account-section-heading"><div><p className="eyebrow teal">MEMBRES ET RÉFÉRENTS</p><h3>{data?.name ?? 'Membres du groupe'}</h3></div><button className="text-link" disabled={busy} onClick={onClose}>Fermer les membres</button></div>
-    {invitationUrl && <div className="group-invite-action"><button className="button coral" type="button" aria-expanded={showInvitation} onClick={() => setShowInvitation(value => !value)}>Inviter une personne</button><p>Envoyez ce lien à la personne que vous souhaitez inviter.</p>{showInvitation && <label className="group-invite-link">Lien d’invitation<input readOnly value={invitationUrl} onFocus={event => event.currentTarget.select()} onClick={event => event.currentTarget.select()} /></label>}</div>}
+    {invitationUrl && <div className="group-invite-action"><div className="group-invite-link"><strong>Inviter une personne</strong><p>Saisissez l’adresse e-mail de son compte BelConnect.</p></div><form className="group-invite-form" onSubmit={event => void invite(event)}><label>Adresse e-mail<input type="email" required value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="personne@exemple.com" /></label><button className="button coral" type="submit" disabled={inviteBusy}>{inviteBusy?'Envoi…':'Envoyer l’invitation'}</button></form><button className="text-link" type="button" aria-expanded={showInvitation} onClick={() => setShowInvitation(value => !value)}>Inviter avec un lien</button>{showInvitation && <label className="group-invite-link">Lien d’invitation<input readOnly value={invitationUrl} onFocus={event => event.currentTarget.select()} onClick={event => event.currentTarget.select()} /></label>}</div>}
     <button className="text-link" disabled={busy} onClick={() => { setPending(null); setNotice(''); setAttempt(n => n + 1); onChanged(); }}>Actualiser les membres</button>
     {error && <p className="draft-error" role="alert">{error}</p>}{notice && <p className="account-notice" role="status">{notice}</p>}
     {!data && !error && <p role="status">Chargement des membres…</p>}

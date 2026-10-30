@@ -143,6 +143,7 @@ class SpaceManagementApiTests {
    jdbc.update("DELETE FROM soumission_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM projet WHERE espace_id=?",space);
    jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
+   jdbc.update("DELETE FROM invitation_groupe WHERE groupe_id IN (SELECT id FROM groupe WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);
    jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);
    jdbc.update("DELETE FROM demande_espace WHERE espace_id=?",space);
@@ -368,6 +369,28 @@ class SpaceManagementApiTests {
    assertFalse(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
    ok(admin.post("/api/group-memberships/"+request+"/decision",Map.of("version",0,"status","ACCEPTEE","reason",""),true),200);
    assertTrue(ok(outsider.get("/api/groups"),200).toString().contains("Groupe privé invité"));
+  } finally { cleanup(); }
+ }
+ @Test void privateGroupCanInviteExistingAccountDirectly() throws Exception {
+  try {
+   var admin=actor();var invited=actor();var stranger=actor();long space=setupSpace(admin);
+   long group=setupGroup(space,"Groupe sur invitation",false,"PRIVEE");
+   String email=jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,invited.id);
+   String path="/api/groups/"+group+"/invite";
+   assertEquals(403,stranger.post(path,Map.of("email",email),true).statusCode());
+   long invitation=ok(admin.post(path,Map.of("email",email),true),201).get("id").asLong();
+   assertEquals(0,ok(stranger.get("/api/groups/invitations/mine"),200).size());
+   assertEquals(1,ok(invited.get("/api/groups/invitations/mine"),200).size());
+   assertTrue(ok(invited.get("/api/mobile/notifications"),200).toString().contains("group-invite"));
+   assertEquals(404,stranger.post("/api/mobile/notifications/group-invite/"+invitation+"/read",Map.of(),true).statusCode());
+   assertFalse(ok(invited.get("/api/groups"),200).toString().contains("Groupe sur invitation"));
+   assertEquals(404,stranger.post("/api/groups/invitations/"+invitation+"/accept",Map.of(),true).statusCode());
+   assertEquals("REFUSEE",ok(invited.post("/api/groups/invitations/"+invitation+"/decline",Map.of(),true),200).get("status").asText());
+   assertFalse(ok(invited.get("/api/groups"),200).toString().contains("Groupe sur invitation"));
+   assertEquals(invitation,ok(admin.post(path,Map.of("email",email),true),201).get("id").asLong());
+   assertEquals("ACCEPTEE",ok(invited.post("/api/groups/invitations/"+invitation+"/accept",Map.of(),true),200).get("status").asText());
+   assertTrue(ok(invited.get("/api/groups"),200).toString().contains("Groupe sur invitation"));
+   assertEquals(404,invited.post("/api/groups/invitations/"+invitation+"/accept",Map.of(),true).statusCode());
   } finally { cleanup(); }
  }
  @Test void membershipsPublicPrivateApprovalAndIsolation() throws Exception {

@@ -5,7 +5,7 @@ import { tr, useLocale } from '../lib/locale';
 import { Icon } from './Icon';
 
 type Notice = {
-  source: 'activity' | 'project' | 'workspace' | 'group' | 'message';
+  source: 'activity' | 'project' | 'workspace' | 'group' | 'group-invite' | 'message';
   id: number;
   title: string;
   message: string;
@@ -50,6 +50,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
         else if (notice.source === 'project' && notice.projectId) navigate(`/projets/${notice.projectId}`);
         else if (notice.source === 'workspace') onOpenRequests();
         else if (notice.source === 'group') navigate(notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '/mon-espace#demandes');
+        else if (notice.source === 'group-invite') navigate('/groupes');
       }
     } catch {
       setError(t('Impossible de marquer cette notification comme lue. Réessayez.', 'Could not mark this notification as read. Try again.', 'Deze melding kon niet als gelezen worden gemarkeerd. Probeer opnieuw.'));
@@ -60,6 +61,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     if (notice.source === 'activity') return t('Activité annulée', 'Activity cancelled', 'Activiteit geannuleerd');
     if (notice.source === 'project') return notice.event === 'TERMINE' ? t('Projet terminé', 'Project completed', 'Project afgerond') : t('Projet retiré', 'Project withdrawn', 'Project verwijderd');
     if (notice.source === 'message') return t('Nouveau message', 'New message', 'Nieuw bericht');
+    if (notice.source === 'group-invite') return t('Invitation à un groupe', 'Group invitation', 'Groepsuitnodiging');
     if (notice.source === 'workspace') return notice.event === 'DEMANDE_RECUE' ? t('Nouvelle demande d’espace', 'New space request', 'Nieuwe ruimteaanvraag') : notice.event === 'DEMANDE_APPROUVEE' ? t('Espace approuvé', 'Space approved', 'Ruimte goedgekeurd') : t('Demande d’espace refusée', 'Space request declined', 'Ruimteaanvraag geweigerd');
     return notice.event === 'DEMANDE_RECUE' ? t('Nouvelle demande d’adhésion', 'New membership request', 'Nieuwe lidmaatschapsaanvraag') : notice.event === 'DEMANDE_ACCEPTEE' ? t('Adhésion acceptée', 'Membership accepted', 'Lidmaatschap goedgekeurd') : t('Adhésion refusée', 'Membership declined', 'Lidmaatschap geweigerd');
   }
@@ -67,15 +69,15 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     if (notice.source === 'activity') return t('ACTIVITÉ', 'ACTIVITY', 'ACTIVITEIT');
     if (notice.source === 'project') return t('PROJET', 'PROJECT', 'PROJECT');
     if (notice.source === 'message') return t('MESSAGE', 'MESSAGE', 'BERICHT');
-    return notice.source === 'group' ? t('GROUPE', 'GROUP', 'GROEP') : t('ESPACE', 'SPACE', 'RUIMTE');
+    return notice.source === 'group' || notice.source === 'group-invite' ? t('GROUPE', 'GROUP', 'GROEP') : t('ESPACE', 'SPACE', 'RUIMTE');
   }
   const unread = notices.filter(notice => !notice.readAt);
   const history = notices.filter(notice => !!notice.readAt);
   const renderNotice = (notice: Notice) => {
     const key = `${notice.source}-${notice.id}`;
-    const icon = notice.source === 'activity' ? 'calendar' : notice.source === 'project' ? 'folder' : notice.source === 'message' ? 'chat' : notice.source === 'group' ? 'users' : 'inbox';
-    const destination = notice.source === 'activity' ? '#mes-inscriptions' : notice.source === 'project' && notice.projectId ? `/projets/${notice.projectId}` : notice.source === 'workspace' ? owner ? '#a-traiter' : '#demandes' : notice.source === 'group' ? notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '#demandes' : null;
-    const action = notice.source === 'activity' ? t('Voir mon inscription', 'View my booking', 'Mijn inschrijving bekijken') : notice.source === 'project' ? t('Voir le projet', 'View project', 'Project bekijken') : notice.source === 'workspace' || notice.source === 'group' ? t('Voir la demande', 'View request', 'Aanvraag bekijken') : '';
+    const icon = notice.source === 'activity' ? 'calendar' : notice.source === 'project' ? 'folder' : notice.source === 'message' ? 'chat' : notice.source === 'group' || notice.source === 'group-invite' ? 'users' : 'inbox';
+    const destination = notice.source === 'activity' ? '#mes-inscriptions' : notice.source === 'project' && notice.projectId ? `/projets/${notice.projectId}` : notice.source === 'group-invite' ? '/groupes' : notice.source === 'workspace' ? owner ? '#a-traiter' : '#demandes' : notice.source === 'group' ? notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '#demandes' : null;
+    const action = notice.source === 'activity' ? t('Voir mon inscription', 'View my booking', 'Mijn inschrijving bekijken') : notice.source === 'project' ? t('Voir le projet', 'View project', 'Project bekijken') : notice.source === 'group-invite' ? t('Répondre à l’invitation', 'Respond to invitation', 'Uitnodiging beantwoorden') : notice.source === 'workspace' || notice.source === 'group' ? t('Voir la demande', 'View request', 'Aanvraag bekijken') : '';
     return <article className={`account-notice account-notice--${notice.source}${notice.readAt ? ' account-notice--read' : ''}`} key={key}>
       <div className="account-notice-heading"><span className="account-notice-category"><Icon name={icon} />{category(notice)}</span>{!notice.readAt && <span className="account-notice-new">{t('Nouveau', 'New', 'Nieuw')}</span>}</div>
       <p className="account-notice-event">{label(notice)}</p>

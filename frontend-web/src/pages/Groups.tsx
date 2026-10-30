@@ -4,6 +4,7 @@ import './Groups.css';
 
 type Group = { id: number; name: string; description: string; coverUrl: string; spaceName: string; openMembership: boolean; visibility: string; membershipStatus: string };
 type Invitation = { id: number; name: string; description: string; spaceName: string; openMembership: boolean; membershipStatus: string };
+type DirectInvitation = { id: number; groupId: number; groupName: string; spaceName: string; status: string; createdAt: string };
 const states: Record<string, string> = { MEMBRE: 'Vous êtes membre', ADMINISTRATEUR: 'Vous administrez ce groupe', EN_ATTENTE: 'Demande en attente', REFUSEE: 'Demande refusée', INDISPONIBLE: 'Accès suspendu ou retiré', ACCEPTEE: 'Adhésion acceptée' };
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : 'Impossible de joindre le serveur.';
 
@@ -26,6 +27,7 @@ export function Groups({ signedIn }: { signedIn: boolean }) {
   const selectedGroupId = Number(new URLSearchParams(window.location.search).get('groupe')) || null;
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [invitationError, setInvitationError] = useState('');
+  const [directInvitations, setDirectInvitations] = useState<DirectInvitation[]>([]);
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [query, setQuery] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -44,8 +46,20 @@ export function Groups({ signedIn }: { signedIn: boolean }) {
       .then(result).then(setInvitation).catch(e => { if (!c.signal.aborted) setInvitationError(errorMessage(e)); });
     return () => c.abort();
   }, [attempt, invitationCode, signedIn]);
+  useEffect(() => {
+    if (!signedIn) return;
+    const c = new AbortController();
+    fetch('/api/groups/invitations/mine', { credentials: 'same-origin', cache: 'no-store', signal: c.signal })
+      .then(result).then(setDirectInvitations).catch(() => {});
+    return () => c.abort();
+  }, [attempt, signedIn]);
+  async function answerInvitation(id: number, decision: 'accept' | 'decline') {
+    try { await postJson(`/api/groups/invitations/${id}/${decision}`); setNotice(decision === 'accept' ? 'Vous avez rejoint le groupe.' : 'Invitation refusée.'); setAttempt(value => value + 1); }
+    catch(e){setNotice(errorMessage(e));}
+  }
   const filtered = (groups ?? []).filter(g => (!selectedGroupId || g.id === selectedGroupId) && `${g.name} ${g.spaceName} ${g.description}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')));
   return <section className="container groups-page"><a className="text-link" href="/">← Accueil</a><p className="eyebrow teal">DES LIENS QUI GRANDISSENT</p><h1 tabIndex={-1}>Trouvez votre communauté</h1><p className="groups-intro">Un jardin partagé, un atelier, un projet de quartier… Retrouvez des personnes qui partagent vos envies.</p>
+    {directInvitations.some(item => item.status === 'EN_ATTENTE') && <section className="group-card" aria-label="Mes invitations"><div className="group-card-content"><h2>Mes invitations</h2>{directInvitations.filter(item => item.status === 'EN_ATTENTE').map(item => <div key={item.id}><h3>{item.groupName}</h3><p>{item.spaceName} vous invite à rejoindre ce groupe privé.</p><div className="group-actions"><button className="button coral" onClick={() => void answerInvitation(item.id,'accept')}>Accepter</button><button className="button outline" onClick={() => void answerInvitation(item.id,'decline')}>Refuser</button></div></div>)}</div></section>}
     {invitationCode && <section className="group-card" aria-label="Invitation à un groupe privé"><div className="group-card-content"><h2>Votre invitation</h2>{invitationError && <p role="alert">{invitationError}</p>}{!invitation && !invitationError && <p role="status">Chargement de l’invitation…</p>}{invitation && <><h3>{invitation.name}</h3><p>{invitation.spaceName}</p><p>{invitation.description}</p><JoinGroup group={{ ...invitation, coverUrl: '', visibility: 'PRIVEE' }} signedIn={signedIn} invitationCode={invitationCode} onJoined={() => { setNotice('Votre demande est enregistrée. Suivez sa réponse dans Mon espace.'); setAttempt(n => n + 1); }} /></>}</div></section>}
     {selectedGroupId && <a className="text-link" href="/groupes">← Voir tous les groupes</a>}
     <div className="groups-tools"><label>Rechercher un groupe<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Un groupe, un espace, une envie…" /></label><button className="button outline" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></div>
