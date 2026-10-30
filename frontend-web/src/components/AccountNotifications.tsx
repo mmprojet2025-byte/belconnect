@@ -50,7 +50,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
         else if (notice.source === 'project' && notice.projectId) navigate(`/projets/${notice.projectId}`);
         else if (notice.source === 'workspace') onOpenRequests();
         else if (notice.source === 'group') navigate(notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '/mon-espace#demandes');
-        else if (notice.source === 'group-invite') navigate('/groupes');
+        else if (notice.source === 'group-invite') navigate('/groupes#invitations');
       }
     } catch {
       setError(t('Impossible de marquer cette notification comme lue. Réessayez.', 'Could not mark this notification as read. Try again.', 'Deze melding kon niet als gelezen worden gemarkeerd. Probeer opnieuw.'));
@@ -76,14 +76,15 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
   const renderNotice = (notice: Notice) => {
     const key = `${notice.source}-${notice.id}`;
     const icon = notice.source === 'activity' ? 'calendar' : notice.source === 'project' ? 'folder' : notice.source === 'message' ? 'chat' : notice.source === 'group' || notice.source === 'group-invite' ? 'users' : 'inbox';
-    const destination = notice.source === 'activity' ? '#mes-inscriptions' : notice.source === 'project' && notice.projectId ? `/projets/${notice.projectId}` : notice.source === 'group-invite' ? '/groupes' : notice.source === 'workspace' ? owner ? '#a-traiter' : '#demandes' : notice.source === 'group' ? notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '#demandes' : null;
+    const destination = notice.source === 'activity' ? '#mes-inscriptions' : notice.source === 'project' && notice.projectId ? `/projets/${notice.projectId}` : notice.source === 'group-invite' ? '/groupes#invitations' : notice.source === 'workspace' ? owner ? '#a-traiter' : '#demandes' : notice.source === 'group' ? notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '#demandes' : null;
     const action = notice.source === 'activity' ? t('Voir mon inscription', 'View my booking', 'Mijn inschrijving bekijken') : notice.source === 'project' ? t('Voir le projet', 'View project', 'Project bekijken') : notice.source === 'group-invite' ? t('Répondre à l’invitation', 'Respond to invitation', 'Uitnodiging beantwoorden') : notice.source === 'workspace' || notice.source === 'group' ? t('Voir la demande', 'View request', 'Aanvraag bekijken') : '';
-    return <article className={`account-notice account-notice--${notice.source}${notice.readAt ? ' account-notice--read' : ''}`} key={key}>
-      <div className="account-notice-heading"><span className="account-notice-category"><Icon name={icon} />{category(notice)}</span>{!notice.readAt && <span className="account-notice-new">{t('Nouveau', 'New', 'Nieuw')}</span>}</div>
+    const content = <><div className="account-notice-heading"><span className="account-notice-category"><Icon name={icon} />{category(notice)}</span>{!notice.readAt && <span className="account-notice-new">{t('Nouveau', 'New', 'Nieuw')}</span>}</div>
       <p className="account-notice-event">{label(notice)}</p>
       <p className="account-notice-title"><strong>{notice.title}</strong></p>
       <p>{notice.source === 'message' ? t('À consulter dans l’application mobile.', 'Open in the mobile app.', 'Open in de mobiele app.') : notice.message}</p>
-      <time dateTime={notice.createdAt}>{new Intl.DateTimeFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notice.createdAt))}</time>
+      <time dateTime={notice.createdAt}>{new Intl.DateTimeFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notice.createdAt))}</time></>;
+    return <article className={`account-notice account-notice--${notice.source}${notice.readAt ? ' account-notice--read' : ''}`} key={key}>
+      {notice.source === 'group-invite' ? <a className="account-notice-open" href="/groupes#invitations" onClick={event => { event.preventDefault(); void acknowledge(notice, true); }}>{content}</a> : content}
       <div className="management-actions">
         {destination && <a className="text-link" href={destination} onClick={event => { event.preventDefault(); void acknowledge(notice, true); }}>{action}</a>}
         {!notice.readAt && <button className="text-link" disabled={Boolean(busyKey)} onClick={() => void acknowledge(notice)}>{busyKey === key ? t('Enregistrement…', 'Saving…', 'Opslaan') : t('Marquer comme lu', 'Mark as read', 'Markeren als gelezen')}</button>}

@@ -168,6 +168,9 @@
 .account-notifications .account-notice--activity .account-notice-event { color:#b84e0b; }
 .account-notifications .account-notice--message .account-notice-event { color:#245f9b; }
 .account-notifications .account-notice .account-notice-title { font-size:18px; line-height:1.3; }
+.account-notice-open { display:block; color:inherit; text-decoration:none; border-radius:8px; }
+.account-notice-open:hover .account-notice-title, .account-notice-open:focus-visible .account-notice-title { text-decoration:underline; }
+.account-notice-open:focus-visible { outline:2px solid #176b52; outline-offset:3px; }
 .account-profile-main { display:grid; align-items:start; }
 .account-profile-main .account-profile-form { width:min(100%,480px); margin:0; }
 .account-profile-main .account-profile-form p { overflow-wrap:anywhere; }

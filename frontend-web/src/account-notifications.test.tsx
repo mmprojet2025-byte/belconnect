@@ -27,3 +27,12 @@ it('shows the same inbox as mobile and keeps read notifications in history', asy
   expect(fetcher.mock.calls.some(([url, options]) => url === '/api/mobile/notifications/workspace/1/read' && options?.method === 'POST')).toBe(true);
   expect(await screen.findAllByRole('article')).toHaveLength(4);
 });
+
+it('opens a group invitation from the notification itself', async () => {
+  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify([
+    { source: 'group-invite', id: 7, title: 'Voyages', message: 'Vous êtes invité à rejoindre ce groupe privé.', event: 'EN_ATTENTE', createdAt: '2026-10-30T10:00:00Z', readAt: null, spaceId: 3 },
+  ]), { status: 200 }))));
+  render(<AccountNotifications owner={false} onOpenBookings={vi.fn()} onOpenRequests={vi.fn()} />);
+  const link = await screen.findByRole('link', { name: /invitation à un groupe.*voyages/i });
+  expect(link.getAttribute('href')).toBe('/groupes#invitations');
+});
