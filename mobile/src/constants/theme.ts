@@ -16,6 +16,7 @@ export const Colors = {
     textSecondary: '#66766C',
     surface: '#FFFFFF',
     border: '#E2EAE3',
+    accent: '#176B52',
   },
   dark: {
     text: '#F4F7F3',
@@ -25,6 +26,7 @@ export const Colors = {
     textSecondary: '#AAB8AE',
     surface: '#1D2A22',
     border: '#34443A',
+    accent: '#89D9AF',
   },
   brand: '#176B52',
   brandSoft: '#E3F2E9',

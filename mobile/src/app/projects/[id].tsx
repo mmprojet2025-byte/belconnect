@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/hooks/use-theme';
 import { getProject, Project, projectImages } from '@/lib/projects';
 
 const date = new Intl.DateTimeFormat('fr-BE', { dateStyle: 'long' });
@@ -20,6 +21,7 @@ export default function ProjectDetailScreen() {
 }
 
 function ProjectContent({ id, token }: { id: string | undefined; token: string | null }) {
+  const theme = useTheme();
   const [project, setProject] = useState<Project>();
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -33,12 +35,12 @@ function ProjectContent({ id, token }: { id: string | undefined; token: string |
   const invalid = !Number.isSafeInteger(Number(id)) || Number(id) < 1;
 
   return <ThemedView style={styles.screen}><ScrollView><SafeAreaView style={styles.content} edges={['left', 'right', 'bottom']}>{!project ? <ThemedText accessibilityLiveRegion="polite">{invalid || error ? 'Projet indisponible.' : 'Chargement du projet…'}</ThemedText> : <View style={styles.body}>
-    {project.imageUrl && projectImages[project.imageUrl] ? <Image source={projectImages[project.imageUrl]} style={styles.image} resizeMode="cover" accessibilityLabel={`Image du projet ${project.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="project" color={Colors.brand} size={54} /></View>}
-    <View style={styles.organizer}><SocialIcon name="group" color={Colors.brand} size={20} /><ThemedText type="smallBold" style={styles.brand}>{project.spaceName}</ThemedText></View>
+    {project.imageUrl && projectImages[project.imageUrl] ? <Image source={projectImages[project.imageUrl]} style={styles.image} resizeMode="cover" accessibilityLabel={`Image du projet ${project.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="project" color={theme.accent} size={54} /></View>}
+    <View style={styles.organizer}><SocialIcon name="group" color={theme.accent} size={20} /><ThemedText type="smallBold" themeColor="accent">{project.spaceName}</ThemedText></View>
     <ThemedText type="title">{project.title}</ThemedText>
-    <ThemedView type="surface" style={styles.objective}><ThemedText type="eyebrow" style={styles.brand}>POURQUOI CE PROJET</ThemedText><ThemedText style={styles.objectiveText}>{project.objective}</ThemedText></ThemedView>
+    <ThemedView type="surface" style={styles.objective}><ThemedText type="eyebrow" themeColor="accent">POURQUOI CE PROJET</ThemedText><ThemedText style={styles.objectiveText}>{project.objective}</ThemedText></ThemedView>
     <View style={styles.section}><ThemedText type="subtitle">Le projet</ThemedText><ThemedText>{project.description}</ThemedText></View>
-    {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle">Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={styles.brand}>{helpLabels[value] ?? value}</ThemedText></View>)}</View></View>}
+    {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle">Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={{ color: Colors.brand }}>{helpLabels[value] ?? value}</ThemedText></View>)}</View></View>}
     {(project.startsOn || project.meetingPlace || project.participationPriceCents !== null) && <View style={styles.section}><ThemedText type="subtitle">Informations pratiques</ThemedText>{project.startsOn && <ThemedText>Début prévu : {date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText>}{project.meetingPlace && <ThemedText>Lieu : {project.meetingPlace}</ThemedText>}{project.participationPriceCents !== null && <ThemedText>Participation : {project.participationPriceCents === 0 ? 'gratuite' : money.format(project.participationPriceCents / 100)}</ThemedText>}</View>}
   </View>}</SafeAreaView></ScrollView></ThemedView>;
 }

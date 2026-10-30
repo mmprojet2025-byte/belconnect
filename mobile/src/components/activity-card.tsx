@@ -20,14 +20,14 @@ export function ActivityCard({ activity }: { activity: Activity }) {
       <ThemedView type="surface" style={[styles.card, { borderColor: theme.border }]}>
         <View style={styles.publisher}><SocialAvatar name={activity.host} size={40} /><View style={styles.publisherCopy}><ThemedText type="smallBold" numberOfLines={1}>{activity.host}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.city} · {date.format(new Date(activity.startsAt))}</ThemedText></View><SocialIcon name="chevron" color={theme.textSecondary} size={18} /></View>
         <View style={styles.media}>
-          {activityImages[activity.image] ? <Image source={activityImages[activity.image]} style={styles.image} resizeMode="cover" accessibilityLabel={`Photo de ${activity.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="activity" color={Colors.brand} size={42} /></View>}
+          {activityImages[activity.image] ? <Image source={activityImages[activity.image]} style={styles.image} resizeMode="cover" accessibilityLabel={`Photo de ${activity.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="activity" color={theme.accent} size={42} /></View>}
           <View style={styles.priceBadge}><ThemedText type="smallBold" style={styles.priceText}>{free ? 'Gratuit' : `${activity.price.toFixed(2)} €`}</ThemedText></View>
         </View>
         <View style={styles.content}>
-          <View style={styles.topline}><ThemedText type="eyebrow" style={styles.category}>{activity.category}</ThemedText>{activity.demonstration && <ThemedText type="small" themeColor="textSecondary">Démo</ThemedText>}</View>
+          <View style={styles.topline}><ThemedText type="eyebrow" themeColor="accent">{activity.category}</ThemedText>{activity.demonstration && <ThemedText type="small" themeColor="textSecondary">Démo</ThemedText>}</View>
           <ThemedText type="subtitle" style={styles.title} numberOfLines={2}>{activity.title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{activity.location} · {available ? `${activity.details.remaining} places restantes` : 'Complet'}</ThemedText>
-          <View style={styles.social}><View style={styles.metric}><SocialIcon name={activity.likedByMe ? 'heartFilled' : 'heart'} color={activity.likedByMe ? Colors.accent : theme.text} size={21} /><ThemedText type="smallBold">{activity.likeCount}</ThemedText></View><View style={styles.metric}><SocialIcon name="comment" color={theme.text} size={20} /><ThemedText type="smallBold">{activity.commentCount}</ThemedText></View><ThemedText type="smallBold" style={styles.action}>Voir l’activité →</ThemedText></View>
+          <View style={[styles.social, { borderColor: theme.border }]}><View style={styles.metric}><SocialIcon name={activity.likedByMe ? 'heartFilled' : 'heart'} color={activity.likedByMe ? Colors.accent : theme.text} size={21} /><ThemedText type="smallBold">{activity.likeCount}</ThemedText></View><View style={styles.metric}><SocialIcon name="comment" color={theme.text} size={20} /><ThemedText type="smallBold">{activity.commentCount}</ThemedText></View><ThemedText type="smallBold" style={[styles.action, { color: theme.accent }]}>Voir →</ThemedText></View>
         </View>
       </ThemedView>
     </Pressable>
