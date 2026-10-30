@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialIcon } from '@/components/social-icon';
+import { ProjectParticipation } from '@/components/project-participation';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -44,6 +45,7 @@ function ProjectContent({ id, token }: { id: string | undefined; token: string |
     <View style={styles.section}><ThemedText type="subtitle">Le projet</ThemedText><ThemedText>{project.description}</ThemedText></View>
     {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle">Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={{ color: Colors.brand }}>{translate(locale,helpLabels[value] ?? value)}</ThemedText></View>)}</View></View>}
     {(project.startsOn || project.meetingPlace || project.participationPriceCents !== null) && <View style={styles.section}><ThemedText type="subtitle">Informations pratiques</ThemedText>{project.startsOn && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Début prévu</ThemedText><ThemedText style={styles.infoValue}>{date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText></View>}{project.meetingPlace && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Lieu</ThemedText><ThemedText style={styles.infoValue}>{project.meetingPlace}</ThemedText></View>}{project.participationPriceCents !== null && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Participation</ThemedText><ThemedText style={styles.infoValue}>{project.participationPriceCents === 0 ? 'Gratuite' : money.format(project.participationPriceCents / 100)}</ThemedText></View>}</View>}
+    <ProjectParticipation projectId={project.id} helpTypes={project.helpTypes} token={token} />
   </View>}</SafeAreaView></ScrollView></ThemedView>;
 }
 
