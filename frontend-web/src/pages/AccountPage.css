@@ -443,6 +443,10 @@
 @media(max-width:560px) { .account-sidebar { top:64px; height:calc(100dvh - 64px); }.account-sidebar-backdrop { top:64px; }.account-page { min-height:calc(100vh - 64px); } }
 
 .group-lifecycle { margin-top: 1rem; }
+.group-extra-options { margin-top: 16px; }
+.group-extra-options summary { width: fit-content; color: #176c57; font-size: 13px; font-weight: 700; cursor: pointer; }
+.group-extra-options[open] > label { margin-top: 16px; }
+.group-extra-options > .workspace-resume { display: block; margin-top: 16px; }
 .group-lifecycle fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .activity-editor-cover { width: 100%; max-width: 400px; height: 180px; object-fit: cover; border-radius: 16px; margin: 12px 0; }
