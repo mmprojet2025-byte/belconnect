@@ -14,12 +14,13 @@ function AppStack() {
   const label = (text: string) => translate(locale, text);
   return (
     <AuthProvider><ThemeProvider value={navigationTheme}>
-      <Stack screenOptions={{ headerShadowVisible: false }}>
+      <Stack screenOptions={{ headerShadowVisible: false, headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="activities/[id]" options={{ title: label('Activité'), headerBackTitle: label('Activités'), headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
         <Stack.Screen name="projects/[id]" options={{ title: label('Projet'), headerBackTitle: label('Projets'), headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
         <Stack.Screen name="groups/index" options={{ title: label('Groupes'), headerBackTitle: label('Accueil') }} />
         <Stack.Screen name="groups/[id]" options={{ title: label('Groupe'), headerBackTitle: label('Groupes') }} />
+        <Stack.Screen name="groups/invitations/[id]" options={{ title: label('Invitation à un groupe'), headerBackTitle: label('Groupes') }} />
         <Stack.Screen name="messages/index" options={{ title: label('Messages'), headerBackTitle: label('Accueil') }} />
         <Stack.Screen name="messages/new" options={{ title: label('Nouveau message'), headerBackTitle: label('Groupe') }} />
         <Stack.Screen name="messages/[id]" options={{ title: label('Conversation'), headerBackTitle: label('Messages') }} />
