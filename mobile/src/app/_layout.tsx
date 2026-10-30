@@ -23,8 +23,8 @@ function AppStack() {
         <Stack.Screen name="groups/invitations/[id]" options={{ title: label('Invitation à un groupe'), headerBackTitle: label('Groupes') }} />
         <Stack.Screen name="notifications" options={{ title: label('Notifications'), headerBackTitle: label('Accueil') }} />
         <Stack.Screen name="messages/new" options={{ title: label('Nouveau message'), headerBackTitle: label('Groupe') }} />
-        <Stack.Screen name="messages/[id]" options={{ title: label('Conversation'), headerBackTitle: label('Messages') }} />
-        <Stack.Screen name="messages/groups/[id]" options={{ title: label('Discussion de groupe'), headerBackTitle: label('Messages') }} />
+        <Stack.Screen name="messages/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="messages/groups/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="privacy" options={{ title: label('Confidentialité et données'), headerBackTitle: label('Retour') }} />
         <Stack.Screen name="legal" options={{ title: label('Informations légales'), headerBackTitle: label('Réglages') }} />
         <Stack.Screen name="settings" options={{ title: label('Réglages'), headerBackTitle: label('Mon espace') }} />

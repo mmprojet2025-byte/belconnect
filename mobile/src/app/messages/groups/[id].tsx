@@ -94,7 +94,7 @@ function GroupChatContent({ id, token }: { id: string | undefined; token: string
     finally { setBusy(false); }
   }
 
-  return <ThemedView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+  return <ThemedView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
     {!token ? <Pressable onPress={() => router.navigate('/(tabs)/account')}><ThemedText type="linkPrimary">{t('Connectez-vous pour voir vos messages')}</ThemedText></Pressable> : !Number.isSafeInteger(groupId) || groupId < 1 ? <ThemedText style={styles.error}>Groupe invalide.</ThemedText> : <View style={styles.chat}>
       <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)/messages')} style={styles.back}><ThemedText type="linkPrimary">← {t('Messages')}</ThemedText></Pressable>
       <View style={styles.header}><SocialAvatar name={groupName || 'Groupe'} size={46} /><View style={styles.headerCopy}><ThemedText type="smallBold" numberOfLines={1}>{groupName || t('Discussion de groupe')}</ThemedText><ThemedText type="small" themeColor="textSecondary">{t('Tous les membres du groupe')}</ThemedText></View><Pressable accessibilityRole="button" accessibilityLabel={t('Actualiser')} onPress={() => void load()} style={styles.refresh}><SocialIcon name="refresh" color={Colors.brand} size={22} /></Pressable></View>

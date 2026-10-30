@@ -120,7 +120,7 @@ function ConversationContent({ id, token }: { id: string | undefined; token: str
     finally { setBusy(false); }
   }
 
-  return <ThemedView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+  return <ThemedView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
     {!token ? <Pressable style={styles.gate} onPress={() => router.navigate('/(tabs)/account')}><ThemedText type="linkPrimary">Connectez-vous pour voir vos messages</ThemedText></Pressable> : !Number.isSafeInteger(conversationId) || conversationId < 1 ? <ThemedText style={styles.error}>Conversation invalide.</ThemedText> : <View style={styles.chat}>
       <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)/messages')} style={styles.backToMessages}><ThemedText type="linkPrimary">← {t('Messages')}</ThemedText></Pressable>
       <View style={styles.header}><SocialAvatar name={conversation?.otherName ?? 'BelConnect'} size={46} /><View style={styles.headerCopy}><ThemedText type="smallBold" style={styles.headerName} numberOfLines={1}>{conversation?.otherName ?? 'Conversation'}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{conversation?.groupName ?? 'Chargement…'}</ThemedText></View><Pressable accessibilityRole="button" accessibilityLabel="Actualiser les messages" onPress={refresh} style={styles.refresh}><SocialIcon name="refresh" color={Colors.brand} size={22} /></Pressable></View>
