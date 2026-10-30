@@ -10,7 +10,7 @@ export default function RootLayout() {
     <AuthProvider><ThemeProvider value={navigationTheme}>
       <Stack screenOptions={{ headerShadowVisible: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="activities/[id]" options={{ title: 'Activité', headerBackTitle: 'Activités' }} />
+        <Stack.Screen name="activities/[id]" options={{ title: 'Activité', headerBackTitle: 'Activités', headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
         <Stack.Screen name="projects/[id]" options={{ title: 'Projet', headerBackTitle: 'Projets' }} />
         <Stack.Screen name="groups/index" options={{ title: 'Groupes', headerBackTitle: 'Accueil' }} />
         <Stack.Screen name="groups/[id]" options={{ title: 'Groupe', headerBackTitle: 'Groupes' }} />
