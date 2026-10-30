@@ -446,7 +446,9 @@
 .group-extra-options { margin-top: 16px; }
 .group-extra-options summary { width: fit-content; color: #176c57; font-size: 13px; font-weight: 700; cursor: pointer; }
 .group-extra-options[open] > label { margin-top: 16px; }
-.group-extra-options > .workspace-resume { display: block; margin-top: 16px; }
+.group-card-options { position: relative; }
+.group-options-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: min(320px, calc(100vw - 64px)); max-height: min(70vh, 520px); overflow-y: auto; padding: 16px; border: 1px solid #dce7eb; border-radius: 12px; background: #fff; box-shadow: 0 12px 32px #14263325; }
+.group-options-menu > .workspace-resume { display: block; margin-top: 0; }
 .group-lifecycle fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .activity-editor-cover { width: 100%; max-width: 400px; height: 180px; object-fit: cover; border-radius: 16px; margin: 12px 0; }
