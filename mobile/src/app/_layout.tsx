@@ -1,12 +1,13 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
 import { AuthProvider } from '@/context/auth-context';
+import { Colors } from '@/constants/theme';
+
+const navigationTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: Colors.brand, background: Colors.light.background, card: Colors.light.surface, text: Colors.light.text, border: Colors.light.border } };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <AuthProvider><ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AuthProvider><ThemeProvider value={navigationTheme}>
       <Stack screenOptions={{ headerShadowVisible: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="activities/[id]" options={{ title: 'Activité', headerBackTitle: 'Activités' }} />
@@ -17,7 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="messages/new" options={{ title: 'Nouveau message', headerBackTitle: 'Groupe' }} />
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation', headerBackTitle: 'Messages' }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider></AuthProvider>
   );
 }
