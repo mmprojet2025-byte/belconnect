@@ -2,6 +2,8 @@ import { Link } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
 import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
+import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialAvatar } from '@/components/social-avatar';
 import { SocialIcon } from '@/components/social-icon';
@@ -13,6 +15,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { answerGroupInvitation, getGroupInvitations, getGroups, Group, GroupInvitation } from '@/lib/groups';
 
 const joined = (group: Group) => group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR';
+
+function InvitationCard({item,onRespond}:{item:GroupInvitation;onRespond:(id:number,decision:'accept'|'decline')=>Promise<void>}){
+  const {locale}=useLocale();
+  return <ThemedView type="surface" style={styles.invitation}><ThemedText type="smallBold" style={styles.brand}>INVITATION</ThemedText><ThemedText type="subtitle">{item.groupName}</ThemedText><ThemedText>{item.spaceName} {translate(locale,'vous invite à rejoindre ce groupe privé.')}</ThemedText><View style={styles.invitationActions}><Pressable accessibilityRole="button" style={styles.accept} onPress={()=>void onRespond(item.id,'accept')}><ThemedText type="smallBold" style={styles.acceptText}>Accepter</ThemedText></Pressable><Pressable accessibilityRole="button" onPress={()=>void onRespond(item.id,'decline')}><ThemedText type="linkPrimary">Refuser</ThemedText></Pressable></View></ThemedView>;
+}
 
 function GroupCard({ group }: { group: Group }) {
   const theme = useTheme();
@@ -26,6 +33,7 @@ function GroupCard({ group }: { group: Group }) {
 }
 
 export default function GroupsScreen() {
+  const {locale}=useLocale();
   const { token } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
@@ -52,11 +60,11 @@ export default function GroupsScreen() {
 
   return <ThemedView style={styles.screen}><SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}><FlatList data={filtered} keyExtractor={item => String(item.id)} renderItem={({ item }) => <GroupCard group={item} />} contentContainerStyle={styles.list} ItemSeparatorComponent={() => <View style={styles.separator} />} ListHeaderComponent={<View style={styles.header}>
     <ThemedText type="eyebrow" style={styles.brand}>COMMUNAUTÉS</ThemedText><ThemedText type="title">Trouvez votre groupe.</ThemedText><ThemedText themeColor="textSecondary">Des personnes avec qui partager plus que des activités.</ThemedText>
-    {token&&invitations.filter(item=>item.status==='EN_ATTENTE').map(item=><ThemedView type="surface" style={styles.invitation} key={item.id}><ThemedText type="smallBold" style={styles.brand}>INVITATION</ThemedText><ThemedText type="subtitle">{item.groupName}</ThemedText><ThemedText>{item.spaceName} vous invite à rejoindre ce groupe privé.</ThemedText><View style={styles.invitationActions}><Pressable accessibilityRole="button" style={styles.accept} onPress={()=>void respond(item.id,'accept')}><ThemedText type="smallBold" style={styles.acceptText}>Accepter</ThemedText></Pressable><Pressable accessibilityRole="button" onPress={()=>void respond(item.id,'decline')}><ThemedText type="linkPrimary">Refuser</ThemedText></Pressable></View></ThemedView>)}
+    {token&&invitations.filter(item=>item.status==='EN_ATTENTE').map(item=><InvitationCard key={item.id} item={item} onRespond={respond}/>)}
     {!!invitationError&&<ThemedText accessibilityLiveRegion="assertive" style={styles.invitationError}>{invitationError}</ThemedText>}
     <View style={styles.search}><SocialIcon name="search" color="#718077" size={21} /><TextInput accessibilityLabel="Rechercher un groupe" placeholder="Nom ou communauté" placeholderTextColor="#718077" value={query} onChangeText={setQuery} style={styles.searchInput} /></View>
     <View style={styles.filters}><Pressable accessibilityRole="button" accessibilityState={{ selected: !mineOnly }} onPress={() => setMineOnly(false)} style={[styles.chip, !mineOnly && styles.chipActive]}><ThemedText type="smallBold" style={!mineOnly && styles.chipActiveText}>Tous les groupes</ThemedText></Pressable><Pressable accessibilityRole="button" accessibilityState={{ selected: mineOnly }} onPress={() => setMineOnly(true)} style={[styles.chip, mineOnly && styles.chipActive]}><ThemedText type="smallBold" style={mineOnly && styles.chipActiveText}>Mes groupes</ThemedText></Pressable></View>
-    {!loading && !error && <ThemedText type="small" themeColor="textSecondary">{filtered.length} groupe{filtered.length > 1 ? 's' : ''}</ThemedText>}
+    {!loading && !error && <ThemedText type="small" themeColor="textSecondary">{filtered.length} {translate(locale,filtered.length>1?'groupes':'groupe')}</ThemedText>}
   </View>} ListEmptyComponent={loading ? <ThemedText accessibilityLiveRegion="polite">Chargement des groupes…</ThemedText> : error ? <View style={styles.empty}><ThemedText>{error}</ThemedText><Pressable onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></View> : <ThemedView type="surface" style={styles.empty}><ThemedText type="smallBold">{mineOnly ? 'Aucun groupe rejoint' : 'Aucun groupe trouvé'}</ThemedText><ThemedText themeColor="textSecondary">{mineOnly ? 'Découvrez un groupe et demandez à le rejoindre.' : 'Essayez une autre recherche.'}</ThemedText></ThemedView>} refreshing={loading && groups.length > 0} onRefresh={retry} /></SafeAreaView></ThemedView>;
 }
 

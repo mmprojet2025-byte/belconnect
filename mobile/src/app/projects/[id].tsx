@@ -10,6 +10,7 @@ import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { getProject, Project, projectImages } from '@/lib/projects';
 import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 const helpLabels: Record<string, string> = { BENEVOLAT: 'Donner du temps', COMPETENCES: 'Partager une compétence', PARTAGE: 'Faire connaître' };
 
@@ -41,7 +42,7 @@ function ProjectContent({ id, token }: { id: string | undefined; token: string |
     <View style={styles.intro}><View style={styles.organizer}><SocialIcon name="group" color={Colors.brand} size={20} /><ThemedText type="smallBold" style={styles.brand}>{project.spaceName}</ThemedText></View><ThemedText type="title" style={styles.projectTitle}>{project.title}</ThemedText></View>
     <ThemedView type="surface" style={styles.section}><ThemedText type="subtitle">Pourquoi ce projet</ThemedText><ThemedText style={styles.objectiveText}>{project.objective}</ThemedText></ThemedView>
     <View style={styles.section}><ThemedText type="subtitle">Le projet</ThemedText><ThemedText>{project.description}</ThemedText></View>
-    {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle">Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={{ color: Colors.brand }}>{helpLabels[value] ?? value}</ThemedText></View>)}</View></View>}
+    {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle">Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={{ color: Colors.brand }}>{translate(locale,helpLabels[value] ?? value)}</ThemedText></View>)}</View></View>}
     {(project.startsOn || project.meetingPlace || project.participationPriceCents !== null) && <View style={styles.section}><ThemedText type="subtitle">Informations pratiques</ThemedText>{project.startsOn && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Début prévu</ThemedText><ThemedText style={styles.infoValue}>{date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText></View>}{project.meetingPlace && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Lieu</ThemedText><ThemedText style={styles.infoValue}>{project.meetingPlace}</ThemedText></View>}{project.participationPriceCents !== null && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Participation</ThemedText><ThemedText style={styles.infoValue}>{project.participationPriceCents === 0 ? 'Gratuite' : money.format(project.participationPriceCents / 100)}</ThemedText></View>}</View>}
   </View>}</SafeAreaView></ScrollView></ThemedView>;
 }

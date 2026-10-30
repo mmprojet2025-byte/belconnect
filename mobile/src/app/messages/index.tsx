@@ -12,6 +12,7 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Conversation, getConversations } from '@/lib/private-messages';
 import { useLocale } from '@/context/locale-context';
+import { translate } from '@/lib/translations';
 
 function ConversationRow({ item }: { item: Conversation }) {
   const theme = useTheme();
@@ -30,6 +31,7 @@ export default function MessagesScreen() {
 }
 
 function MessagesContent({ token }: { token: string | null }) {
+  const {locale}=useLocale();
   const [items, setItems] = useState<Conversation[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ function MessagesContent({ token }: { token: string | null }) {
     <View style={styles.heading}><View><ThemedText type="eyebrow" style={styles.brand}>VOS ÉCHANGES</ThemedText><ThemedText type="title">Messages</ThemedText></View><Pressable accessibilityRole="button" accessibilityLabel="Actualiser les conversations" onPress={refresh} style={styles.refresh}><SocialIcon name="refresh" color={Colors.brand} size={22} /></Pressable></View>
     <ThemedText themeColor="textSecondary">Restez en contact avec les membres de vos groupes.</ThemedText>
     {token && <View style={styles.search}><SocialIcon name="search" color="#718077" size={21} /><TextInput accessibilityLabel="Rechercher une conversation" placeholder="Rechercher une personne ou un groupe" placeholderTextColor="#718077" value={query} onChangeText={setQuery} style={styles.searchInput} /></View>}
-    {unread > 0 && <View style={styles.unreadPill}><SocialIcon name="message" color={Colors.brand} size={16} /><ThemedText type="smallBold" style={styles.brand}>{unread} message{unread > 1 ? 's' : ''} non lu{unread > 1 ? 's' : ''}</ThemedText></View>}
+    {unread > 0 && <View style={styles.unreadPill}><SocialIcon name="message" color={Colors.brand} size={16} /><ThemedText type="smallBold" style={styles.brand}>{unread} {translate(locale,unread>1?'messages non lus':'message non lu')}</ThemedText></View>}
     {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
   </View>} ItemSeparatorComponent={() => <View style={styles.separator} />} ListEmptyComponent={!token ? <View style={styles.empty}><SocialIcon name="message" color={Colors.brand} size={40} /><ThemedText type="subtitle">Vos échanges commencent ici</ThemedText><ThemedText themeColor="textSecondary">Connectez-vous pour retrouver vos conversations.</ThemedText><Pressable onPress={() => router.navigate('/(tabs)/account')}><ThemedText type="linkPrimary">Se connecter →</ThemedText></Pressable></View> : loading ? <ThemedText accessibilityLiveRegion="polite">Chargement des conversations…</ThemedText> : error ? <Pressable onPress={refresh}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable> : <View style={styles.empty}><SocialIcon name="message" color={Colors.brand} size={40} /><ThemedText type="subtitle">{query ? 'Aucun résultat' : 'Aucune conversation'}</ThemedText><ThemedText themeColor="textSecondary">{query ? 'Essayez un autre nom.' : 'Ouvrez un groupe dont vous êtes membre pour écrire à quelqu’un.'}</ThemedText><Pressable onPress={() => router.navigate('/groups')}><ThemedText type="linkPrimary">Explorer les groupes →</ThemedText></Pressable></View>} refreshing={loading && items.length > 0} onRefresh={refresh} /></SafeAreaView></ThemedView>;
 }
