@@ -2,53 +2,91 @@ import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SocialAvatar } from '@/components/social-avatar';
 import { SocialIcon } from '@/components/social-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/context/locale-context';
+import { activityImages } from '@/lib/activity-images';
+import { Booking, getBookings } from '@/lib/bookings';
+import { getGroupAnnouncements, GroupAnnouncement } from '@/lib/group-feed';
 import { getGroups, Group } from '@/lib/groups';
-import { getGroupPosts, GroupPost } from '@/lib/group-feed';
-import { useTheme } from '@/hooks/use-theme';
+import { translate } from '@/lib/translations';
 
-type RecentPost = GroupPost & { group: Group };
-const joined = (group: Group) => group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR';
+type CommunityNews = GroupAnnouncement & { group: Group };
+const member = (group: Group) => group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR';
 
 export default function HomeScreen() {
-  const { token } = useAuth();
-  const theme = useTheme();
-  const [groupState, setGroupState] = useState<{ token: string | null; items: Group[] }>({ token: null, items: [] });
-  const [recentState, setRecentState] = useState<{ token: string | null; items: RecentPost[]; loading: boolean }>({ token: null, items: [], loading: true });
-  const groups = groupState.token === token ? groupState.items : [];
-  const recent = recentState.token === token ? recentState.items : [];
-  const myGroups = groups.filter(joined);
+  const { token, profile } = useAuth();
+  return <HomeContent key={token ?? 'guest'} token={token} firstName={profile?.firstName ?? null} />;
+}
+
+function HomeContent({ token, firstName }: { token: string | null; firstName: string | null }) {
+  const { locale } = useLocale();
+  const t = (text: string) => translate(locale, text);
+  const date = new Intl.DateTimeFormat(`${locale}-BE`, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Brussels' });
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [news, setNews] = useState<CommunityNews | null>(null);
+  const [loading, setLoading] = useState(Boolean(token));
+  const [bookingError, setBookingError] = useState(false);
+  const [newsError, setNewsError] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
   useFocusEffect(useCallback(() => {
+    if (!token) return;
     const controller = new AbortController();
-    setRecentState({ token, items: [], loading: true });
-    getGroups(controller.signal, token).then(async items => {
+    setNow(Date.now());
+    setLoading(true);
+    setBookings([]);
+    setNews(null);
+    setBookingError(false);
+    setNewsError(false);
+    Promise.allSettled([
+      getBookings(token),
+      getGroups(controller.signal, token).then(async groups => {
+        const results = await Promise.allSettled(groups.filter(member).slice(0, 6).map(async group =>
+          (await getGroupAnnouncements(group.id, token, controller.signal)).slice(0, 2).map(item => ({ ...item, group }))));
+        const available = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+        if (results.length && results.every(result => result.status === 'rejected')) throw new Error('Annonces indisponibles');
+        return available.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
+      }),
+    ]).then(([reservationResult, newsResult]) => {
       if (controller.signal.aborted) return;
-      setGroupState({ token, items });
-      if (!token) { setRecentState({ token, items: [], loading: false }); return; }
-      const results = await Promise.allSettled(items.filter(joined).slice(0, 6).map(async group =>
-        (await getGroupPosts(group.id, token, undefined, controller.signal)).slice(0, 3).map(post => ({ ...post, group }))));
-      if (!controller.signal.aborted) setRecentState({ token, loading: false, items: results.flatMap(result => result.status === 'fulfilled' ? result.value : [])
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3) });
-    }).catch(() => { if (!controller.signal.aborted) setRecentState({ token, items: [], loading: false }); });
+      if (reservationResult.status === 'fulfilled') setBookings(reservationResult.value);
+      else setBookingError(true);
+      if (newsResult.status === 'fulfilled') setNews(newsResult.value);
+      else setNewsError(true);
+      setLoading(false);
+    });
     return () => controller.abort();
   }, [token]));
-  return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.container} edges={['left', 'right']}>
-    <View style={styles.topbar}><View><ThemedText type="eyebrow" style={styles.heroEyebrow}>LA BELGIQUE SE RENCONTRE</ThemedText><ThemedText type="subtitle" style={[styles.wordmark, { color: theme.accent }]}>BelConnect</ThemedText></View><Link href="/messages" asChild><Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes messages" style={styles.messageIcon}><SocialIcon name="message" color={Colors.brand} size={25} /></Pressable></Link></View>
-    <View style={[styles.hero, homeStyles.hero]}><Image source={require('../../../assets/activities/potager.jpg')} style={homeStyles.heroImage} resizeMode="cover" accessibilityLabel="Personnes réunies autour d’un jardin partagé" /><View style={homeStyles.heroBody}><ThemedText type="eyebrow" style={styles.heroEyebrow}>ENSEMBLE, PRÈS DE VOUS</ThemedText><ThemedText type="title" style={heroStyles.heading}>Rencontrez. Partagez. Agissez.</ThemedText><ThemedText style={styles.lead}>Des communautés locales pour créer des liens et faire avancer vos idées.</ThemedText><Link href="/groups" asChild><Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && styles.pressed]}><ThemedText type="smallBold" style={styles.buttonText}>Découvrir les groupes →</ThemedText></Pressable></Link></View></View>
-    <View style={styles.sectionHeader}><View><ThemedText type="eyebrow" style={styles.heroEyebrow}>VOTRE RÉSEAU</ThemedText><ThemedText type="subtitle">{token ? 'Vos communautés' : 'Communautés à découvrir'}</ThemedText></View><Link href="/groups"><ThemedText type="linkPrimary">Tout voir</ThemedText></Link></View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communities}>{(token ? myGroups : groups).slice(0, 6).map(group => <Link key={group.id} href={{ pathname: '/groups/[id]', params: { id: group.id } }} asChild><Pressable accessibilityRole="button" accessibilityLabel={`Ouvrir le groupe ${group.name}`} style={StyleSheet.flatten([styles.communityCard, { backgroundColor: theme.surface, borderColor: theme.border }])}>{group.coverUrl ? <Image source={{ uri: group.coverUrl }} style={styles.communityImage} resizeMode="cover" accessibilityLabel={`Photo du groupe ${group.name}`} /> : <View style={styles.communityFallback}><SocialAvatar name={group.name} size={48} /></View>}<View style={styles.communityBody}><ThemedText type="smallBold" numberOfLines={1}>{group.name}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{group.spaceName}</ThemedText></View></Pressable></Link>)}<Link href="/groups" asChild><Pressable accessibilityRole="button" accessibilityLabel="Découvrir tous les groupes" style={StyleSheet.flatten([styles.communityCard, styles.communityAll, { backgroundColor: theme.surface, borderColor: theme.border }])}><View style={styles.communityDiscover}><SocialIcon name="group" color={Colors.orange} size={26} /></View><ThemedText type="smallBold">Tous les groupes</ThemedText><ThemedText type="small" themeColor="textSecondary">Explorer →</ThemedText></Pressable></Link></ScrollView>
-    <View style={styles.sectionHeader}><View><ThemedText type="eyebrow" style={styles.heroEyebrow}>CE QUI SE PASSE</ThemedText><ThemedText type="subtitle">Échanges récents</ThemedText></View></View>
-    {!token ? <ThemedView type="surface" style={homeStyles.empty}><ThemedText themeColor="textSecondary">Connectez-vous pour suivre les échanges de vos groupes.</ThemedText><Link href="/(tabs)/account"><ThemedText type="linkPrimary">Se connecter →</ThemedText></Link></ThemedView> : recent.length ? <View style={homeStyles.posts}>{recent.map(post => <Link key={`${post.group.id}-${post.id}`} href={{ pathname: '/groups/[id]', params: { id: post.group.id } }} asChild><Pressable accessibilityRole="button" style={homeStyles.post}><View style={homeStyles.postHeader}><SocialAvatar name={post.author} size={40} /><View style={homeStyles.postAuthor}><ThemedText type="smallBold" numberOfLines={1}>{post.author}</ThemedText><ThemedText type="small" style={styles.heroEyebrow} numberOfLines={1}>{post.group.name}</ThemedText></View><SocialIcon name="chevron" color={Colors.brand} size={18} /></View><ThemedText numberOfLines={3}>{post.content}</ThemedText></Pressable></Link>)}</View> : <ThemedView type="surface" style={homeStyles.empty}><ThemedText themeColor="textSecondary">{recentState.loading ? 'Chargement des échanges…' : myGroups.length ? 'Pas encore de discussion dans vos communautés.' : 'Rejoignez une communauté pour suivre ses échanges.'}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">Voir les groupes →</ThemedText></Link></ThemedView>}
-    <Link href="/messages" asChild><Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes conversations privées" style={styles.messageShortcut}><View style={styles.messageShortcutIcon}><SocialIcon name="message" color={Colors.brand} size={23} /></View><View style={styles.messageCopy}><ThemedText type="smallBold">Vos messages</ThemedText><ThemedText type="small" themeColor="textSecondary">Retrouvez les personnes de vos groupes</ThemedText></View><SocialIcon name="chevron" color={Colors.brand} size={18} /></Pressable></Link>
+
+  const next = bookings.filter(item => item.status === 'CONFIRMEE' && !item.activityCancelled && new Date(item.startsAt).getTime() > now)
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0];
+
+  return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.content} edges={['left', 'right']}>
+    <View style={styles.topbar}><ThemedText type="subtitle" style={styles.wordmark}>BelConnect</ThemedText><Link href="/messages" asChild><Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes messages" style={styles.messageButton}><SocialIcon name="message" color={Colors.brand} size={24} /></Pressable></Link></View>
+    <View style={styles.intro}><ThemedText type="eyebrow" style={styles.orange}>{t('VOTRE JOURNÉE')}</ThemedText><ThemedText type="title" style={styles.greeting}>{firstName ? `${t('Bonjour')} ${firstName}` : t('Bienvenue sur BelConnect')}</ThemedText><ThemedText themeColor="textSecondary">{t('Vos prochains rendez-vous et les nouvelles de vos communautés, au même endroit.')}</ThemedText></View>
+
+    <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Votre prochain rendez-vous')}</ThemedText></View>
+    {next ? <Link href={{ pathname: '/activities/[id]', params: { id: next.activityId } }} asChild><Pressable accessibilityRole="button" style={styles.bookingCard}>{next.image && activityImages[next.image] ? <Image source={activityImages[next.image]} style={styles.bookingImage} resizeMode="cover" accessibilityLabel={`Photo de ${next.title}`} /> : <View style={styles.bookingFallback}><SocialIcon name="activity" color={Colors.orange} size={34} /></View>}<View style={styles.cardBody}><ThemedText type="eyebrow" style={styles.orange}>{t('RÉSERVATION CONFIRMÉE')}</ThemedText><ThemedText type="subtitle" numberOfLines={2}>{next.title}</ThemedText><ThemedText themeColor="textSecondary">{date.format(new Date(next.startsAt))}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{next.location}</ThemedText><ThemedText type="smallBold" style={styles.link}>{t('Voir ma réservation →')}</ThemedText></View></Pressable></Link>
+      : <ThemedView type="surface" style={styles.empty}><ThemedText themeColor="textSecondary">{!token ? t('Connectez-vous pour voir votre prochain rendez-vous.') : loading ? t('Chargement de vos réservations…') : bookingError ? t('Vos réservations sont momentanément indisponibles.') : t('Aucune réservation à venir pour le moment.')}</ThemedText><Link href={token ? '/(tabs)/activities' : '/(tabs)/account'}><ThemedText type="linkPrimary">{token ? t('Découvrir les activités →') : t('Se connecter →')}</ThemedText></Link></ThemedView>}
+
+    <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Dans vos communautés')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Voir les groupes')}</ThemedText></Link></View>
+    {news ? <Link href={{ pathname: '/groups/[id]', params: { id: news.group.id } }} asChild><Pressable accessibilityRole="button" style={styles.newsCard}><ThemedText type="eyebrow" style={styles.orange}>{t('ANNONCE DU GROUPE')}</ThemedText><ThemedText type="smallBold">{news.group.name} · {news.author}</ThemedText><ThemedText numberOfLines={4}>{news.content}</ThemedText><ThemedText type="smallBold" style={styles.link}>{t('Ouvrir le groupe →')}</ThemedText></Pressable></Link>
+      : <ThemedView type="surface" style={styles.empty}><ThemedText themeColor="textSecondary">{!token ? t('Connectez-vous pour suivre vos communautés.') : loading ? t('Chargement des nouvelles…') : newsError ? t('Les nouvelles de vos groupes sont momentanément indisponibles.') : t('Aucune annonce récente dans vos groupes.')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Découvrir les groupes →')}</ThemedText></Link></ThemedView>}
+
+    <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Explorer BelConnect')}</ThemedText></View>
+    <View style={styles.explore}><Link href="/(tabs)/activities" asChild><Pressable accessibilityRole="button" style={styles.exploreCard}><SocialIcon name="activity" color={Colors.orange} size={29} /><ThemedText type="smallBold">{t('Activités')}</ThemedText><ThemedText type="small" themeColor="textSecondary">{t('Sorties et rencontres')}</ThemedText></Pressable></Link><Link href="/(tabs)/projects" asChild><Pressable accessibilityRole="button" style={styles.exploreCard}><SocialIcon name="project" color={Colors.brand} size={29} /><ThemedText type="smallBold">{t('Projets')}</ThemedText><ThemedText type="small" themeColor="textSecondary">{t('Idées à soutenir')}</ThemedText></Pressable></Link></View>
   </SafeAreaView></ScrollView></ThemedView>;
 }
 
-const styles = StyleSheet.create({ screen: { flex: 1 }, scroll: { alignItems: 'center' }, container: { width: '100%', maxWidth: MaxContentWidth, padding: Spacing.four, gap: Spacing.four }, topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, wordmark: { color: Colors.brand, fontSize: 27 }, messageIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }, hero: { backgroundColor: Colors.brandSoft, borderRadius: 28, padding: Spacing.five, gap: Spacing.three }, heroEyebrow: { color: Colors.orange }, brand: { color: Colors.brand }, lead: { fontSize: 17, lineHeight: 25, color: '#40564A' }, button: { alignSelf: 'flex-start', backgroundColor: Colors.brand, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 }, buttonText: { color: Colors.onBrand }, pressed: { opacity: 0.76 }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, communities: { gap: Spacing.two, paddingVertical: 2 }, communityCard: { width: 176, height: 160, borderWidth: 1, borderRadius: 17, overflow: 'hidden' }, communityImage: { width: '100%', height: 100 }, communityFallback: { height: 100, backgroundColor: Colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, communityBody: { paddingHorizontal: 11, paddingVertical: 8, gap: 1 }, communityAll: { padding: Spacing.three, justifyContent: 'center', gap: Spacing.two }, communityDiscover: { width: 42, height: 42, borderRadius: 13, backgroundColor: Colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }, messageShortcut: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.border, borderRadius: 18, padding: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.two }, messageShortcutIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, messageCopy: { flex: 1, gap: 2 }, list: { gap: Spacing.three }, error: { padding: Spacing.four, borderRadius: 18, gap: Spacing.two }, projectHero: { backgroundColor: Colors.brandSoft, borderRadius: 24, padding: Spacing.four, gap: Spacing.two }, projectButton: { alignSelf: 'flex-start', backgroundColor: Colors.brand, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18 }, projectButtonText: { color: Colors.onBrand } });
-const heroStyles = StyleSheet.create({ heading: { fontSize: 32, lineHeight: 38, color: '#173E30' } });
-
-const homeStyles = StyleSheet.create({ hero: { padding: 0, gap: 0, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }, heroImage: { width: '100%', height: 190 }, heroBody: { padding: Spacing.four, gap: Spacing.two, backgroundColor: Colors.brandSoft }, empty: { padding: Spacing.four, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18 }, posts: { gap: Spacing.two }, post: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, backgroundColor: '#FFFFFF' }, postHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }, postAuthor: { flex: 1 } });
+const styles = StyleSheet.create({
+  screen: { flex: 1 }, scroll: { alignItems: 'center' }, content: { width: '100%', maxWidth: MaxContentWidth, padding: Spacing.four, gap: Spacing.three },
+  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, wordmark: { color: Colors.brand, fontSize: 27 }, messageButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  intro: { gap: Spacing.two, paddingVertical: Spacing.two }, greeting: { fontSize: 30, lineHeight: 36 }, orange: { color: Colors.orange }, sectionHeader: { paddingTop: Spacing.two },
+  bookingCard: { borderWidth: 1, borderColor: Colors.border, borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF' }, bookingImage: { width: '100%', height: 160 }, bookingFallback: { height: 110, backgroundColor: Colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }, cardBody: { padding: Spacing.three, gap: Spacing.two },
+  newsCard: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4, borderLeftColor: Colors.orange, borderRadius: 18, backgroundColor: '#FFFFFF' }, empty: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18 }, link: { color: Colors.brand, marginTop: Spacing.one },
+  explore: { flexDirection: 'row', gap: Spacing.two }, exploreCard: { flex: 1, minHeight: 132, padding: Spacing.three, gap: Spacing.one, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, backgroundColor: '#FFFFFF' },
+});
