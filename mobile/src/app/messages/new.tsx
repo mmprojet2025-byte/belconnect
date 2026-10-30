@@ -53,7 +53,7 @@ function NewMessageContent({ groupId, token }: { groupId: string | undefined; to
     setBusy(memberId); setError('');
     try {
       const conversation = await startConversation(id, memberId, token);
-      router.replace({ pathname: '/messages/[id]', params: { id: conversation.id } });
+      router.push({ pathname: '/messages/[id]', params: { id: conversation.id } });
     } catch (value) { setError(value instanceof Error ? value.message : 'Conversation impossible.'); }
     finally { setBusy(undefined); }
   }
