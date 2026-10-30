@@ -34,5 +34,5 @@ it('opens a group invitation from the notification itself', async () => {
   ]), { status: 200 }))));
   render(<AccountNotifications owner={false} onOpenBookings={vi.fn()} onOpenRequests={vi.fn()} />);
   const link = await screen.findByRole('link', { name: /invitation à un groupe.*voyages/i });
-  expect(link.getAttribute('href')).toBe('/groupes#invitations');
+  expect(link.getAttribute('href')).toBe('/groupes?invitationDirecte=7');
 });

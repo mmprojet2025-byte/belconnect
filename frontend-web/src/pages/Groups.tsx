@@ -24,10 +24,12 @@ function JoinGroup({ group, signedIn, onJoined, invitationCode }: { group: Group
 
 export function Groups({ signedIn }: { signedIn: boolean }) {
   const invitationCode = new URLSearchParams(window.location.search).get('invitation');
+  const directInvitationId = Number(new URLSearchParams(window.location.search).get('invitationDirecte')) || null;
   const selectedGroupId = Number(new URLSearchParams(window.location.search).get('groupe')) || null;
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [invitationError, setInvitationError] = useState('');
   const [directInvitations, setDirectInvitations] = useState<DirectInvitation[]>([]);
+  const [directLoaded, setDirectLoaded] = useState(false);
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [query, setQuery] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -50,7 +52,7 @@ export function Groups({ signedIn }: { signedIn: boolean }) {
     if (!signedIn) return;
     const c = new AbortController();
     fetch('/api/groups/invitations/mine', { credentials: 'same-origin', cache: 'no-store', signal: c.signal })
-      .then(result).then(setDirectInvitations).catch(() => {});
+      .then(result).then((items: DirectInvitation[]) => { setDirectInvitations(items); setDirectLoaded(true); }).catch(() => { if (!c.signal.aborted) setDirectLoaded(true); });
     return () => c.abort();
   }, [attempt, signedIn]);
   async function answerInvitation(id: number, decision: 'accept' | 'decline') {
@@ -58,6 +60,10 @@ export function Groups({ signedIn }: { signedIn: boolean }) {
     catch(e){setNotice(errorMessage(e));}
   }
   const filtered = (groups ?? []).filter(g => (!selectedGroupId || g.id === selectedGroupId) && `${g.name} ${g.spaceName} ${g.description}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')));
+  if (directInvitationId) {
+    const direct = directInvitations.find(item => item.id === directInvitationId);
+    return <main className="container groups-page"><a className="text-link" href="/groupes">← Tous les groupes</a><section className="group-card" aria-label="Invitation à un groupe privé"><div className="group-card-content"><span className="group-tag">INVITATION PRIVÉE</span><h1>{direct?.groupName ?? 'Invitation à un groupe'}</h1>{!signedIn ? <p><a className="button coral" href={`/connexion?retour=${encodeURIComponent(`/groupes?invitationDirecte=${directInvitationId}`)}`}>Se connecter pour répondre</a></p> : !directLoaded ? <p role="status">Chargement de l’invitation…</p> : !direct ? <p role="alert">Cette invitation n’est pas disponible pour ce compte.</p> : <><p>Le groupe de l’espace <strong>{direct.spaceName}</strong> vous invite à le rejoindre.</p>{direct.status === 'EN_ATTENTE' ? <div className="group-actions"><button className="button coral" onClick={() => void answerInvitation(direct.id,'accept')}>Accepter l’invitation</button><button className="button outline" onClick={() => void answerInvitation(direct.id,'decline')}>Refuser</button></div> : <p role="status">{direct.status === 'ACCEPTEE' ? 'Invitation acceptée. Vous êtes membre du groupe.' : 'Invitation refusée.'}</p>}{direct.status === 'ACCEPTEE' && <a className="text-link" href={`/groupes?groupe=${direct.groupId}`}>Voir le groupe →</a>}{notice && <p role="status">{notice}</p>}</>}</div></section></main>;
+  }
   return <section className="container groups-page"><a className="text-link" href="/">← Accueil</a><p className="eyebrow teal">DES LIENS QUI GRANDISSENT</p><h1 tabIndex={-1}>Trouvez votre communauté</h1><p className="groups-intro">Un jardin partagé, un atelier, un projet de quartier… Retrouvez des personnes qui partagent vos envies.</p>
     {directInvitations.some(item => item.status === 'EN_ATTENTE') && <section className="group-card" id="invitations" aria-label="Mes invitations"><div className="group-card-content"><h2>Mes invitations</h2>{directInvitations.filter(item => item.status === 'EN_ATTENTE').map(item => <div key={item.id}><h3>{item.groupName}</h3><p>{item.spaceName} vous invite à rejoindre ce groupe privé.</p><div className="group-actions"><button className="button coral" onClick={() => void answerInvitation(item.id,'accept')}>Accepter</button><button className="button outline" onClick={() => void answerInvitation(item.id,'decline')}>Refuser</button></div></div>)}</div></section>}
     {invitationCode && <section className="group-card" aria-label="Invitation à un groupe privé"><div className="group-card-content"><h2>Votre invitation</h2>{invitationError && <p role="alert">{invitationError}</p>}{!invitation && !invitationError && <p role="status">Chargement de l’invitation…</p>}{invitation && <><h3>{invitation.name}</h3><p>{invitation.spaceName}</p><p>{invitation.description}</p><JoinGroup group={{ ...invitation, coverUrl: '', visibility: 'PRIVEE' }} signedIn={signedIn} invitationCode={invitationCode} onJoined={() => { setNotice('Votre demande est enregistrée. Suivez sa réponse dans Mon espace.'); setAttempt(n => n + 1); }} /></>}</div></section>}
