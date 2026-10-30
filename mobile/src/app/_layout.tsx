@@ -16,7 +16,7 @@ function AppStack() {
     <AuthProvider><ThemeProvider value={navigationTheme}>
       <Stack screenOptions={{ headerShadowVisible: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="activities/[id]" options={{ title: label('Activité'), headerBackTitle: '', headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
+        <Stack.Screen name="activities/[id]" options={{ title: label('Activité'), headerBackTitle: label('Activités'), headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
         <Stack.Screen name="projects/[id]" options={{ title: label('Projet'), headerBackTitle: label('Projets'), headerTransparent: false, headerStyle: { backgroundColor: Colors.light.background } }} />
         <Stack.Screen name="groups/index" options={{ title: label('Groupes'), headerBackTitle: label('Accueil') }} />
         <Stack.Screen name="groups/[id]" options={{ title: label('Groupe'), headerBackTitle: label('Groupes') }} />
