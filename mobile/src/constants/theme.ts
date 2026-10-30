@@ -32,6 +32,8 @@ export const Colors = {
   brandSoft: '#E3F2E9',
   orange: '#B84E0B',
   orangeSoft: '#FFF0E3',
+  message: '#245F9B',
+  messageSoft: '#EAF3FC',
   accent: '#E97769',
   onBrand: '#FFFFFF',
   border: '#E2EAE3',

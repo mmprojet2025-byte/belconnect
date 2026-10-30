@@ -181,4 +181,36 @@ class MobileAuthApiTests {
       assertTrue(json.readTree(inbox.body()).isArray());
     } finally { jdbc.update("DELETE FROM utilisateur WHERE email=?",email); }
   }
+
+  @Test void privateMessageAppearsOnlyForRecipientAndRemainsInHistory() throws Exception {
+    String marker=UUID.randomUUID().toString(),senderEmail="sender-notice-"+marker+"@example.com",recipientEmail="recipient-notice-"+marker+"@example.com";
+    Long conversationId=null;
+    try {
+      var sender=request("POST","register",Map.of("email",senderEmail,"password","Sender-"+marker,"firstName","Sam","lastName","Sender"),null);
+      var recipient=request("POST","register",Map.of("email",recipientEmail,"password","Recipient-"+marker,"firstName","Nora","lastName","Recipient"),null);
+      assertEquals(201,sender.statusCode(),sender.body());
+      assertEquals(201,recipient.statusCode(),recipient.body());
+      String senderToken=json.readTree(sender.body()).get("token").asText(),recipientToken=json.readTree(recipient.body()).get("token").asText();
+      long senderId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,senderEmail);
+      long recipientId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,recipientEmail);
+      conversationId=jdbc.queryForObject("INSERT INTO conversation_privee(participant_a_id,participant_b_id) VALUES (?,?) RETURNING id",Long.class,Math.min(senderId,recipientId),Math.max(senderId,recipientId));
+      long messageId=jdbc.queryForObject("INSERT INTO message_prive(conversation_id,expediteur_id,contenu,demande) VALUES (?,?,?,?) RETURNING id",Long.class,conversationId,senderId,"Message privé du test",UUID.randomUUID());
+      assertEquals(0,json.readTree(api("GET","/api/mobile/notifications",null,senderToken).body()).size());
+      var inbox=json.readTree(api("GET","/api/mobile/notifications",null,recipientToken).body());
+      assertEquals(1,inbox.size());
+      assertEquals("message",inbox.get(0).get("source").asText());
+      assertEquals(conversationId,inbox.get(0).get("conversationId").asLong());
+      assertFalse(inbox.get(0).get("message").asText().contains("Message privé du test"));
+      assertEquals(1,json.readTree(api("GET","/api/notifications/count",null,recipientToken).body()).get("unread").asInt());
+      assertEquals(404,api("POST","/api/mobile/notifications/message/"+messageId+"/read",Map.of(),senderToken).statusCode());
+      assertEquals(204,api("POST","/api/mobile/notifications/message/"+messageId+"/read",Map.of(),recipientToken).statusCode());
+      assertEquals(0,json.readTree(api("GET","/api/notifications/count",null,recipientToken).body()).get("unread").asInt());
+      var history=json.readTree(api("GET","/api/mobile/notifications",null,recipientToken).body());
+      assertEquals(1,history.size());
+      assertFalse(history.get(0).get("readAt").isNull());
+    } finally {
+      if(conversationId!=null)jdbc.update("DELETE FROM conversation_privee WHERE id=?",conversationId);
+      jdbc.update("DELETE FROM utilisateur WHERE email IN (?,?)",senderEmail,recipientEmail);
+    }
+  }
 }

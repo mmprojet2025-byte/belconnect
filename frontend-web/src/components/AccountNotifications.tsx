@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { postJson, result } from '../lib/auth';
 import { navigate } from '../lib/navigation';
 import { tr, useLocale } from '../lib/locale';
+import { Icon } from './Icon';
 
 type Notice = {
-  source: 'activity' | 'project' | 'workspace' | 'group';
+  source: 'activity' | 'project' | 'workspace' | 'group' | 'message';
   id: number;
   title: string;
   message: string;
@@ -12,6 +13,7 @@ type Notice = {
   readAt: string | null;
   activityId: number | null;
   projectId: number | null;
+  conversationId: number | null;
   event: string | null;
   spaceId: number | null;
 };
@@ -56,6 +58,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
   function label(notice: Notice) {
     if (notice.source === 'activity') return t('Activité annulée', 'Activity cancelled', 'Activiteit geannuleerd');
     if (notice.source === 'project') return notice.event === 'TERMINE' ? t('Projet terminé', 'Project completed', 'Project afgerond') : t('Projet retiré', 'Project withdrawn', 'Project verwijderd');
+    if (notice.source === 'message') return t('Nouveau message', 'New message', 'Nieuw bericht');
     if (notice.source === 'workspace') return notice.event === 'DEMANDE_RECUE' ? t('Nouvelle demande d’espace', 'New space request', 'Nieuwe ruimteaanvraag') : notice.event === 'DEMANDE_APPROUVEE' ? t('Espace approuvé', 'Space approved', 'Ruimte goedgekeurd') : t('Demande d’espace refusée', 'Space request declined', 'Ruimteaanvraag geweigerd');
     return notice.event === 'DEMANDE_RECUE' ? t('Nouvelle demande d’adhésion', 'New membership request', 'Nieuwe lidmaatschapsaanvraag') : notice.event === 'DEMANDE_ACCEPTEE' ? t('Adhésion acceptée', 'Membership accepted', 'Lidmaatschap goedgekeurd') : t('Adhésion refusée', 'Membership declined', 'Lidmaatschap geweigerd');
   }
@@ -63,11 +66,13 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
   const history = notices.filter(notice => !!notice.readAt);
   const renderNotice = (notice: Notice) => {
     const key = `${notice.source}-${notice.id}`;
+    const icon = notice.source === 'activity' ? 'calendar' : notice.source === 'project' ? 'folder' : notice.source === 'message' ? 'chat' : notice.source === 'group' ? 'users' : 'inbox';
     const destination = notice.source === 'activity' ? '#mes-inscriptions' : notice.source === 'workspace' ? owner ? '#a-traiter' : '#demandes' : notice.source === 'group' ? notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '#demandes' : null;
     const action = notice.source === 'activity' ? t('Voir mon inscription', 'View my booking', 'Mijn inschrijving bekijken') : notice.source === 'workspace' || notice.source === 'group' ? t('Voir la demande', 'View request', 'Aanvraag bekijken') : '';
-    return <article className="account-notice" key={key}>
-      <p><strong>{label(notice)} :</strong> {notice.title}</p>
-      <p>{notice.message}</p>
+    return <article className={`account-notice account-notice--${notice.source}${notice.readAt ? ' account-notice--read' : ''}`} key={key}>
+      <span className="account-notice-category"><Icon name={icon} />{label(notice)}</span>
+      <p><strong>{notice.title}</strong></p>
+      <p>{notice.source === 'message' ? t('À consulter dans l’application mobile.', 'Open in the mobile app.', 'Open in de mobiele app.') : notice.message}</p>
       <time dateTime={notice.createdAt}>{new Intl.DateTimeFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notice.createdAt))}</time>
       <div className="management-actions">
         {destination && <a className="text-link" href={destination} onClick={event => { event.preventDefault(); void acknowledge(notice, true); }}>{action}</a>}

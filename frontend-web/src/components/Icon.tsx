@@ -24,6 +24,7 @@ const paths: Record<string, string> = {
   close: "m6 6 12 12 M18 6 6 18",
   chevron: "m8 4 8 8-8 8",
   bell: "M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9 M10 21h4",
+  chat: "M4 4h16v12H9l-5 4V4Z M8 9h8 M8 12h5",
 };
 export function Icon({
   name,

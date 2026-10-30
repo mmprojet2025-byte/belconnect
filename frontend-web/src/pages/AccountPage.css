@@ -147,6 +147,14 @@
 .account-notifications .account-notice p { margin:0 0 8px; }
 .account-notifications .management-actions { display:flex; flex-wrap:wrap; gap:14px; }
 .account-notifications .account-notice time { display:block; margin-bottom:10px; color:var(--muted); font-size:12px; }
+.account-notifications .account-notice { border-left:4px solid #176b52; padding-left:16px; }
+.account-notifications .account-notice--activity { border-left-color:#b84e0b; }
+.account-notifications .account-notice--message { border-left-color:#245f9b; }
+.account-notifications .account-notice--read { opacity:.78; }
+.account-notice-category { display:inline-flex; align-items:center; gap:7px; padding:5px 9px; margin-bottom:10px; border-radius:8px; background:#e3f2e9; color:#176b52; font-size:12px; font-weight:800; }
+.account-notice-category .icon { width:16px; height:16px; }
+.account-notice--activity .account-notice-category { background:#fff0e3; color:#b84e0b; }
+.account-notice--message .account-notice-category { background:#eaf3fc; color:#245f9b; }
 .account-profile-main { display:grid; align-items:start; }
 .account-profile-main .account-profile-form { width:min(100%,480px); margin:0; }
 .account-profile-main .account-profile-form p { overflow-wrap:anywhere; }
