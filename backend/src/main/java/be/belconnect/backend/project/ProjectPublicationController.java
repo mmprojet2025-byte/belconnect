@@ -112,6 +112,7 @@ public class ProjectPublicationController {
    if(((Number)p.get("version")).longValue()!=body.version())throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Actualisez la liste.");
    jdbc.update("INSERT INTO publication_projet(projet_id,administrateur_id,version_projet,publie) VALUES (?,?,?,?)",id,uid,body.version(),body.published());
    jdbc.update("UPDATE projet SET publie=?,date_publication=CASE WHEN ? THEN now() ELSE date_publication END,version=version+1,date_modification=now() WHERE id=?",body.published(),body.published(),id);
+   if(!body.published() && Boolean.TRUE.equals(p.get("publie"))) notifyProjectChange(id,"RETIRE",body.version()+1);
   }
   return jdbc.queryForObject("SELECT p.*,e.nom AS espace_nom FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",managedMapper,id);
  }
@@ -132,7 +133,19 @@ public class ProjectPublicationController {
   if(!jdbc.queryForList("SELECT projet_id FROM offre_participation_projet WHERE projet_id=? AND active LIMIT 1",id).isEmpty())
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Fermez d’abord les inscriptions au projet et terminez les remboursements éventuels.");
   jdbc.update("UPDATE projet SET termine_le=now(),publie=false,version=version+1,date_modification=now() WHERE id=?",id);
+  notifyProjectChange(id,"TERMINE",body.version()+1);
   return jdbc.queryForObject("SELECT p.*,e.nom AS espace_nom FROM projet p JOIN espace_organisateur e ON e.id=p.espace_id WHERE p.id=?",managedMapper,id);
+ }
+ private void notifyProjectChange(long projectId,String event,long version) {
+  jdbc.update("""
+    INSERT INTO notification_projet(utilisateur_id,projet_id,evenement,version_projet)
+    SELECT utilisateur_id,?,?,? FROM (
+      SELECT auteur_id utilisateur_id FROM projet WHERE id=?
+      UNION SELECT utilisateur_id FROM participation_projet WHERE projet_id=? AND statut IN ('PROPOSEE','ACCEPTEE')
+      UNION SELECT participant_id FROM inscription_gratuite_projet WHERE projet_id=? AND statut='CONFIRMEE'
+      UNION SELECT participant_id FROM inscription_payante_projet WHERE projet_id=? AND statut='PAYE'
+    ) recipients ON CONFLICT DO NOTHING
+    """,projectId,event,version,projectId,projectId,projectId,projectId);
  }
  public record Version(@NotNull @Min(0) Long version) {}
 }

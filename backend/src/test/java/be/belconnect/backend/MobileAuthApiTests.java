@@ -134,4 +134,30 @@ class MobileAuthApiTests {
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
     }
   }
+
+  @Test void projectStatusNotificationAppearsAndRemainsAfterReading() throws Exception {
+    String marker=UUID.randomUUID().toString(),email="mobile-project-notice-"+marker+"@example.com";
+    Long projectId=null;
+    try {
+      var created=request("POST","register",Map.of("email",email,"password","Mobile-project-notice-"+marker,"firstName","Nora","lastName","Mobile"),null);
+      assertEquals(201,created.statusCode(),created.body());
+      String token=json.readTree(created.body()).get("token").asText();
+      long userId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,email);
+      long spaceId=jdbc.queryForObject("SELECT id FROM espace_organisateur ORDER BY id LIMIT 1",Long.class);
+      projectId=jdbc.queryForObject("INSERT INTO projet(espace_id,auteur_id,titre,description,objectif) VALUES (?,?,'Projet mobile test','Description du test','Objectif du test') RETURNING id",Long.class,spaceId,userId);
+      jdbc.update("INSERT INTO notification_projet(utilisateur_id,projet_id,evenement,version_projet) VALUES (?,?,?,?)",userId,projectId,"RETIRE",1);
+      var notices=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
+      assertEquals(1,notices.size());
+      assertEquals("project",notices.get(0).get("source").asText());
+      assertEquals(projectId,notices.get(0).get("projectId").asLong());
+      assertTrue(notices.get(0).get("readAt").isNull());
+      assertEquals(204,api("POST","/api/mobile/notifications/project/"+notices.get(0).get("id").asLong()+"/read",Map.of(),token).statusCode());
+      var history=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
+      assertEquals(1,history.size());
+      assertFalse(history.get(0).get("readAt").isNull());
+    } finally {
+      if(projectId!=null){jdbc.update("DELETE FROM notification_projet WHERE projet_id=?",projectId);jdbc.update("DELETE FROM projet WHERE id=?",projectId);}
+      jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
+    }
+  }
 }
