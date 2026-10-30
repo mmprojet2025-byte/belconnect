@@ -15,7 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController @RequestMapping("/api/groups")
 public class GroupDirectInvitationController {
   private final JdbcTemplate jdbc;
-  public GroupDirectInvitationController(JdbcTemplate jdbc){this.jdbc=jdbc;}
+  private final GroupMembershipLimit limit;
+  public GroupDirectInvitationController(JdbcTemplate jdbc,GroupMembershipLimit limit){this.jdbc=jdbc;this.limit=limit;}
   public record Invite(@NotBlank @Email String email) {}
   public record Invitation(long id,long groupId,String groupName,String spaceName,String status,OffsetDateTime createdAt) {}
   private long actor(Authentication auth){return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",(r,n)->r.getLong(1),auth.getName()).stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED));}
@@ -69,6 +70,7 @@ public class GroupDirectInvitationController {
       if(Boolean.TRUE.equals(blocked))throw fail(HttpStatus.FORBIDDEN,"Votre accès à cet espace est suspendu.");
       Boolean groupBlocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND statut<>'ACTIF')",Boolean.class,user,group);
       if(Boolean.TRUE.equals(groupBlocked))throw fail(HttpStatus.FORBIDDEN,"Votre accès à ce groupe est suspendu.");
+      limit.check(user,group);
       jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE') ON CONFLICT DO NOTHING",user,space);
       jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE') ON CONFLICT DO NOTHING",user,space,group);
       jdbc.update("UPDATE demande_adhesion_groupe SET statut='ACCEPTEE',date_decision=now(),version=version+1 WHERE utilisateur_id=? AND groupe_id=? AND statut='EN_ATTENTE'",user,group);

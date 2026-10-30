@@ -343,6 +343,30 @@ class SpaceManagementApiTests {
  long setupGroup(long space,String name,boolean open,String visibility) {
   return jdbc.queryForObject("INSERT INTO groupe(espace_id,nom,adhesion_ouverte,visibilite) VALUES (?,?,?,?) RETURNING id",Long.class,space,name,open,visibility);
  }
+ @Test void memberCanBelongToAtMostTwoGroupsAcrossSpaces() throws Exception {
+  try {
+   var admin=actor();var member=actor();long firstSpace=setupSpace(admin),secondSpace=setupSpace(admin);
+   long first=setupGroup(firstSpace,"Premier groupe",false,"PUBLIQUE");
+   long second=setupGroup(secondSpace,"Deuxième groupe",false,"PUBLIQUE");
+   long third=setupGroup(secondSpace,"Troisième groupe",false,"PUBLIQUE");
+   long firstRequest=ok(member.post("/api/groups/"+first+"/join",Map.of(),true),200).get("id").asLong();
+   long secondRequest=ok(member.post("/api/groups/"+second+"/join",Map.of(),true),200).get("id").asLong();
+   long thirdRequest=ok(member.post("/api/groups/"+third+"/join",Map.of(),true),200).get("id").asLong();
+   var accept=Map.of("version",0,"status","ACCEPTEE","reason","");
+   ok(admin.post("/api/group-memberships/"+firstRequest+"/decision",accept,true),200);
+   ok(admin.post("/api/group-memberships/"+secondRequest+"/decision",accept,true),200);
+   assertEquals(409,admin.post("/api/group-memberships/"+thirdRequest+"/decision",accept,true).statusCode());
+   assertEquals("EN_ATTENTE",jdbc.queryForObject("SELECT statut FROM demande_adhesion_groupe WHERE id=?",String.class,thirdRequest));
+   long fourth=setupGroup(firstSpace,"Quatrième groupe",false,"PUBLIQUE");
+   assertEquals(409,member.post("/api/groups/"+fourth+"/join",Map.of(),true).statusCode());
+   long privateGroup=setupGroup(secondSpace,"Groupe privé limité",false,"PRIVEE");
+   String email=jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,member.id);
+   long invitation=ok(admin.post("/api/groups/"+privateGroup+"/invite",Map.of("email",email),true),201).get("id").asLong();
+   assertEquals(409,member.post("/api/groups/invitations/"+invitation+"/accept",Map.of(),true).statusCode());
+   assertEquals("EN_ATTENTE",jdbc.queryForObject("SELECT statut FROM invitation_groupe WHERE id=?",String.class,invitation));
+   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM appartenance_groupe WHERE utilisateur_id=? AND statut='ACTIF'",Integer.class,member.id));
+  } finally { cleanup(); }
+ }
  @Test void groupMemberCanRequestOwnOrganiserSpace() throws Exception {
   try {
    var admin=actor(); var member=actor(); var platform=actor(); owner(platform);

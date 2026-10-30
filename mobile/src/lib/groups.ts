@@ -20,6 +20,7 @@ export async function getGroupInvitations(token: string, signal?: AbortSignal): 
 
 export async function answerGroupInvitation(id: number, decision: 'accept' | 'decline', token: string): Promise<void> {
   const response = await fetch(`${apiUrl}/api/groups/invitations/${id}/${decision}`, { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+  if (response.status === 409 && decision === 'accept') throw new Error('Vous êtes déjà membre de deux groupes. Vous ne pouvez pas en rejoindre un troisième.');
   if (!response.ok) throw new Error('Impossible de répondre à cette invitation.');
 }
 
@@ -35,6 +36,7 @@ export async function joinGroup(id: number, token: string): Promise<void> {
   const response = await fetch(`${apiUrl}/api/groups/${id}/join`, { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
   if (!response.ok) {
     if (response.status === 401) throw new Error('Votre session a expiré. Reconnectez-vous.');
+    if (response.status === 409) throw new Error('Vous êtes déjà membre de deux groupes. Vous ne pouvez pas en rejoindre un troisième.');
     throw new Error('La demande d’adhésion n’a pas pu être envoyée.');
   }
 }

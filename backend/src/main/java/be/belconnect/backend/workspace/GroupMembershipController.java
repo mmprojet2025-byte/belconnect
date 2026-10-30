@@ -15,7 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class GroupMembershipController {
     private final JdbcTemplate jdbc;
     private final GroupPermissions permissions;
-    public GroupMembershipController(JdbcTemplate jdbc,GroupPermissions permissions) { this.jdbc=jdbc; this.permissions=permissions; }
+    private final GroupMembershipLimit limit;
+    public GroupMembershipController(JdbcTemplate jdbc,GroupPermissions permissions,GroupMembershipLimit limit) { this.jdbc=jdbc; this.permissions=permissions; this.limit=limit; }
     public record Group(long id,String name,String description,String coverUrl,String spaceName,
                         boolean openMembership,String visibility,String membershipStatus) {}
     public record Invitation(long id,String name,String description,String spaceName,boolean openMembership,String membershipStatus) {}
@@ -29,7 +30,7 @@ public class GroupMembershipController {
     private ResponseStatusException error(HttpStatus status,String reason) { return new ResponseStatusException(status,reason); }
     private long user(Authentication auth) {
         if(auth==null) throw error(HttpStatus.UNAUTHORIZED,"Connectez-vous pour rejoindre un groupe.");
-        return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName())
+        return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",(r,n)->r.getLong(1),auth.getName())
             .stream().findFirst().orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter."));
     }
     private String membership(long user,long space,long group) {
@@ -104,6 +105,7 @@ public class GroupMembershipController {
             Boolean.class,user)))
             throw error(HttpStatus.CONFLICT,"Le propriétaire de Belconnect ne peut pas devenir membre d’un groupe.");
         activeMemberships(user,space,group);
+        limit.check(user,group);
         jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE') ON CONFLICT(utilisateur_id,espace_id) DO NOTHING",user,space);
         activeMemberships(user,space,group);
         jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE') ON CONFLICT(utilisateur_id,groupe_id) DO NOTHING",user,space,group);
@@ -141,6 +143,7 @@ public class GroupMembershipController {
         activeMemberships(user,space,id);
         var prior=jdbc.query("SELECT id FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getLong(1),user,id);
         if(!prior.isEmpty()) return request(prior.getFirst());
+        if(membership(user,space,id).equals("AUCUNE")) limit.check(user,id);
         boolean admitted=!membership(user,space,id).equals("AUCUNE");
         // Every new group membership requires a decision from the space administrator.
         long request=jdbc.queryForObject("""
@@ -178,7 +181,7 @@ public class GroupMembershipController {
         if(!d.available()) throw error(HttpStatus.CONFLICT,"Ce groupe n’est plus actif.");
         if(body.status().equals("REFUSEE") && body.reason().isBlank()) throw error(HttpStatus.BAD_REQUEST,"Indiquez le motif du refus.");
         if(body.status().equals("ACCEPTEE")) {
-            if(jdbc.query("SELECT id FROM utilisateur WHERE id=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),applicant).isEmpty())
+            if(jdbc.query("SELECT id FROM utilisateur WHERE id=? AND statut='ACTIF'",(r,n)->r.getLong(1),applicant).isEmpty())
                 throw error(HttpStatus.CONFLICT,"Le compte du demandeur n’est plus actif.");
             admit(applicant,space,group);
         }
