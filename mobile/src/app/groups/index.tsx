@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
 import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
@@ -34,12 +34,13 @@ function GroupCard({ group }: { group: Group }) {
 
 export default function GroupsScreen() {
   const {locale}=useLocale();
+  const { view } = useLocalSearchParams<{ view?: string }>();
   const { token } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
   const [invitationError, setInvitationError] = useState('');
   const [query, setQuery] = useState('');
-  const [mineOnly, setMineOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(view === 'mine');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
