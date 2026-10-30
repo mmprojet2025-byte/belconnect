@@ -1,6 +1,17 @@
 import { Locale } from '@/context/locale-context';
 
 const entries: Record<string, [string, string]> = {
+  'Vos rendez-vous, vos nouvelles et les groupes à découvrir.': ['Your plans, your updates and groups to discover.', 'Uw afspraken, uw nieuws en groepen om te ontdekken.'],
+  'Chargement de vos actualités…': ['Loading your updates…', 'Uw nieuws wordt geladen…'],
+  'Vos actualités sont momentanément indisponibles.': ['Your updates are temporarily unavailable.', 'Uw nieuws is tijdelijk niet beschikbaar.'],
+  'Rien de nouveau à consulter pour le moment.': ['Nothing new to review right now.', 'Er is momenteel geen nieuw nieuws.'],
+  'Les groupes sont momentanément indisponibles.': ['Groups are temporarily unavailable.', 'Groepen zijn tijdelijk niet beschikbaar.'],
+  'À ne pas oublier': ['Do not forget', 'Niet vergeten'],
+  'Voir toutes les notifications': ['View all notifications', 'Alle meldingen bekijken'],
+  'Groupes à découvrir': ['Groups to discover', 'Groepen om te ontdekken'],
+  'Voir mon groupe →': ['View my group →', 'Mijn groep bekijken →'],
+  'Découvrir le groupe →': ['Discover the group →', 'De groep ontdekken →'],
+  'Aucun groupe visible pour le moment.': ['No groups are visible right now.', 'Er zijn momenteel geen zichtbare groepen.'],
   'Participer au projet': ['Join the project', 'Deelnemen aan het project'],
   'Connectez-vous pour vous inscrire ou proposer votre aide.': ['Sign in to register or offer your help.', 'Meld u aan om u in te schrijven of uw hulp aan te bieden.'],
   'Chargement des possibilités de participation…': ['Loading participation options…', 'Deelnamemogelijkheden worden geladen…'],
