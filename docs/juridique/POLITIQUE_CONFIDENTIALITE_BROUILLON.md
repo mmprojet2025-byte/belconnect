@@ -8,7 +8,7 @@ Responsable du traitement : **[dénomination légale, forme, adresse, numéro d'
 
 ## Quelles données sont utilisées
 
-Belconnect traite les données fournies lors de la création du compte (nom, prénom, adresse e-mail et mot de passe sous forme hachée), les informations de profil, les inscriptions aux activités (coordonnées, nombre de places et statut), les demandes d'espaces et de groupes, les projets et propositions d'aide, les annonces publiées et les échanges liés à leur validation. Les parcours de paiement prévus conservent des références et statuts de transactions ; les données de carte sont saisies sur la page hébergée par Stripe, et non dans le formulaire Belconnect. Les données techniques nécessaires à la sécurité, comme le cookie de session et les journaux du serveur, doivent être décrites précisément après le choix de l'hébergement.
+Belconnect traite les données fournies lors de la création du compte (nom, prénom, adresse e-mail et mot de passe sous forme hachée), les informations de profil, les inscriptions aux activités (coordonnées, nombre de places et statut), les demandes d'espaces et de groupes, les invitations, les projets et propositions d'aide, les annonces et publications de groupe, les commentaires, les mentions « J'aime », les messages privés, les notifications et les signalements. Les parcours de paiement prévus conservent des références et statuts de transactions ; les données de carte sont saisies sur la page hébergée par Stripe, et non dans le formulaire Belconnect. Les données techniques nécessaires à l'authentification et à la sécurité comprennent les sessions web et mobile, les identifiants d'appareils destinés aux notifications push si cette fonction est activée, et les journaux du serveur. Leur description précise reste à confirmer après le choix de l'hébergement et des prestataires.
 
 Une personne qui publie un projet ou une annonce ne doit pas y inclure de données personnelles concernant autrui sans disposer d'un motif valable et des autorisations nécessaires. Les coordonnées fournies pour une inscription peuvent être consultées par l'organisateur autorisé de l'activité pour la gérer.
 
@@ -32,7 +32,7 @@ Vous pouvez demander l'accès à vos données, leur rectification, et, dans les 
 
 ## Cookies et sécurité
 
-Le cookie de session `JSESSIONID` sert à maintenir la connexion et à protéger l'accès au compte. Son usage est expliqué dans la [notice sur les cookies](COOKIES_BROUILLON.md). Belconnect utilise actuellement des sessions côté serveur et une protection contre les requêtes non autorisées ; la sécurité de l'hébergement, des sauvegardes et des prestataires reste à vérifier avant la mise en ligne.
+Le cookie de session `JSESSIONID` sert à maintenir la connexion web et à protéger l'accès au compte. Son usage est expliqué dans la [notice sur les cookies](COOKIES_BROUILLON.md). L'application mobile utilise des jetons de session stockés sur l'appareil et vérifiés côté serveur ; une déconnexion les révoque. Belconnect utilise une protection contre les requêtes non autorisées ; la sécurité de l'hébergement, des sauvegardes et des prestataires reste à vérifier avant la mise en ligne.
 
 ## Enfants et évolution de cette politique
 

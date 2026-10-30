@@ -6,6 +6,8 @@ Une synthèse est consultable dans le site **uniquement en mode développement l
 
 ## Documents préparés
 
+- [Dossier de validation avant lancement](DOSSIER_VALIDATION_AVANT_LANCEMENT.md) : informations à fournir, décisions à prendre et parcours technique de suppression du compte.
+
 - [Politique de confidentialité](POLITIQUE_CONFIDENTIALITE_BROUILLON.md) : données, finalités, destinataires, conservation et droits.
 - [Notice cookies](COOKIES_BROUILLON.md) : session nécessaire aujourd'hui ; choix à ajouter si des traceurs non nécessaires sont activés.
 - [Conditions d'utilisation](CONDITIONS_UTILISATION_BROUILLON.md) : comptes, organisateurs, contenus, signalements et rôles.
