@@ -38,6 +38,7 @@ final class PlatformOwnerWorkflowFilter extends OncePerRequestFilter {
             """, Boolean.class, authentication.getName()));
         boolean ownerAction = method.equals("POST") && (path.matches("/api/workspace/opening-requests/[0-9]+/decision")
                 || path.matches("/api/workspace/notifications/[0-9]+/read")
+                || path.matches("/api/mobile/notifications/workspace/[0-9]+/read")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators/recovery")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators/[0-9]+/status")

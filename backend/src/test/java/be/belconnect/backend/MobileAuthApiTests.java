@@ -151,10 +151,12 @@ class MobileAuthApiTests {
       assertEquals("project",notices.get(0).get("source").asText());
       assertEquals(projectId,notices.get(0).get("projectId").asLong());
       assertTrue(notices.get(0).get("readAt").isNull());
+      assertEquals(1,json.readTree(api("GET","/api/notifications/count",null,token).body()).get("unread").asInt());
       assertEquals(204,api("POST","/api/mobile/notifications/project/"+notices.get(0).get("id").asLong()+"/read",Map.of(),token).statusCode());
       var history=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
       assertEquals(1,history.size());
       assertFalse(history.get(0).get("readAt").isNull());
+      assertEquals(0,json.readTree(api("GET","/api/notifications/count",null,token).body()).get("unread").asInt());
     } finally {
       if(projectId!=null){jdbc.update("DELETE FROM notification_projet WHERE projet_id=?",projectId);jdbc.update("DELETE FROM projet WHERE id=?",projectId);}
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
