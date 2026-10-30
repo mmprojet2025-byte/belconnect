@@ -6,6 +6,7 @@ const entries: Record<string, [string, string]> = {
   'Aucun groupe rejoint pour le moment.': ['No groups joined yet.', 'Nog geen groep waarvan u lid bent.'],
   'Retirer': ['Remove', 'Verwijderen'],
   'Voir le profil de': ['View profile of', 'Profiel bekijken van'],
+  'Suggestions. Recherchez pour en voir davantage.': ['Suggestions. Search to see more.', 'Suggesties. Zoek om er meer te zien.'],
   'Membre du groupe': ['Member of the group', 'Lid van de groep'],
   'Chargement du profil…': ['Loading profile…', 'Profiel laden…'],
   'Profil indisponible.': ['Profile unavailable.', 'Profiel niet beschikbaar.'],
