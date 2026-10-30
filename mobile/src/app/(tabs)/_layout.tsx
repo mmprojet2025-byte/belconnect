@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { SocialIcon } from '@/components/social-icon';
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -13,12 +14,14 @@ export default function TabsLayout() {
       headerTitleStyle: { color: theme.text, fontWeight: '700' },
       tabBarActiveTintColor: Colors.brand,
       tabBarInactiveTintColor: theme.textSecondary,
+      tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+      tabBarItemStyle: { paddingTop: 2 },
       tabBarStyle: { backgroundColor: theme.background, borderTopColor: theme.border, height: Platform.OS === 'ios' ? 84 : 66, paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 10 },
     }}>
-      <Tabs.Screen name="index" options={{ title: 'Accueil', tabBarLabel: 'Accueil' }} />
-      <Tabs.Screen name="activities" options={{ title: 'Activités', tabBarLabel: 'Activités' }} />
-      <Tabs.Screen name="notifications" options={{ title: 'Notifications', tabBarLabel: 'Notifications' }} />
-      <Tabs.Screen name="account" options={{ title: 'Mon espace', tabBarLabel: 'Mon espace' }} />
+      <Tabs.Screen name="index" options={{ title: 'Accueil', tabBarLabel: 'Accueil', tabBarIcon: ({ color, size }) => <SocialIcon name="home" color={color} size={size} /> }} />
+      <Tabs.Screen name="activities" options={{ title: 'Activités', tabBarLabel: 'Activités', tabBarIcon: ({ color, size }) => <SocialIcon name="activity" color={color} size={size} /> }} />
+      <Tabs.Screen name="notifications" options={{ title: 'Notifications', tabBarLabel: 'Notifications', tabBarIcon: ({ color, size }) => <SocialIcon name="notification" color={color} size={size} /> }} />
+      <Tabs.Screen name="account" options={{ title: 'Mon espace', tabBarLabel: 'Mon espace', tabBarIcon: ({ color, size }) => <SocialIcon name="account" color={color} size={size} /> }} />
     </Tabs>
   );
 }
