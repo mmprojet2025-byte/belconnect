@@ -11,6 +11,7 @@ export default function HomeScreen() {
   const { activities, loading, error, retry } = useActivities();
   return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.container} edges={['left', 'right']}>
     <View style={styles.hero}><ThemedText type="eyebrow" style={styles.brand}>BELCONNECT</ThemedText><ThemedText type="title">La Belgique se rencontre ici.</ThemedText><ThemedText themeColor="textSecondary" style={styles.lead}>Découvrez des activités locales, rejoignez des groupes et donnez vie aux projets près de chez vous.</ThemedText><Link href="/activities" asChild><Pressable accessibilityRole="button" style={({ pressed }) => [styles.button, pressed && styles.pressed]}><ThemedText type="smallBold" style={styles.buttonText}>Explorer les activités</ThemedText></Pressable></Link></View>
+    <Link href="/groups" asChild><Pressable accessibilityRole="button" accessibilityLabel="Explorer les groupes" style={groupStyles.shortcut}><ThemedText type="smallBold">Groupes</ThemedText><ThemedText type="linkPrimary">Découvrir les communautés →</ThemedText></Pressable></Link>
     <View style={styles.sectionHeader}><ThemedText type="subtitle">À découvrir</ThemedText><Link href="/activities"><ThemedText type="linkPrimary">Tout voir</ThemedText></Link></View>
     {loading && <ThemedText accessibilityLiveRegion="polite">Chargement des activités…</ThemedText>}
     {error && <ThemedView type="surface" style={styles.error}><ThemedText type="smallBold">Le catalogue est momentanément indisponible.</ThemedText><Pressable accessibilityRole="button" onPress={retry}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></ThemedView>}
@@ -19,3 +20,5 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({ screen: { flex: 1 }, scroll: { alignItems: 'center' }, container: { width: '100%', maxWidth: MaxContentWidth, padding: Spacing.four, gap: Spacing.four }, hero: { backgroundColor: Colors.brandSoft, borderRadius: 28, padding: Spacing.five, gap: Spacing.three }, brand: { color: Colors.brand }, lead: { fontSize: 18, lineHeight: 27 }, button: { alignSelf: 'flex-start', backgroundColor: Colors.brand, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18 }, buttonText: { color: Colors.onBrand }, pressed: { opacity: 0.76 }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, list: { gap: Spacing.three }, error: { padding: Spacing.four, borderRadius: 18, gap: Spacing.two } });
+
+const groupStyles = StyleSheet.create({ shortcut: { borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: Spacing.three, flexDirection: "row", justifyContent: "space-between", alignItems: "center" } });
