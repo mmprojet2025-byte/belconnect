@@ -11,12 +11,10 @@ import { useAuth } from '@/context/auth-context';
 import { useLocale } from '@/context/locale-context';
 import { activityImages } from '@/lib/activity-images';
 import { Booking, getBookings } from '@/lib/bookings';
-import { getGroupAnnouncements, GroupAnnouncement } from '@/lib/group-feed';
 import { getGroups, Group } from '@/lib/groups';
 import { getNotifications, MobileNotice } from '@/lib/notifications';
 import { translate } from '@/lib/translations';
 
-type CommunityNews = GroupAnnouncement & { group: Group };
 const member = (group: Group) => group.membershipStatus === 'MEMBRE' || group.membershipStatus === 'ADMINISTRATEUR';
 
 export default function HomeScreen() {
@@ -29,12 +27,10 @@ function HomeContent({ token, firstName }: { token: string | null; firstName: st
   const t = (text: string) => translate(locale, text);
   const date = new Intl.DateTimeFormat(`${locale}-BE`, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Brussels' });
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [news, setNews] = useState<CommunityNews | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [notices, setNotices] = useState<MobileNotice[]>([]);
   const [loading, setLoading] = useState(Boolean(token));
   const [bookingError, setBookingError] = useState(false);
-  const [newsError, setNewsError] = useState(false);
   const [groupError, setGroupError] = useState(false);
   const [noticeError, setNoticeError] = useState(false);
   const [groupsLoading, setGroupsLoading] = useState(true);
@@ -49,30 +45,22 @@ function HomeContent({ token, firstName }: { token: string | null; firstName: st
     setNow(Date.now());
     setLoading(true);
     setBookings([]);
-    setNews(null);
     setGroups([]);
     setNotices([]);
     setBookingError(false);
-    setNewsError(false);
     setGroupError(false);
     setNoticeError(false);
     setGroupsLoading(true);
     Promise.allSettled([
       getBookings(token),
-      getGroups(controller.signal, token).then(async groups => {
-        if (!controller.signal.aborted) { setGroups(groups); setGroupsLoading(false); }
-        const results = await Promise.allSettled(groups.filter(member).slice(0, 6).map(async group =>
-          (await getGroupAnnouncements(group.id, token, controller.signal)).slice(0, 2).map(item => ({ ...item, group }))));
-        const available = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-        return { groups, news: available.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null };
-      }),
+      getGroups(controller.signal, token).then(items => { if (!controller.signal.aborted) { setGroups(items); setGroupsLoading(false); } return items; }),
       getNotifications(token),
-    ]).then(([reservationResult, communityResult, noticesResult]) => {
+    ]).then(([reservationResult, groupsResult, noticesResult]) => {
       if (controller.signal.aborted) return;
       if (reservationResult.status === 'fulfilled') setBookings(reservationResult.value);
       else setBookingError(true);
-      if (communityResult.status === 'fulfilled') { setNews(communityResult.value.news); setGroups(communityResult.value.groups); }
-      else { setNewsError(true); setGroupError(true); }
+      if (groupsResult.status === 'fulfilled') setGroups(groupsResult.value);
+      else setGroupError(true);
       setGroupsLoading(false);
       if (noticesResult.status === 'fulfilled') setNotices(noticesResult.value);
       else setNoticeError(true);
@@ -96,10 +84,6 @@ function HomeContent({ token, firstName }: { token: string | null; firstName: st
 
     {token && <><View style={styles.sectionHeader}><ThemedText type="subtitle">{t('À ne pas oublier')}</ThemedText><Link href="/(tabs)/notifications"><ThemedText type="linkPrimary">{t('Tout voir')}</ThemedText></Link></View>{unread.length ? <View style={styles.reminders}>{unread.map(item => <Link key={`${item.source}-${item.id}`} href="/(tabs)/notifications" asChild><Pressable accessibilityRole="button" style={styles.reminder}><View style={styles.reminderIcon}><SocialIcon name={item.source === 'activity' ? 'activity' : item.source === 'project' ? 'project' : item.source === 'message' ? 'message' : 'notification'} color={Colors.orange} size={22} /></View><View style={styles.reminderCopy}><ThemedText type="smallBold" numberOfLines={1}>{item.title}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>{item.message}</ThemedText></View><SocialIcon name="chevron" color={Colors.brand} size={16} /></Pressable></Link>)}</View> : <ThemedView type="surface" style={styles.empty}><ThemedText themeColor="textSecondary">{loading ? t('Chargement de vos actualités…') : noticeError ? t('Vos actualités sont momentanément indisponibles.') : t('Rien de nouveau à consulter pour le moment.')}</ThemedText></ThemedView>}</>}
 
-    <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Dans vos communautés')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Voir les groupes')}</ThemedText></Link></View>
-    {news ? <Link href={{ pathname: '/groups/[id]', params: { id: news.group.id } }} asChild><Pressable accessibilityRole="button" style={styles.newsCard}><ThemedText type="eyebrow" style={styles.orange}>{t('ANNONCE DU GROUPE')}</ThemedText><ThemedText type="smallBold">{news.group.name} · {news.author}</ThemedText><ThemedText numberOfLines={4}>{news.content}</ThemedText><ThemedText type="smallBold" style={styles.link}>{t('Ouvrir le groupe →')}</ThemedText></Pressable></Link>
-      : <ThemedView type="surface" style={styles.empty}><ThemedText themeColor="textSecondary">{!token ? t('Connectez-vous pour suivre vos communautés.') : loading ? t('Chargement des nouvelles…') : newsError ? t('Les nouvelles de vos groupes sont momentanément indisponibles.') : t('Aucune annonce récente dans vos groupes.')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Découvrir les groupes →')}</ThemedText></Link></ThemedView>}
-
     <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Groupes à découvrir')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Tout voir')}</ThemedText></Link></View>
     <View style={styles.groups}>{visibleGroups.map(group => <Link key={group.id} href={{ pathname: '/groups/[id]', params: { id: group.id } }} asChild><Pressable accessibilityRole="button" accessibilityLabel={`${t('Groupe')} ${group.name}`} style={styles.groupCard}>{group.coverUrl ? <Image source={{ uri: group.coverUrl }} style={styles.groupImage} resizeMode="cover" accessibilityLabel={`${t('Groupe')} ${group.name}`} /> : <View style={styles.groupFallback}><SocialAvatar name={group.name} size={60} /></View>}<View style={styles.groupBody}><ThemedText type="smallBold" style={styles.groupTitle} numberOfLines={2}>{group.name}</ThemedText><ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>{group.description || group.spaceName}</ThemedText><ThemedText type="smallBold" style={styles.link}>{member(group) ? t('Voir mon groupe →') : t('Découvrir le groupe →')}</ThemedText></View></Pressable></Link>)}{!visibleGroups.length && <ThemedView type="surface" style={styles.empty}><ThemedText themeColor="textSecondary">{groupError ? t('Les groupes sont momentanément indisponibles.') : groupsLoading ? t('Chargement des groupes…') : t('Aucun groupe visible pour le moment.')}</ThemedText><Link href="/groups"><ThemedText type="linkPrimary">{t('Explorer les groupes →')}</ThemedText></Link></ThemedView>}</View>
   </SafeAreaView></ScrollView></ThemedView>;
@@ -110,7 +94,7 @@ const styles = StyleSheet.create({
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.three, borderBottomWidth: 1, borderBottomColor: Colors.border }, wordmark: { color: Colors.brand, fontSize: 27 }, messageButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   intro: { gap: Spacing.two, padding: Spacing.four, borderRadius: 22, backgroundColor: Colors.brandSoft }, greeting: { fontSize: 28, lineHeight: 34 }, orange: { color: Colors.orange }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, marginTop: Spacing.two, borderLeftWidth: 3, borderLeftColor: Colors.orange, paddingLeft: Spacing.three, paddingVertical: Spacing.one },
   bookingCard: { borderWidth: 1, borderColor: Colors.border, borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF' }, bookingImage: { width: '100%', height: 160 }, bookingFallback: { height: 110, backgroundColor: Colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }, cardBody: { padding: Spacing.three, gap: Spacing.two },
-  newsCard: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4, borderLeftColor: Colors.orange, borderRadius: 18, backgroundColor: '#FFFFFF' }, empty: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18 }, link: { color: Colors.brand, marginTop: Spacing.one },
+  empty: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18 }, link: { color: Colors.brand, marginTop: Spacing.one },
   reminders: { gap: Spacing.two }, reminder: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, backgroundColor: '#FFFFFF' }, reminderIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: Colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }, reminderCopy: { flex: 1, gap: 3 },
   groups: { gap: Spacing.three }, groupCard: { overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, borderRadius: 20, backgroundColor: '#FFFFFF' }, groupImage: { width: '100%', height: 165 }, groupFallback: { height: 120, backgroundColor: Colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, groupBody: { padding: Spacing.three, gap: Spacing.one }, groupTitle: { fontSize: 19 },
 });
