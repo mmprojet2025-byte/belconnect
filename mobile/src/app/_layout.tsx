@@ -12,6 +12,9 @@ export default function RootLayout() {
         <Stack.Screen name="activities/[id]" options={{ title: 'Activité', headerBackTitle: 'Activités' }} />
         <Stack.Screen name="groups/index" options={{ title: 'Groupes', headerBackTitle: 'Accueil' }} />
         <Stack.Screen name="groups/[id]" options={{ title: 'Groupe', headerBackTitle: 'Groupes' }} />
+        <Stack.Screen name="messages/index" options={{ title: 'Messages', headerBackTitle: 'Accueil' }} />
+        <Stack.Screen name="messages/new" options={{ title: 'Nouveau message', headerBackTitle: 'Groupe' }} />
+        <Stack.Screen name="messages/[id]" options={{ title: 'Conversation', headerBackTitle: 'Messages' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider></AuthProvider>
