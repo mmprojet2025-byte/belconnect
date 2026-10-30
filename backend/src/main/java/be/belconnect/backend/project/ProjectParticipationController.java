@@ -24,13 +24,13 @@ public class ProjectParticipationController {
  public record Decision(@NotNull @Min(0) Long version,@NotBlank @Pattern(regexp="ACCEPTEE|REFUSEE") String status,@Size(max=1000) String reason) {
   public Decision {reason=reason==null?"":reason.strip();}
  }
- public record Participation(long id,long projectId,long spaceId,String title,String spaceName,String type,String message,String status,String reason,long version,OffsetDateTime createdAt,String participant) {}
+ public record Participation(long id,long projectId,long spaceId,String title,String imageUrl,String spaceName,String type,String message,String status,String reason,long version,OffsetDateTime createdAt,String participant) {}
  private static final String SELECT="""
-  SELECT pp.*,p.espace_id,p.titre,e.nom AS espace_nom,u.prenom,u.nom FROM participation_projet pp
+  SELECT pp.*,p.espace_id,p.titre,p.image_url,e.nom AS espace_nom,u.prenom,u.nom FROM participation_projet pp
   JOIN projet p ON p.id=pp.projet_id JOIN espace_organisateur e ON e.id=p.espace_id
   JOIN utilisateur u ON u.id=pp.utilisateur_id
   """;
- private final org.springframework.jdbc.core.RowMapper<Participation> mapper=(r,n)->new Participation(r.getLong("id"),r.getLong("projet_id"),r.getLong("espace_id"),r.getString("titre"),r.getString("espace_nom"),r.getString("type_aide"),r.getString("message"),r.getString("statut"),r.getString("motif"),r.getLong("version"),r.getObject("date_creation",OffsetDateTime.class),r.getString("prenom")+" "+r.getString("nom"));
+ private final org.springframework.jdbc.core.RowMapper<Participation> mapper=(r,n)->new Participation(r.getLong("id"),r.getLong("projet_id"),r.getLong("espace_id"),r.getString("titre"),r.getString("image_url"),r.getString("espace_nom"),r.getString("type_aide"),r.getString("message"),r.getString("statut"),r.getString("motif"),r.getLong("version"),r.getObject("date_creation",OffsetDateTime.class),r.getString("prenom")+" "+r.getString("nom"));
  private long user(Authentication auth) {return user(auth,false);}
  private long user(Authentication auth,boolean exclusive) {
   return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' "+(exclusive?"FOR UPDATE":"FOR SHARE"),(r,n)->r.getLong(1),auth.getName()).stream().findFirst().orElseThrow(()->error(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter."));
