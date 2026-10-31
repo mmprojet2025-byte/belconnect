@@ -104,6 +104,7 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(mode === 'combined');
+  const [requestTab, setRequestTab] = useState<'form' | 'tracking'>('form');
   const [historyLimit, setHistoryLimit] = useState(10);
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [requestLimit, setRequestLimit] = useState(5);
@@ -122,14 +123,15 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return <section id={mode === 'combined' ? 'demander-espace' : undefined} aria-labelledby="space-requests-title">
     <div className="account-section-heading"><h2 id="space-requests-title">{owner ? mode === 'inbox' ? 'Demandes d’ouverture à examiner' : 'Demandes d’ouverture d’espace' : 'Demander un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
-    <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : 'Remplissez la demande d’ouverture ici, puis suivez la réponse de Belconnect juste en dessous.'}</p>
-    {!owner && quota && <p className="workspace-description">{quota.pro ? 'Pro : jusqu’à 2 espaces organisateurs.' : 'Starter : 1 espace organisateur. Un abonnement Pro actif sur votre espace permet d’en ouvrir jusqu’à 2.'} {quota.used}/{quota.max} place{quota.max > 1 ? 's' : ''} utilisée{quota.used > 1 ? 's' : ''}, demandes en attente comprises.</p>}
+    <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : 'Remplissez la fiche, puis consultez sa réponse dans « Suivi demande ».'}</p>
+    {!owner && <nav className="requests-side-nav" aria-label="Fiche et suivi de demande"><button aria-current={requestTab === 'form' ? 'page' : undefined} onClick={() => setRequestTab('form')}>Mes demandes</button><button aria-current={requestTab === 'tracking' ? 'page' : undefined} onClick={() => { if (confirmLeavingEditor()) setRequestTab('tracking'); }}>Suivi demande</button></nav>}
+    {!owner && requestTab === 'form' && quota && <p className="workspace-description">{quota.pro ? 'Pro : jusqu’à 2 espaces organisateurs.' : 'Starter : 1 espace organisateur. Un abonnement Pro actif sur votre espace permet d’en ouvrir jusqu’à 2.'} {quota.used}/{quota.max} place{quota.max > 1 ? 's' : ''} utilisée{quota.used > 1 ? 's' : ''}, demandes en attente comprises.</p>}
     {notice && <p className="account-notice" role="status">{notice}</p>}
     {error && <p className="draft-error" role="alert">{error}</p>}
     {!loaded && !error && <p role="status">Chargement des demandes…</p>}
-    {!owner && (quota && quota.used >= quota.max ? <p className="account-notice">Limite d’espaces atteinte. Consultez vos demandes et espaces existants.</p> : editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setNotice('Demande envoyée. Retrouvez son statut ci-dessous.'); refresh(); }} /> : <button className="button outline workspace-create" disabled={!loaded} onClick={() => setEditing(true)}>Faire une nouvelle demande</button>)}
-    {!owner && <h3>Suivi de mes demandes</h3>}
-    {!owner && (mine.length > 0 ? <>
+    {!owner && requestTab === 'form' && (quota && quota.used >= quota.max ? <p className="account-notice">Limite d’espaces atteinte. Consultez le suivi de vos demandes.</p> : editing ? <OpeningForm onCancel={() => setEditing(false)} onDone={() => { setEditing(false); setRequestTab('tracking'); setNotice('Demande envoyée. Retrouvez son statut ci-dessous.'); refresh(); }} /> : <button className="button outline workspace-create" disabled={!loaded} onClick={() => setEditing(true)}>Faire une nouvelle demande</button>)}
+    {!owner && requestTab === 'tracking' && <h3>Suivi de mes demandes</h3>}
+    {!owner && requestTab === 'tracking' && (mine.length > 0 ? <>
       <div className="account-filters" aria-label="Filtrer mes demandes d’espace">{Object.entries({ ALL: 'Toutes', EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvées', REFUSEE: 'Refusées' }).map(([status, label]) => <button key={status} aria-pressed={requestFilter === status} onClick={() => { setRequestFilter(status); setRequestLimit(5); }}>{label} ({status === 'ALL' ? mine.length : mine.filter(request => request.status === status).length})</button>)}</div>
       {filteredMine.length > 0 ? <><div className="workspace-grid">{filteredMine.slice(0, requestLimit).map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Espaces et groupes ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>{filteredMine.length > requestLimit && <button className="button outline workspace-create" onClick={() => setRequestLimit(value => value + 5)}>Voir 5 demandes de plus</button>}</> : <p className="workspace-description">Aucune demande avec ce statut.</p>}
     </> : loaded && <p className="workspace-description">Aucune demande d’espace pour le moment.</p>)}
