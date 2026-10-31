@@ -32,13 +32,13 @@ public class PrivateMessageController {
 
     public PrivateMessageController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
-    public record Member(long id, String name) {}
+    public record Member(long id, String name, String avatarCode) {}
     public record Start(@NotNull Long groupId, @NotNull Long recipientId) {}
     public record Send(@NotNull UUID requestId, @NotBlank @Size(max = 2000) String content) {}
     public record Report(@NotBlank @Size(max = 500) String reason) {}
-    public record Conversation(long id, Long groupId, String groupName, long otherUserId, String otherName,
+    public record Conversation(long id, Long groupId, String groupName, long otherUserId, String otherName, String otherAvatarCode,
             String lastMessage, OffsetDateTime lastAt, long unreadCount, boolean blockedByMe, boolean canSend) {}
-    public record ContactProfile(String name, String email, String groupName) {}
+    public record ContactProfile(String name, String email, String groupName, String avatarCode) {}
     public record Message(long id, String content, OffsetDateTime createdAt, OffsetDateTime readAt, boolean mine) {}
 
     private ResponseStatusException missing() { return new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation indisponible."); }
@@ -91,7 +91,7 @@ public class PrivateMessageController {
 
     private Conversation summary(java.sql.ResultSet row, int index) throws java.sql.SQLException {
         return new Conversation(row.getLong("id"), (Long) row.getObject("groupe_id"), row.getString("group_name"),
-            row.getLong("other_user_id"), row.getString("other_name"), row.getString("last_message"),
+            row.getLong("other_user_id"), row.getString("other_name"), row.getString("other_avatar_code"), row.getString("last_message"),
             row.getObject("last_at", OffsetDateTime.class), row.getLong("unread_count"),
             row.getBoolean("blocked_by_me"), row.getBoolean("can_send"));
     }
@@ -100,6 +100,7 @@ public class PrivateMessageController {
         SELECT c.id,c.groupe_id,COALESCE(g.nom,'Ancien groupe') AS group_name,
           CASE WHEN c.participant_a_id=? THEN c.participant_b_id ELSE c.participant_a_id END AS other_user_id,
           CASE WHEN c.participant_a_id=? THEN concat_ws(' ',ub.prenom,ub.nom) ELSE concat_ws(' ',ua.prenom,ua.nom) END AS other_name,
+          CASE WHEN c.participant_a_id=? THEN ub.avatar_code ELSE ua.avatar_code END AS other_avatar_code,
           (SELECT m.contenu FROM message_prive m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_message,
           (SELECT m.date_creation FROM message_prive m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_at,
           (SELECT count(*) FROM message_prive m WHERE m.conversation_id=c.id AND m.expediteur_id<>? AND m.date_lecture IS NULL) AS unread_count,
@@ -122,7 +123,7 @@ public class PrivateMessageController {
 
     private Conversation conversation(long id, long actor) {
         return jdbc.query(SUMMARY + " WHERE c.id=? AND (c.participant_a_id=? OR c.participant_b_id=?)",
-            this::summary, actor, actor, actor, actor, actor, id, actor, actor).stream().findFirst().orElseThrow(this::missing);
+            this::summary, actor, actor, actor, actor, actor, actor, id, actor, actor).stream().findFirst().orElseThrow(this::missing);
     }
 
     @GetMapping("/conversations")
@@ -130,7 +131,7 @@ public class PrivateMessageController {
     public ResponseEntity<List<Conversation>> conversations(Authentication auth) {
         long actor = user(auth);
         var items = jdbc.query(SUMMARY + " WHERE c.participant_a_id=? OR c.participant_b_id=? ORDER BY COALESCE((SELECT max(m.id) FROM message_prive m WHERE m.conversation_id=c.id),0) DESC,c.id DESC LIMIT 100",
-            this::summary, actor, actor, actor, actor, actor, actor, actor);
+            this::summary, actor, actor, actor, actor, actor, actor, actor, actor);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(items);
     }
 
@@ -148,10 +149,10 @@ public class PrivateMessageController {
         sharedGroup(pair.group(), actor, pair.other(), false);
         if (blocked(actor, pair.other())) throw missing();
         var profiles = jdbc.query("""
-            SELECT concat_ws(' ',u.prenom,u.nom) AS name,u.email,g.nom AS group_name
+            SELECT concat_ws(' ',u.prenom,u.nom) AS name,u.email,g.nom AS group_name,u.avatar_code
             FROM utilisateur u JOIN groupe g ON g.id=?
             WHERE u.id=? AND u.statut='ACTIF'
-            """, (row, index) -> new ContactProfile(row.getString("name"), row.getString("email"), row.getString("group_name")),
+            """, (row, index) -> new ContactProfile(row.getString("name"), row.getString("email"), row.getString("group_name"), row.getString("avatar_code")),
             pair.group(), pair.other());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(profiles.stream().findFirst().orElseThrow(this::missing));
     }
@@ -162,7 +163,7 @@ public class PrivateMessageController {
         long actor = user(auth);
         if (!groupMember(actor, groupId, false)) throw missing();
         var items = jdbc.query("""
-            SELECT u.id,concat_ws(' ',u.prenom,u.nom) AS name FROM utilisateur u
+            SELECT u.id,concat_ws(' ',u.prenom,u.nom) AS name,u.avatar_code FROM utilisateur u
             WHERE u.statut='ACTIF' AND u.id<>? AND EXISTS(
               SELECT 1 FROM groupe g JOIN espace_organisateur e ON e.id=g.espace_id
               JOIN appartenance_espace ae ON ae.espace_id=g.espace_id AND ae.utilisateur_id=u.id AND ae.statut='ACTIF'
@@ -172,7 +173,7 @@ public class PrivateMessageController {
               AND NOT EXISTS(SELECT 1 FROM blocage_message_prive b WHERE
                 (b.bloqueur_id=? AND b.bloque_id=u.id) OR (b.bloqueur_id=u.id AND b.bloque_id=?))
             ORDER BY u.prenom,u.nom,u.id LIMIT 100
-            """, (row, index) -> new Member(row.getLong("id"), row.getString("name")), actor, groupId, actor, actor);
+            """, (row, index) -> new Member(row.getLong("id"), row.getString("name"), row.getString("avatar_code")), actor, groupId, actor, actor);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(items);
     }
 

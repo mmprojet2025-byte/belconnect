@@ -47,6 +47,12 @@ class PrivateMessageApiTests {
         Account outsider = register("dm-outsider-" + marker + "@example.com");
         Long space = null, group = null;
         try {
+            String avatarPath = "/api/mobile/auth/avatar";
+            assertEquals(403, call("PUT", avatarPath, null, Map.of("avatarCode", "mint")).statusCode());
+            assertEquals(400, call("PUT", avatarPath, admin.token(), Map.of("avatarCode", "unknown")).statusCode());
+            var selectedAvatar = call("PUT", avatarPath, admin.token(), Map.of("avatarCode", "amber"));
+            assertEquals(200, selectedAvatar.statusCode(), selectedAvatar.body());
+            assertEquals("amber", json.readTree(call("GET", "/api/mobile/auth/me", admin.token(), null).body()).get("avatarCode").asText());
             space = jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",
                 Long.class, "Messagerie " + marker, admin.id());
             jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR'),(?,?,'MEMBRE')",
@@ -60,10 +66,12 @@ class PrivateMessageApiTests {
             assertEquals(404, call("GET", base + "/groups/" + group + "/members", outsider.token(), null).statusCode());
             var members = json.readTree(call("GET", base + "/groups/" + group + "/members", member.token(), null).body());
             assertEquals(admin.id(), members.get(0).get("id").asLong());
+            assertEquals("amber", members.get(0).get("avatarCode").asText());
             var body = Map.of("groupId", group, "recipientId", admin.id());
             assertEquals(404, call("POST", base + "/conversations", outsider.token(), body).statusCode());
             var started = call("POST", base + "/conversations", member.token(), body);
             assertEquals(200, started.statusCode(), started.body());
+            assertEquals("amber", json.readTree(started.body()).get("otherAvatarCode").asText());
             long conversation = json.readTree(started.body()).get("id").asLong();
             assertEquals(conversation, json.readTree(call("POST", base + "/conversations", member.token(), body).body()).get("id").asLong());
             String path = base + "/conversations/" + conversation;
@@ -72,6 +80,7 @@ class PrivateMessageApiTests {
             var profile = call("GET", path + "/profile", member.token(), null);
             assertEquals(200, profile.statusCode(), profile.body());
             assertEquals("dm-admin-" + marker + "@example.com", json.readTree(profile.body()).get("email").asText());
+            assertEquals("amber", json.readTree(profile.body()).get("avatarCode").asText());
             assertEquals(404, call("GET", path + "/items", outsider.token(), null).statusCode());
             var messageBody = Map.of("requestId", UUID.randomUUID(), "content", "Salut, on se voit samedi ?");
             var sent = call("POST", path + "/items", member.token(), messageBody);

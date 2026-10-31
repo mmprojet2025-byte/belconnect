@@ -22,10 +22,10 @@ const projectStatus: Record<string, string> = { CONFIRMEE: 'Inscription confirmÃ
 
 export default function HomeScreen() {
   const { token, profile } = useAuth();
-  return <HomeContent key={token ?? 'guest'} token={token} firstName={profile?.firstName ?? null} />;
+  return <HomeContent key={token ?? 'guest'} token={token} firstName={profile?.firstName ?? null} avatarCode={profile?.avatarCode ?? null} />;
 }
 
-function HomeContent({ token, firstName }: { token: string | null; firstName: string | null }) {
+function HomeContent({ token, firstName, avatarCode }: { token: string | null; firstName: string | null; avatarCode: string | null }) {
   const { locale } = useLocale();
   const t = (text: string) => translate(locale, text);
   const date = new Intl.DateTimeFormat(`${locale}-BE`, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Brussels' });
@@ -90,7 +90,7 @@ function HomeContent({ token, firstName }: { token: string | null; firstName: st
   const myProjectImage = myProject?.imageUrl ? projectImages[myProject.imageUrl] : undefined;
 
   return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.content} edges={['left', 'right']}>
-    <View style={styles.topbar}><ThemedText type="subtitle" style={styles.wordmark}>BelConnect</ThemedText><Link href="/notifications" asChild><Pressable accessibilityRole="button" accessibilityLabel={t('Voir toutes les notifications')} style={styles.messageButton}><SocialIcon name="notification" color={Colors.brand} size={24} />{unreadCount > 0 && <View style={styles.notificationBadge}><ThemedText type="smallBold" style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText></View>}</Pressable></Link></View>
+    <View style={styles.topbar}><ThemedText type="subtitle" style={styles.wordmark}>BelConnect</ThemedText><View style={styles.topActions}>{token && <Link href="/(tabs)/account" asChild><Pressable accessibilityRole="button" accessibilityLabel={t('Mon espace')}><SocialAvatar name={firstName ?? 'BelConnect'} avatarCode={avatarCode} size={42} /></Pressable></Link>}<Link href="/notifications" asChild><Pressable accessibilityRole="button" accessibilityLabel={t('Voir toutes les notifications')} style={styles.messageButton}><SocialIcon name="notification" color={Colors.brand} size={24} />{unreadCount > 0 && <View style={styles.notificationBadge}><ThemedText type="smallBold" style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText></View>}</Pressable></Link></View></View>
     <View style={styles.intro}><ThemedText type="eyebrow" style={styles.orange}>{t('VOTRE JOURNÃ‰E')}</ThemedText><ThemedText type="title" style={styles.greeting}>{firstName ? `${t('Bonjour')} ${firstName}` : t('Bienvenue sur BelConnect')}</ThemedText><ThemedText themeColor="textSecondary">{t('Vos rendez-vous, vos nouvelles et vos groupes.')}</ThemedText></View>
 
     <View style={styles.sectionHeader}><ThemedText type="subtitle">{t('Votre prochain rendez-vous')}</ThemedText></View>
@@ -108,7 +108,7 @@ function HomeContent({ token, firstName }: { token: string | null; firstName: st
 
 const styles = StyleSheet.create({
   screen: { flex: 1 }, scroll: { alignItems: 'center' }, content: { width: '100%', maxWidth: MaxContentWidth, padding: Spacing.four, gap: Spacing.three },
-  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.three, borderBottomWidth: 1, borderBottomColor: Colors.border }, wordmark: { color: Colors.brand, fontSize: 27 }, messageButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: Colors.brandDark, alignItems: 'center', justifyContent: 'center' }, notificationBadge: { position: 'absolute', top: -4, right: -5, minWidth: 19, height: 19, borderRadius: 10, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }, notificationBadgeText: { color: '#FFFFFF', fontSize: 10, lineHeight: 14 },
+  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.three, borderBottomWidth: 1, borderBottomColor: Colors.border }, topActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }, wordmark: { color: Colors.brand, fontSize: 27 }, messageButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: Colors.brandDark, alignItems: 'center', justifyContent: 'center' }, notificationBadge: { position: 'absolute', top: -4, right: -5, minWidth: 19, height: 19, borderRadius: 10, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }, notificationBadgeText: { color: '#FFFFFF', fontSize: 10, lineHeight: 14 },
   intro: { gap: Spacing.two, padding: Spacing.four, borderRadius: 22, backgroundColor: Colors.brandSoft, borderWidth: 1, borderColor: Colors.orangeBorder }, greeting: { fontSize: 28, lineHeight: 34 }, orange: { color: Colors.orange }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, marginTop: Spacing.two, borderLeftWidth: 3, borderLeftColor: Colors.orangeBorder, paddingLeft: Spacing.three, paddingVertical: Spacing.one },
   bookingCard: { borderWidth: 1, borderColor: Colors.orangeBorder, borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF' }, bookingImage: { width: '100%', height: 160 }, bookingFallback: { height: 110, backgroundColor: Colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }, cardBody: { padding: Spacing.three, gap: Spacing.two },
   empty: { padding: Spacing.three, gap: Spacing.two, borderWidth: 1, borderColor: Colors.border, borderRadius: 18 }, link: { color: Colors.brand, marginTop: Spacing.one },

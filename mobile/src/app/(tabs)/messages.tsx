@@ -20,7 +20,7 @@ function ConversationRow({ item }: { item: Conversation }) {
   const {locale}=useLocale();
   const date=new Intl.DateTimeFormat(`${locale}-BE`,{day:'numeric',month:'short',timeZone:'Europe/Brussels'});
   return <Pressable accessibilityRole="button" accessibilityLabel={`Conversation avec ${item.otherName}, ${item.unreadCount} message non lu`} onPress={() => router.push({ pathname: '/messages/[id]', params: { id: item.id } })} style={({ pressed }) => [styles.row, { borderColor: Colors.orangeBorder }, pressed && styles.pressed]}>
-    <SocialAvatar name={item.otherName} size={58} ring={item.unreadCount > 0} />
+    <SocialAvatar name={item.otherName} avatarCode={item.otherAvatarCode} size={58} ring={item.unreadCount > 0} />
     <View style={styles.rowCopy}><View style={styles.rowTop}><ThemedText type="smallBold" style={styles.name} numberOfLines={1}>{item.otherName}</ThemedText>{item.lastAt && <ThemedText type="small" themeColor="textSecondary">{date.format(new Date(item.lastAt))}</ThemedText>}</View><ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{item.groupName}</ThemedText><ThemedText numberOfLines={1} style={item.unreadCount > 0 && styles.previewUnread}>{item.lastMessage ?? 'Commencez la conversation'}</ThemedText></View>
     {item.unreadCount > 0 ? <View style={styles.badge}><ThemedText type="smallBold" style={styles.badgeText}>{item.unreadCount}</ThemedText></View> : <SocialIcon name="chevron" color={theme.textSecondary} size={18} />}
   </Pressable>;

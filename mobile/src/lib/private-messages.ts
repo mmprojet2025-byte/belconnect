@@ -1,13 +1,13 @@
 import { apiUrl } from '@/lib/api';
 
-export type MessageMember = { id: number; name: string };
+export type MessageMember = { id: number; name: string; avatarCode: string | null };
 export type Conversation = {
   id: number; groupId: number | null; groupName: string;
-  otherUserId: number; otherName: string; lastMessage: string | null;
+  otherUserId: number; otherName: string; otherAvatarCode: string | null; lastMessage: string | null;
   lastAt: string | null; unreadCount: number; blockedByMe: boolean; canSend: boolean;
 };
 export type PrivateMessage = { id: number; content: string; createdAt: string; readAt: string | null; mine: boolean };
-export type ContactProfile = { name: string; email: string; groupName: string };
+export type ContactProfile = { name: string; email: string; groupName: string; avatarCode: string | null };
 
 const base = `${apiUrl}/api/mobile/messages`;
 

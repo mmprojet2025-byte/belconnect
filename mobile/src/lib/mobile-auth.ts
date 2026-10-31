@@ -1,6 +1,6 @@
 import { apiUrl } from '@/lib/api';
 
-export type Profile={ id:number; firstName:string; lastName:string; email:string };
+export type Profile={ id:number; firstName:string; lastName:string; email:string; avatarCode:string|null };
 export type Credentials={ email:string; password:string };
 export type Registration=Credentials & { firstName:string; lastName:string };
 type Session={ profile:Profile; token:string };
@@ -19,4 +19,5 @@ async function call<T>(path:string,options:RequestInit={}) {
 export const login=(body:Credentials)=>call<Session>('login',{method:'POST',body:JSON.stringify(body)});
 export const register=(body:Registration)=>call<Session>('register',{method:'POST',body:JSON.stringify(body)});
 export const currentProfile=(token:string)=>call<Profile>('me',{headers:{Authorization:`Bearer ${token}`}});
+export const updateAvatar=(token:string,avatarCode:string)=>call<Profile>('avatar',{method:'PUT',body:JSON.stringify({avatarCode}),headers:{Authorization:`Bearer ${token}`}});
 export const logout=(token:string)=>call<void>('logout',{method:'POST',body:'{}',headers:{Authorization:`Bearer ${token}`}});

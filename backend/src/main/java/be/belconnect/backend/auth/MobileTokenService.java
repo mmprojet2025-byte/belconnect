@@ -30,11 +30,11 @@ public class MobileTokenService {
     public AccountRepository.Profile authenticate(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) return null;
         return jdbc.query("""
-            SELECT u.id,u.prenom,u.nom,u.email
+            SELECT u.id,u.prenom,u.nom,u.email,u.avatar_code
             FROM session_mobile s JOIN utilisateur u ON u.id=s.utilisateur_id
             WHERE s.jeton_hash=? AND s.date_expiration>now() AND u.statut='ACTIF'
               AND s.empreinte_identifiants=u.mot_de_passe_hash
-            """, (row,index) -> new AccountRepository.Profile(row.getLong("id"),row.getString("prenom"),row.getString("nom"),row.getString("email")), hash(token)).stream().findFirst().orElse(null);
+            """, (row,index) -> new AccountRepository.Profile(row.getLong("id"),row.getString("prenom"),row.getString("nom"),row.getString("email"),row.getString("avatar_code")), hash(token)).stream().findFirst().orElse(null);
     }
 
     public void revoke(String token) { if (token != null) jdbc.update("DELETE FROM session_mobile WHERE jeton_hash=?", hash(token)); }

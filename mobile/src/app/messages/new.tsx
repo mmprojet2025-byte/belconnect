@@ -10,6 +10,7 @@ import { getMessageMembers, MessageMember, startConversation } from '@/lib/priva
 import { getGroups, Group } from '@/lib/groups';
 import { useLocale } from '@/context/locale-context';
 import { translate } from '@/lib/translations';
+import { SocialAvatar } from '@/components/social-avatar';
 
 export default function NewMessageScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -67,7 +68,7 @@ function NewMessageContent({ groupId, token }: { groupId: string | undefined; to
     </> : <>
       {!groupId && <Pressable onPress={() => { setSelectedGroupId(null); setMembers([]); }}><ThemedText type="linkPrimary">{t('← Changer de groupe')}</ThemedText></Pressable>}
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
-      {loading ? <ThemedText themeColor="textSecondary">Chargement des membres…</ThemedText> : members.length === 0 && !error ? <ThemedText themeColor="textSecondary">Aucun autre membre disponible dans ce groupe.</ThemedText> : members.map(member => <Pressable key={member.id} accessibilityRole="button" disabled={busy !== undefined} onPress={() => void start(member.id)} style={styles.member}><View style={styles.avatar}><ThemedText type="smallBold" style={styles.avatarText}>{member.name.charAt(0).toUpperCase()}</ThemedText></View><ThemedText type="smallBold" style={styles.name}>{member.name}</ThemedText><ThemedText type="linkPrimary">{busy === member.id ? 'Ouverture…' : 'Écrire →'}</ThemedText></Pressable>)}
+      {loading ? <ThemedText themeColor="textSecondary">Chargement des membres…</ThemedText> : members.length === 0 && !error ? <ThemedText themeColor="textSecondary">Aucun autre membre disponible dans ce groupe.</ThemedText> : members.map(member => <Pressable key={member.id} accessibilityRole="button" disabled={busy !== undefined} onPress={() => void start(member.id)} style={styles.member}><SocialAvatar name={member.name} avatarCode={member.avatarCode} size={42} /><ThemedText type="smallBold" style={styles.name}>{member.name}</ThemedText><ThemedText type="linkPrimary">{busy === member.id ? 'Ouverture…' : 'Écrire →'}</ThemedText></Pressable>)}
     </>}
   </SafeAreaView></ScrollView></ThemedView>;
 }

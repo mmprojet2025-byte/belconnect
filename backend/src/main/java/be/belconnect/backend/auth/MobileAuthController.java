@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -32,6 +33,7 @@ public class MobileAuthController {
         public Login { email=normalize(email); }
     }
     public record Session(AccountRepository.Profile profile,String token) {}
+    public record AvatarChoice(@NotBlank @Pattern(regexp="mint|amber|coral|blue") String avatarCode) {}
 
     public MobileAuthController(AccountRepository accounts,PasswordEncoder passwords,MobileTokenService tokens) {
         this.accounts=accounts; this.passwords=passwords; this.tokens=tokens; this.dummyHash=passwords.encode(java.util.UUID.randomUUID().toString());
@@ -59,6 +61,12 @@ public class MobileAuthController {
 
     @GetMapping("/me")
     public AccountRepository.Profile me(Authentication authentication) { return accounts.findByEmail(authentication.getName()).orElseThrow().profile(); }
+
+    @PutMapping("/avatar")
+    public AccountRepository.Profile updateAvatar(Authentication authentication, @Valid @RequestBody AvatarChoice choice) {
+        return accounts.updateAvatar(authentication.getName(), choice.avatarCode())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+    }
 
     @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@RequestHeader("Authorization") String authorization) { tokens.revoke(authorization.substring(7)); }
