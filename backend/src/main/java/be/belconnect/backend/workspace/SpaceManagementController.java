@@ -181,7 +181,7 @@ public class SpaceManagementController {
               WHERE espace_id=? AND formule='PRO' AND statut='ACTIF')
             """,Boolean.class,space));
         int used=jdbc.queryForObject("SELECT count(*) FROM groupe WHERE espace_id=? AND statut<>'ARCHIVE'",Integer.class,space);
-        return new GroupQuota(used,pro?6:3,pro);
+        return new GroupQuota(used,pro?4:2,pro);
     }
     private void audit(long space,Long group,long actor,String action,long version) {
         jdbc.update("INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,action,version) VALUES (?,?,?,?,?)",space,group,actor,action,version);
@@ -219,7 +219,7 @@ public class SpaceManagementController {
         }
         var quota=groupQuota(spaceId);
         if(quota.used()>=quota.max())
-            throw error(HttpStatus.CONFLICT,"Limite de groupes atteinte : 3 en Starter ou 6 avec un abonnement Pro actif sur cet espace.");
+            throw error(HttpStatus.CONFLICT,"Limite de groupes atteinte : 2 en Starter ou 4 avec un abonnement Pro actif sur cet espace.");
         uniqueName(spaceId,null,c.name());
         long id=jdbc.queryForObject("""
             INSERT INTO groupe(espace_id,nom,description,couverture_url,adhesion_ouverte,visibilite,creation_request,createur_id)

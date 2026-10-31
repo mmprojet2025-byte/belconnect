@@ -51,23 +51,23 @@ class SpaceManagementApiTests {
   try {
    var admin=actor(); long space=setupSpace(admin);
    String path="/api/workspace/spaces/"+space;
-   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   assertEquals(2,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
    var first=Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe un"));
    long firstId=ok(admin.post(path+"/groups",first,true),201).get("id").asLong();
-   for(int i=2;i<=3;i++) ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe "+i)),true),201);
-   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
-   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe quatre")),true).statusCode());
+   ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe deux")),true),201);
+   assertEquals(2,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe trois")),true).statusCode());
    assertEquals(firstId,ok(admin.post(path+"/groups",first,true),201).get("id").asLong());
    jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",space,admin.id);
-   assertEquals(6,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
-   for(int i=4;i<=6;i++) ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe "+i)),true),201);
-   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe sept")),true).statusCode());
+   assertEquals(4,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   for(int i=3;i<=4;i++) ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe "+i)),true),201);
+   assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Groupe cinq")),true).statusCode());
    jdbc.update("UPDATE abonnement_espace SET formule='STARTER',statut='ANNULE' WHERE espace_id=?",space);
-   assertEquals(6,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
-   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
+   assertEquals(4,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+   assertEquals(2,ok(admin.get(path+"/management"),200).get("groupQuota").get("max").asInt());
    assertEquals(409,admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",gc("Encore un")),true).statusCode());
    ok(admin.post(path+"/groups/"+firstId+"/status",Map.of("version",0,"status","ARCHIVE"),true),200);
-   assertEquals(5,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
+   assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
   } finally { cleanup(); }
  }
  JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc(name)),true),201); }

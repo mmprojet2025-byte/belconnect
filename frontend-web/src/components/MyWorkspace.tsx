@@ -134,7 +134,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       </>}
     </div>}
     {view === 'requests' && <div className="workspace-panel">
-      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Suivez ici vos demandes et les réponses reçues. Un membre peut rejoindre jusqu’à 2 groupes. Pour organiser, la formule Starter permet 1 espace et jusqu’à 3 groupes par espace ; la formule Pro permet jusqu’à 3 espaces et 6 groupes par espace.</p></div>}
+      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Suivez ici vos demandes et les réponses reçues. Un membre peut rejoindre jusqu’à 2 groupes. Pour organiser, la formule Starter permet 1 espace et jusqu’à 2 groupes par espace ; la formule Pro permet jusqu’à 3 espaces et 4 groupes par espace.</p></div>}
       {!data.owner ? <div className="requests-layout">
         <nav className="requests-side-nav" aria-label="Type de demande">
           <button aria-current={requestsTab === 'memberships' ? 'page' : undefined} onClick={() => setRequestsTab('memberships')}>Adhésions aux groupes</button>
