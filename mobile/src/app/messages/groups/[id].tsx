@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   messageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 7 }, messageRowMine: { justifyContent: 'flex-end' },
   bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 19, gap: 4 },
   mine: { backgroundColor: Colors.brandSoft, borderBottomRightRadius: 5 }, theirs: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: Colors.border, borderBottomLeftRadius: 5 }, sender: { color: Colors.brand },
-  compose: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.two, padding: Spacing.two, paddingHorizontal: Spacing.three, borderTopWidth: 1, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
-  input: { flex: 1, minHeight: 46, maxHeight: 120, borderWidth: 1, borderColor: Colors.border, borderRadius: 23, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16, color: '#17251F', backgroundColor: '#F7F9F6' },
+  compose: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.two, padding: Spacing.two, paddingHorizontal: Spacing.three, borderTopWidth: 1, borderColor: Colors.orangeBorder, backgroundColor: '#FFFFFF' },
+  input: { flex: 1, minHeight: 46, maxHeight: 120, borderWidth: 1, borderColor: Colors.brand, borderRadius: 23, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16, color: '#17251F', backgroundColor: '#F7F9F6' },
   send: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center' }, disabled: { opacity: .4 },
 });
