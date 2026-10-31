@@ -261,6 +261,13 @@
 .workspace-sections { display:grid; gap:32px; }
 .workspace-panel { display:grid; gap:32px; min-width:0; }
 .workspace-panel[hidden] { display:none; }
+.requests-layout { display:grid; gap:20px; min-width:0; }
+.requests-side-nav { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:12px; border-bottom:2px solid #e6b78e; }
+.requests-side-nav button { padding:11px 14px; border-radius:8px; color:#345266; font-size:13px; font-weight:650; text-align:center; }
+.requests-side-nav button:hover { background:#f6f8f7; }
+.requests-side-nav button[aria-current=page] { background:#e9f3f2; color:#146d69; }
+.requests-content { min-width:0; }
+@media(max-width:760px) { .requests-side-nav button { flex:1; min-width:135px; } }
 .workspace-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; }
 .owner-finance-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr)); gap:12px; }
 .owner-finance-grid .workspace-card { display:grid; align-content:center; gap:8px; padding:18px; }
