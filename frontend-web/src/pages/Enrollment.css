@@ -777,3 +777,40 @@
 .booking-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .booking-edit-form { margin-top: 18px; }
 .booking-edit-form .button { white-space: normal; }
+
+/* Clear, restrained boundaries throughout registration and review. */
+.enrollment-container .booking-summary,
+.enrollment-container .enrollment-card {
+  border:1px solid #e8cbb4;
+}
+.enrollment-container .review-card > h2,
+.enrollment-container .flow-form > h2 {
+  border-left:3px solid #dfae86;
+  padding-left:12px;
+}
+.enrollment-container .review-card dl {
+  border:1px solid #d5e5df;
+  border-radius:10px;
+  padding:0 16px;
+  background:#fbfdfc;
+}
+.enrollment-container .review-card dl > div { border-bottom:1px solid #dce7e3; }
+.enrollment-container .review-card dl > div:last-child {
+  border-bottom:0;
+  border-top:2px solid #e8cbb4;
+  font-weight:700;
+  color:#173e37;
+}
+.enrollment-container .review-card dt { color:#455f6b; }
+.enrollment-container .review-actions {
+  border-top:1px solid #e8cbb4;
+  padding-top:20px;
+  margin-top:20px;
+}
+.enrollment-container .recap-total { border-top:2px solid #dfae86; }
+.enrollment-container .demo-notice {
+  border-left:3px solid #6e9c8d;
+  background:#f0f7f3;
+  border-radius:8px;
+  padding:16px;
+}

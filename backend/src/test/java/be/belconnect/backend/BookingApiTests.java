@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BookingApiTests {
  @LocalServerPort int port;
  @Autowired JdbcTemplate jdbc;
+ @Autowired be.belconnect.backend.booking.PaidActivitySettlement settlement;
  ObjectMapper json=new ObjectMapper();
  HttpClient client() {return HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();}
  HttpResponse<String> get(HttpClient c,String path) throws Exception {return c.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).build(),HttpResponse.BodyHandlers.ofString());}
@@ -47,10 +48,20 @@ class BookingApiTests {
    var attempt=json.readTree(get(owner,"/api/paid-activity-bookings").body());
    assertEquals(1,attempt.size());
    assertEquals("Atelier payant",attempt.get(0).get("title").asText());
+   long paymentId=attempt.get(0).get("id").asLong();
+   settlement.apply(paymentId,"cs_test_notice","activity-booking-"+paymentId,5500,"eur","paid","pi_test_notice","checkout.session.completed");
+   settlement.apply(paymentId,"cs_test_notice","activity-booking-"+paymentId,5500,"eur","paid","pi_test_notice","checkout.session.completed");
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_activite WHERE utilisateur_id=? AND evenement='PAIEMENT_CONFIRME'",Integer.class,userId));
+   assertTrue(get(owner,"/api/mobile/notifications").body().contains("Votre paiement et votre inscription sont confirmés."));
+   assertFalse(get(other,"/api/mobile/notifications").body().contains("Atelier payant"));
+
    assertEquals("EN_ATTENTE",attempt.get(0).get("status").asText());
    assertTrue(attempt.get(0).get("registrationId").isNull());
   } finally {
+   jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM reservation_payante_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+   jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+   jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM activite WHERE slug=?",slug);
    jdbc.update("DELETE FROM utilisateur WHERE email IN (?,?)",email,otherEmail);
   }
@@ -112,6 +123,7 @@ class BookingApiTests {
    assertEquals(0,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE slug=?",Integer.class,slug));
    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM inscription_activite i JOIN activite a ON a.id=i.activite_id WHERE a.slug=? AND i.statut='CONFIRMEE'",Integer.class,slug));
   } finally {
+   jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM activite WHERE slug=?",slug);
    jdbc.update("DELETE FROM utilisateur WHERE email IN (?,?)",e1,e2);
@@ -146,6 +158,13 @@ class BookingApiTests {
    assertEquals(409,post(c1,path1,edit,true).statusCode());
    jdbc.update("UPDATE activite SET publiee=true, prix=10 WHERE slug=?",slug);
    assertEquals(409,post(c1,path1,edit,true).statusCode());
+   // Paid activities allow contact edits, but never change the charged quantity.
+   var paidContacts=new HashMap<>(edit);paidContacts.put("quantity",1);
+   assertEquals(200,post(c1,path1,paidContacts,true).statusCode());
+   assertEquals(1,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE slug=?",Integer.class,slug));
+   assertEquals("Camille",jdbc.queryForObject("SELECT prenom FROM inscription_activite WHERE id=?",String.class,id1));
+   // Reset this fixture's version before the independent concurrency assertions.
+   jdbc.update("UPDATE inscription_activite SET version=0 WHERE id=?",id1);
    jdbc.update("UPDATE activite SET prix=0 WHERE slug=?",slug);
    try(var pool=Executors.newFixedThreadPool(2)) {
     var start=new CountDownLatch(1);
@@ -173,6 +192,7 @@ class BookingApiTests {
     assertEquals(2,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE slug=?",Integer.class,slug));
    }
   } finally {
+   jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
    jdbc.update("DELETE FROM activite WHERE slug=?",slug);
    jdbc.update("DELETE FROM utilisateur WHERE email IN (?,?)",e1,e2);

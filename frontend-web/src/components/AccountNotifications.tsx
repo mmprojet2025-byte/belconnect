@@ -48,7 +48,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
         window.dispatchEvent(new Event('belconnect:notifications-changed'));
       }
       if (open) {
-        if (notice.source === 'activity') onOpenBookings();
+        if (notice.source === 'activity') { if (notice.event === 'INSCRIPTION_RECUE' || notice.event === 'INSCRIPTION_PAYANTE_RECUE') navigate(`/mon-espace?activite=${notice.activityId}#mes-activites`); else onOpenBookings(); }
         else if (notice.source === 'project' && notice.projectId) navigate(`/projets/${notice.projectId}`);
         else if (notice.source === 'workspace') onOpenRequests();
         else if (notice.source === 'group') navigate(notice.event === 'DEMANDE_RECUE' && notice.spaceId ? `/mon-espace?espace=${notice.spaceId}&rubrique=adhesions#organisation` : '/mon-espace#demandes');

@@ -59,7 +59,7 @@ public class ActivityManagementController {
     public record Update(@NotNull @Min(0) Long version,@NotNull @Valid Content content) {}
     public record Publication(@NotNull @Min(0) Long version,@NotNull Boolean published,Boolean demonstration) {}
     public record Activity(long id,String slug,long spaceId,Long groupId,String spaceName,String groupName,
-      boolean published,boolean cancelled,boolean demonstration,long version,int bookings,int pendingCancellation,Content content) {}
+      boolean published,boolean cancelled,boolean demonstration,boolean publicationRequested,long version,int bookings,int pendingCancellation,Content content) {}
     private ResponseStatusException error(HttpStatus code,String text) { return new ResponseStatusException(code,text); }
     private long user(Authentication auth) {
       return jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF' FOR SHARE",(r,n)->r.getLong(1),auth.getName()).stream().findFirst()
@@ -96,7 +96,7 @@ public class ActivityManagementController {
         (SELECT count(*) FROM reservation_payante_activite r WHERE r.activite_id=a.id
           AND r.statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS')) AS paiements_a_traiter
         FROM activite a JOIN espace_organisateur e ON e.id=a.espace_id LEFT JOIN groupe g ON g.id=a.groupe_id
-        """+where+suffix,(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getBoolean("demonstration"),r.getLong("version"),r.getInt("inscriptions"),r.getInt("paiements_a_traiter")+r.getInt("inscriptions"),
+        """+where+suffix,(r,n)->new Activity(r.getLong("id"),r.getString("slug"),r.getLong("espace_id"),r.getObject("groupe_id",Long.class),r.getString("espace_nom"),r.getString("groupe_nom"),r.getBoolean("publiee"),r.getBoolean("annulee"),r.getBoolean("demonstration"),r.getBoolean("publication_demandee"),r.getLong("version"),r.getInt("inscriptions"),r.getInt("paiements_a_traiter")+r.getInt("inscriptions"),
           new Content(r.getString("titre"),r.getString("categorie"),r.getString("ville"),r.getString("lieu"),r.getBigDecimal("prix"),r.getString("image"),r.getObject("debut",OffsetDateTime.class),r.getObject("fin",OffsetDateTime.class),r.getObject("cloture_inscriptions",OffsetDateTime.class),r.getString("description"),r.getString("duree"),r.getInt("capacite"),r.getString("public_cible"),r.getString("rendez_vous"),r.getString("preparation"),r.getString("visibilite"))),args);
     }
     private Activity activity(long id) { return read("WHERE a.id=?",id).stream().findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Activité introuvable.")); }
@@ -190,13 +190,29 @@ public class ActivityManagementController {
       var c=body.content();dates(c);
       jdbc.update("""
         UPDATE activite SET titre=?,categorie=?,ville=?,lieu=?,prix=?,image=?,debut=?,description=?,duree=?,capacite=?,places_disponibles=?,
-          public_cible=?,rendez_vous=?,preparation=?,visibilite=?,cloture_inscriptions=?,fin=?,version=version+1 WHERE id=?
+          public_cible=?,rendez_vous=?,preparation=?,visibilite=?,cloture_inscriptions=?,fin=?,publication_demandee=false,version=version+1 WHERE id=?
         """,c.title(),c.category(),c.city(),c.location(),c.price(),c.image(),c.startsAt(),c.description(),c.duration(),c.capacity(),c.capacity(),c.audience(),c.meetingPoint(),c.preparation(),c.visibility(),c.closesAt(),c.endsAt(),id);
       audit(id,u,"BROUILLON_MODIFIE",a.version()+1);return activity(id);
+    }
+    public record ReviewRequest(@NotNull @Min(0) Long version) {}
+    @GetMapping("/publication-requests") @Transactional
+    public List<Activity> publicationRequests(Authentication auth) {
+      long u=user(auth);
+      return read("WHERE a.publication_demandee AND NOT a.publiee AND NOT a.annulee AND e.statut='ACTIF' AND EXISTS(SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=a.espace_id AND ae.utilisateur_id=? AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF')",u);
+    }
+    @PostMapping("/{id}/submit") @Transactional
+    public Activity submit(Authentication auth,@PathVariable long id,@Valid @RequestBody ReviewRequest body) {
+      long u=user(auth);var a=lock(u,id);version(a,body.version());
+      if(a.published() || a.cancelled()) throw error(HttpStatus.CONFLICT,"Seul un brouillon peut être soumis.");
+      dates(a.content());
+      if(!a.publicationRequested()) jdbc.update("UPDATE activite SET publication_demandee=true,version=version+1 WHERE id=?",id);
+      return activity(id);
     }
     @PostMapping("/{id}/publication") @Transactional
     public Activity publish(Authentication auth,@PathVariable long id,@Valid @RequestBody Publication body) {
       long u=user(auth);var a=lock(u,id);version(a,body.version());
+      if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=? AND role='ADMINISTRATEUR' AND statut='ACTIF')",Boolean.class,a.spaceId(),u)))
+        throw error(HttpStatus.FORBIDDEN,"La publication, gratuite ou payante, nécessite la validation de l’administrateur de l’espace.");
       if(a.cancelled()) throw error(HttpStatus.CONFLICT,"Cette activité est annulée et ne peut plus être publiée.");
       if(a.published()==body.published()) return a;
       boolean demonstration=Boolean.TRUE.equals(body.demonstration());
@@ -221,7 +237,7 @@ public class ActivityManagementController {
         }
       } else if(a.bookings()>0 || jdbc.queryForObject("SELECT count(*) FROM reservation_payante_activite WHERE activite_id=? AND statut='EN_ATTENTE'",Integer.class,id)>0)
         throw error(HttpStatus.CONFLICT,"Cette activité a des inscriptions ou paiements en cours. Utilisez l’annulation de l’activité.");
-      jdbc.update("UPDATE activite SET publiee=?,demonstration=CASE WHEN ? THEN ? ELSE demonstration END,version=version+1 WHERE id=?",
+      jdbc.update("UPDATE activite SET publiee=?,publication_demandee=false,demonstration=CASE WHEN ? THEN ? ELSE demonstration END,version=version+1 WHERE id=?",
         body.published(),body.published(),demonstration,id);
       audit(id,u,body.published()?"ACTIVITE_PUBLIEE":"PUBLICATION_RETIREE",a.version()+1);return activity(id);
     }
@@ -237,7 +253,7 @@ public class ActivityManagementController {
         INSERT INTO notification_activite(utilisateur_id,inscription_id,activite_id)
         SELECT utilisateur_id,id,activite_id FROM inscription_activite
         WHERE activite_id=? AND statut='CONFIRMEE'
-        ON CONFLICT (inscription_id) DO NOTHING
+        ON CONFLICT (inscription_id,utilisateur_id,evenement) DO NOTHING
         """,id);
       jdbc.update("UPDATE activite SET annulee=true,publiee=false,date_annulation=now(),places_disponibles=capacite,version=version+1 WHERE id=?",id);
       jdbc.update("UPDATE inscription_activite SET statut='ANNULEE',date_annulation=now(),version=version+1 WHERE activite_id=? AND statut='CONFIRMEE'",id);

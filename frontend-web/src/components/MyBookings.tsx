@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { postJson, result } from "../lib/auth";
 import type { Booking } from "../lib/reservations";
 import { readDemoPayments } from "../lib/demoPayments";
-import { BookingEditor } from "./BookingEditor";
 type PaidAttempt = { id: number; activityId: string; title: string; startsAt: string; location: string; image: string | null; quantity: number; amountCents: number; status: string; registrationId: number | null };
 export function MyBookings({ userId }: { userId: number }) {
   const activities = useActivities();
@@ -16,7 +15,6 @@ export function MyBookings({ userId }: { userId: number }) {
   const [paidAttempts, setPaidAttempts] = useState<PaidAttempt[] | null>(null);
   const [demoPayments] = useState(() => readDemoPayments(userId));
   const [error, setError] = useState("");
-  const [editId, setEditId] = useState<number | null>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
@@ -68,7 +66,7 @@ export function MyBookings({ userId }: { userId: number }) {
   return <section className="account-bookings" id="mes-inscriptions" aria-label="Mes inscriptions">
     <div className="account-section-heading"><h2>Mes inscriptions</h2><span>{bookings && paidAttempts ? `${count('all')} au total` : ""}</span><button className="text-link" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
     <div className="account-filters" role="group" aria-label="Filtrer les inscriptions">
-      {[["all","Toutes"],["upcoming","À venir"],["past","Passées"],["cancelled","Annulées / échouées"]].map(([id,label]) => <button key={id} aria-pressed={filter === id} disabled={busyId !== null} onClick={() => {setFilter(id);setEditId(null);setConfirmId(null);setActionError("");}}>{label}<span>{bookings && paidAttempts ? count(id) : "—"}</span></button>)}
+      {[["all","Toutes"],["upcoming","À venir"],["past","Passées"],["cancelled","Annulées / échouées"]].map(([id,label]) => <button key={id} aria-pressed={filter === id} disabled={busyId !== null} onClick={() => {setFilter(id);setConfirmId(null);setActionError("");}}>{label}<span>{bookings && paidAttempts ? count(id) : "—"}</span></button>)}
     </div>
     <label className="account-participation-search">Rechercher une activité<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nom de l’activité" /></label>
     <p className={notice ? "account-notice" : "account-notice-empty"} ref={noticeRef} tabIndex={-1} role="status">{notice}</p>
@@ -84,21 +82,12 @@ export function MyBookings({ userId }: { userId: number }) {
       </div></div><details className="account-booking-contact"><summary>Coordonnées de l’inscription</summary><p>Contact : {b.firstName} {b.lastName} · {b.email}{b.phone ? ` · ${b.phone}` : ""}</p>
       </details>
       {b.status === "CONFIRMEE" && new Date(b.startsAt).getTime() > now && (
-        editId === b.id ? <BookingEditor key={`${b.id}-${b.version}`} booking={b}
-          onBusy={busy => setBusyId(busy ? b.id : null)}
-          onClose={() => setEditId(null)}
-          onSaved={updated => {
-            setBookings(items => items?.map(item => item.id === updated.id ? updated : item) ?? null);
-            setEditId(null); setNotice("Votre inscription a été mise à jour.");
-            window.dispatchEvent(new Event("catalog-refresh"));
-            requestAnimationFrame(() => noticeRef.current?.focus());
-          }} /> : confirmId === b.id ? <div className="account-cancel-confirm" role="group" aria-label={`Annuler ${b.title}`}>
+        confirmId === b.id ? <div className="account-cancel-confirm" role="group" aria-label={`Annuler ${b.title}`}>
           <p>Annuler cette inscription pour {b.quantity} personne{b.quantity > 1 ? "s" : ""} ? Toutes les places de cette réservation seront libérées.{b.amountCents != null && " Aucun remboursement automatique ne sera effectué si vous annulez vous-même."}</p>
           <button className="button outline" disabled={busyId !== null} onClick={() => cancel(b)}>{busyId === b.id ? "Annulation…" : "Confirmer l’annulation"}</button>
           <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(null); setActionError("");}}>Garder mon inscription</button>
         </div> : <div className="booking-actions">
-          {b.amountCents == null && <button className="text-link" disabled={busyId !== null} onClick={() => {setEditId(b.id); setConfirmId(null); setActionError("");}}>Modifier mon inscription</button>}
-          <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(b.id); setEditId(null); setActionError("");}}>Annuler mon inscription</button>
+          <button className="text-link" disabled={busyId !== null} onClick={() => {setConfirmId(b.id); setActionError("");}}>Annuler mon inscription</button>
         </div>
       )}
       {b.status === "ANNULEE" && !b.activityCancelled && new Date(b.startsAt).getTime() > now && <p><a href={`/activites/${b.activityId}`}>Revoir l’activité pour se réinscrire</a></p>}

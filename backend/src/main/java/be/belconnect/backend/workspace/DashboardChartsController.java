@@ -22,7 +22,8 @@ public class DashboardChartsController {
 
   public record Month(LocalDate month,long activityCents,long projectCents,long donationCents) {}
   public record Activity(long id,String title,int capacity,int remaining,int confirmedPlaces) {}
-  public record SpaceCharts(List<Activity> activities,List<Month> months) {}
+  public record PaidActivity(long id,String title,int capacity,int remaining,int confirmedPlaces,long successfulPayments,long paidCents,long commissionCents,long pendingPayments,long refundedCents) {}
+  public record SpaceCharts(List<Activity> activities,List<Month> months,List<PaidActivity> paidActivities,List<PaidActivity> paidProjects) {}
 
   private long activeUser(Authentication auth) {
     if(auth==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous connecter.");
@@ -95,7 +96,33 @@ public class DashboardChartsController {
         ORDER BY a.debut,a.id LIMIT 5
         """,(r,n)->new Activity(r.getLong("id"),r.getString("titre"),r.getInt("capacite"),
           r.getInt("places_disponibles"),r.getInt("confirmed")),spaceId);
+    List<PaidActivity> paidActivities=jdbc.query("""
+        SELECT a.id,a.titre,a.capacite,a.places_disponibles,
+          COALESCE((SELECT sum(i.quantite) FROM inscription_activite i WHERE i.activite_id=a.id AND i.statut='CONFIRMEE'),0) AS confirmed,
+          count(r.id) FILTER (WHERE r.statut='PAYE') AS successful,
+          COALESCE(sum(r.montant_centimes) FILTER (WHERE r.statut='PAYE'),0) AS paid,
+          COALESCE(sum(r.commission_centimes) FILTER (WHERE r.statut='PAYE'),0) AS commission,
+          count(r.id) FILTER (WHERE r.statut='EN_ATTENTE') AS pending,
+          COALESCE(sum(r.montant_centimes) FILTER (WHERE r.statut='REMBOURSE'),0) AS refunded
+        FROM activite a LEFT JOIN reservation_payante_activite r ON r.activite_id=a.id
+        WHERE a.espace_id=? AND (a.prix>0 OR r.id IS NOT NULL)
+        GROUP BY a.id ORDER BY a.debut DESC,a.id DESC
+        """,(r,n)->new PaidActivity(r.getLong("id"),r.getString("titre"),r.getInt("capacite"),r.getInt("places_disponibles"),r.getInt("confirmed"),r.getLong("successful"),r.getLong("paid"),r.getLong("commission"),r.getLong("pending"),r.getLong("refunded")),spaceId);
+    List<PaidActivity> paidProjects=jdbc.query("""
+        SELECT p.id,p.titre,o.capacite,
+          (SELECT count(*) FROM inscription_gratuite_projet f WHERE f.projet_id=p.id AND f.statut='CONFIRMEE') + count(i.id) FILTER (WHERE i.statut='PAYE') AS confirmed,
+          o.capacite - (SELECT count(*) FROM inscription_gratuite_projet f WHERE f.projet_id=p.id AND f.statut='CONFIRMEE') - count(i.id) FILTER (WHERE i.statut IN ('PAYE','REMBOURSEMENT_EN_COURS') OR (i.statut='EN_ATTENTE' AND i.expiration>now())) AS remaining,
+          count(i.id) FILTER (WHERE i.statut='PAYE') AS successful,
+          COALESCE(sum(i.prix_centimes) FILTER (WHERE i.statut='PAYE'),0) AS paid,
+          COALESCE(sum(i.commission_centimes) FILTER (WHERE i.statut='PAYE'),0) AS commission,
+          count(i.id) FILTER (WHERE i.statut='EN_ATTENTE') AS pending,
+          COALESCE(sum(i.prix_centimes) FILTER (WHERE i.statut='REMBOURSE'),0) AS refunded
+        FROM projet p JOIN offre_participation_projet o ON o.projet_id=p.id
+        LEFT JOIN inscription_payante_projet i ON i.projet_id=p.id
+        WHERE p.espace_id=? AND (o.prix_centimes>0 OR i.id IS NOT NULL)
+        GROUP BY p.id,o.capacite ORDER BY p.id DESC
+        """,(r,n)->new PaidActivity(r.getLong("id"),r.getString("titre"),r.getInt("capacite"),r.getInt("remaining"),r.getInt("confirmed"),r.getLong("successful"),r.getLong("paid"),r.getLong("commission"),r.getLong("pending"),r.getLong("refunded")),spaceId);
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(
-        new SpaceCharts(activities,months("montant_centimes","AND e.id=?",spaceId,spaceId,spaceId)));
+        new SpaceCharts(activities,months("montant_centimes","AND e.id=?",spaceId,spaceId,spaceId),paidActivities,paidProjects));
   }
 }

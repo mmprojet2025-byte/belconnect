@@ -4,6 +4,17 @@ Plateforme communautaire pour **organiser des activités, porter des projets et 
 
 **Première version de développement : `v0.1.0-alpha.1` — 31 octobre 2026.** Cette version constitue un point de sauvegarde fonctionnel, pas une certification de sécurité ni une ouverture commerciale. Les paiements restent en test et les textes de confidentialité sont à finaliser.
 
+## Évolutions du 1er novembre 2026
+
+- Guide organisateur accessible depuis le profil : étapes dépliables pour débuter, navigation et rôles expliqués en français, anglais et néerlandais.
+- Tableau de bord : Vue d’ensemble, Mes demandes et Demandes à examiner selon les droits. Les participations personnelles sont séparées de la gestion.
+- Listes compactes pour activités, projets, espaces, groupes et inscrits ; filtres et détails dépliables.
+- Suivi des paiements par activité ou projet, places confirmées/restantes, commission et remboursements ; reçus Stripe personnels protégés par contrôle d’accès. Un reçu n’est pas nécessairement une facture fiscale.
+- Un seul référent actif par groupe, droits limités au groupe et validation administrateur avant publication gratuite ou payante. Les tâches de gestion restent soumises aux délégations autorisées.
+- Paiement d’activité vérifié en environnement Stripe de test. Paiement de projet, deuxième organisateur et remboursement complet restent à vérifier de bout en bout. Aucun encaissement réel n’est certifié.
+
+Voir le [bilan et les prochaines vérifications](docs/BILAN_2026-11-01.md).
+
 ## Comprendre le projet
 
 BelConnect s’adresse aux particuliers organisateurs, associations, collectifs de jeunes et autres structures souhaitant animer une communauté. Les restaurants et communes font partie des usages envisagés ; leur adéquation commerciale reste à valider. Aucun pilote géographique n’est acté dans cette documentation.
@@ -49,7 +60,7 @@ flowchart TD
 
 - Catalogues, recherche, filtres et fiches détaillées ; gestion des brouillons et publications.
 - Séparation entre activités organisées et inscriptions personnelles.
-- Réservations gratuites d’activités, modification avant le début selon les règles métier, annulation et restitution des places.
+- Réservations gratuites d’activités, annulation selon les règles métier et restitution des places. La modification des inscriptions a été retirée de l’interface.
 - Projets : brouillons, examen, approbation et publication ; le cas d’un seul administrateur actif évite l’attente de sa propre validation.
 - Inscription gratuite simple à un projet publié, même sans offre payante ni dates définies.
 - Propositions d’aide avec suivi distinct des projets créés par l’organisateur.
@@ -61,7 +72,7 @@ flowchart TD
 - Sur mobile : conversations privées et discussions communes aux membres d’un groupe, non-lus, fiche de contact, blocage, signalement et retrait d’une conversation de sa liste.
 - Sur le web : consultation des membres des groupes ; la lecture des conversations reste dans l’application mobile.
 - Notifications filtrables par lecture et catégorie, accès à la destination disponible, retrait des notifications lues.
-- Les notifications systématiques à chaque inscription ou modification restent à compléter et tester.
+- Confirmation d’inscription aux activités et de paiement pour le membre, avis aux administrateurs, avec protection contre les doublons. Le parcours équivalent des projets reste à compléter.
 
 ## Formules et modèle économique
 

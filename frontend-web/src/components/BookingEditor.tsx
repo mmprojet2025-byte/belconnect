@@ -33,10 +33,10 @@ export function BookingEditor({ booking, onSaved, onClose, onBusy }: {
   }
   return <form className="flow-form booking-edit-form" onSubmit={submit} aria-label={`Modifier ${booking.title}`}>
     <h4>Modifier mon inscription</h4>
-    <p>Vous pouvez réserver de 1 à 4 places, selon les disponibilités. Réduire le nombre de participants libère les places retirées.</p>
+    <p>{booking.amountCents != null ? "Vous pouvez corriger vos coordonnées. Le nombre de places payées reste inchangé : son ajustement avec paiement ou remboursement n’est pas encore disponible." : "Vous pouvez réserver de 1 à 4 places, selon les disponibilités. Réduire le nombre de participants libère les places retirées."}</p>
     <p>Ces coordonnées concernent cette inscription uniquement.</p>
     <fieldset disabled={busy} style={{border:0, padding:0, margin:0, minWidth:0, display:"grid", gap:12}}>
-      <label>Nombre de participants<input autoFocus name="quantity" type="number" min={1} max={4} step={1} required defaultValue={booking.quantity} /></label>
+      <label>Nombre de participants<input autoFocus readOnly={booking.amountCents != null} name="quantity" type="number" min={1} max={4} step={1} required defaultValue={booking.quantity} /></label>
       <label>Prénom<input name="firstName" autoComplete="given-name" required maxLength={80} pattern=".*\S.*" defaultValue={booking.firstName} /></label>
       <label>Nom<input name="lastName" autoComplete="family-name" required maxLength={80} pattern=".*\S.*" defaultValue={booking.lastName} /></label>
       <label>Adresse e-mail<input name="email" type="email" autoComplete="email" required maxLength={254} defaultValue={booking.email} /></label>

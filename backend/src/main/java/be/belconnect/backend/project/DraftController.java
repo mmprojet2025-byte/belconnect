@@ -47,6 +47,9 @@ public class DraftController {
             .orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter."));
     }
     private void access(long userId, long spaceId, Long groupId) {
+        boolean administrator=Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=? AND role='ADMINISTRATEUR' AND statut='ACTIF')",Boolean.class,userId,spaceId));
+        if(!administrator && (groupId==null || !Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND espace_id=? AND groupe_id=? AND role='REFERENT' AND statut='ACTIF')",Boolean.class,userId,spaceId,groupId))))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Seuls l’administrateur et le référent de ce groupe peuvent créer ou soumettre un projet.");
         if(jdbc.query("""
             SELECT a.id FROM appartenance_espace a JOIN espace_organisateur e ON e.id=a.espace_id
             WHERE a.utilisateur_id=? AND e.id=? AND a.statut='ACTIF' AND e.statut='ACTIF' FOR SHARE OF a,e
@@ -178,7 +181,7 @@ public class DraftController {
             jdbc.update("INSERT INTO validation_projet(projet_id,examinateur_id,decision,commentaire,version_projet) VALUES (?,?,'APPROUVE','Approbation automatique : administrateur unique de l’espace.',?)",id,userId,body.version()+1);
             return new Submission(id,(String)row.get("titre"),spaceName,"APPROUVE",null);
         }
-        String stage=referents.isEmpty()?"ADMINISTRATEUR":"REFERENT";
+        String stage="ADMINISTRATEUR";
         jdbc.update("UPDATE projet SET statut='SOUMIS',etape_validation=?,date_soumission=now(),date_modification=now(),version=version+1 WHERE id=?",stage,id);
         jdbc.update("INSERT INTO soumission_projet(projet_id,auteur_id,version_brouillon,destination) VALUES (?,?,?,?)",id,userId,body.version(),stage);
         return new Submission(id,(String)row.get("titre"),spaceName,"SOUMIS",stage);

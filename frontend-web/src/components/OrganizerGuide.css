@@ -1,0 +1,16 @@
+.organizer-guide { width: 100%; min-width: 0; margin: 0 auto; color: var(--text, #19354a); }
+.organizer-guide p { line-height: 1.65; margin: 8px 0 0; }
+.organizer-guide-test { margin: 24px 0; padding: 18px 22px; background: #fff7eb; border-left: 3px solid #edb776; border-radius: 8px; }
+.organizer-guide h3 { font-size: 1rem; margin: 0; }
+.organizer-guide-steps { padding-left: 30px; }
+.organizer-guide-steps li { padding: 18px 8px; border-bottom: 1px solid #dce7e5; }
+.organizer-guide-steps li::marker { font-weight: 700; color: #277d70; }
+.organizer-guide details { margin: 24px 0; padding: 16px; background: #f3f7f6; border-radius: 8px; }
+.organizer-guide summary { cursor: pointer; font-weight: 650; }
+.organizer-guide > a { display: inline-block; margin-bottom: 24px; }
+
+.organizer-guide .workspace-context-nav { display: flex; overflow-x: auto; }
+.organizer-guide .workspace-context-nav button { white-space: nowrap; }
+.organizer-guide-steps details { margin: 0; padding: 8px 0; background: transparent; }
+.organizer-guide-overview { max-width: 850px; padding: 24px 8px; }
+.organizer-guide-overview h3:not(:first-child) { margin-top: 28px; }

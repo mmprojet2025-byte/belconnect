@@ -44,18 +44,13 @@ export function StripeConnectSetup({ spaces }: { spaces: Space[] }) {
 
   return <section aria-labelledby="stripe-connect-title">
     <div className="account-section-heading"><h2 id="stripe-connect-title">Encaissements de l’espace</h2></div>
-    <p className="workspace-description">Le compte Stripe de l’espace sert aux activités payantes, aux participations payantes aux projets et aux dons. Belconnect prélève 8 % avec Starter ou 5 % avec Pro sur les transactions concernées.</p>
-    <div className="workspace-description">
-      <p><strong>Un compte de paiement par espace.</strong> Chaque administrateur connecte le compte de son espace. Les paiements de ses activités et projets sont destinés à cet organisateur, après la commission de Belconnect ; ils ne sont pas versés aux autres espaces.</p>
-      <p><strong>Comment commencer ?</strong> Cliquez sur « Connecter Stripe », complétez le formulaire sur Stripe, puis revenez ici. Si des informations manquent, « Continuer sur Stripe » permet de reprendre la configuration.</p>
-      <p><strong>Mode test uniquement.</strong> Aucun argent réel n’est encaissé. Connecter Stripe ne souscrit pas à Pro : l’abonnement et la réception des paiements sont deux démarches distinctes.</p>
-    </div>
+    <p className="workspace-description">Connectez Stripe pour recevoir les paiements de cet espace. Complétez le formulaire, puis revenez ici vérifier son état. Cette connexion est distincte de l’abonnement Pro.</p><p className="management-hint">Mode test : aucun argent réel n’est encaissé. Retrouvez les étapes détaillées dans le Guide organisateur, rubrique Stripe.</p>
     {error && <p className="draft-error" role="alert">{error}</p>}
     <div className="workspace-grid">{spaces.map(space => {
       const status = statuses[space.id];
       const ready = status?.chargesEnabled && status?.payoutsEnabled;
       return <article className="workspace-card" key={space.id}>
-        <h3>{space.name}</h3>
+        {spaces.length > 1 && <h3>{space.name}</h3>}
         <p>{!status ? 'Vérification du compte Stripe…' : !status.configured ? 'La connexion Stripe en mode test sera bientôt disponible.' : ready ? 'Compte Stripe prêt pour les essais de paiement.' : status.connected ? 'Configuration du compte Stripe à terminer.' : 'Reliez votre compte pour préparer les encaissements.'}</p>
         {status?.configured && !ready && <button type="button" className="button outline workspace-resume" disabled={busy !== null} onClick={() => start(space.id)}>{busy === space.id ? 'Ouverture de Stripe…' : status.connected ? 'Continuer sur Stripe' : 'Connecter Stripe'}</button>}
       </article>;

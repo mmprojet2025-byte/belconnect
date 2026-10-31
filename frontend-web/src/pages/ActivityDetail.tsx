@@ -153,7 +153,7 @@ export function ActivityDetail({
               <span>
                 <small>LIEU DE RENDEZ-VOUS</small>
                 <strong>{detail.meetingPoint}</strong>
-                <span>Adresse précise à confirmer</span>
+                <span>{activity.location}</span>
               </span>
             </div>
             <div>
@@ -168,18 +168,7 @@ export function ActivityDetail({
                 <span>{detail.audience}</span>
               </span>
             </div>
-            <div>
-              <Icon name="ticket" />
-              <span>
-                <small>TARIF PAR PERSONNE</small>
-                <strong>
-                  {activity.price === 0
-                    ? "Activité gratuite"
-                    : money(activity.price)}
-                </strong>
-                <span>{activity.demonstration ? "Tarif et disponibilité de démonstration" : "Tarif et disponibilité de l'activité"}</span>
-              </span>
-            </div>
+
           </section>
           <section className="detail-panel">
             <h2>Description de l’expérience</h2>
@@ -221,8 +210,8 @@ export function ActivityDetail({
               <div>
                 <h3>Accessibilité</h3>
                 <p>
-                  Les conditions d’accueil et d’accessibilité seront précisées
-                  par l’organisateur avant l’ouverture des inscriptions.
+                  Pour connaître les conditions d’accueil et d’accessibilité,
+                  contactez l’organisateur avant votre venue.
                 </p>
               </div>
             </div>
@@ -233,12 +222,11 @@ export function ActivityDetail({
               <div>
                 <h3>{detail.meetingPoint}</h3>
                 <p>
-                  Localisation indicative · le rendez-vous exact reste à
-                  confirmer.
+                  {activity.location}
                 </p>
               </div>
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detail.meetingPoint + ", Belgique")}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location + ", " + activity.city + ", Belgique")}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -264,6 +252,7 @@ export function ActivityDetail({
               </a>
             </div>
           </section>
+
         </div>
         <aside
           className={`booking-panel ${full ? "booking-full" : ""}`}
@@ -289,14 +278,14 @@ export function ActivityDetail({
               </span>
             </div>
           </div>
-          {activity.endsAt && <p>Fin : {new Date(activity.endsAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels" })} (heure de Bruxelles)</p>}
+
           <div className={`availability ${full ? "unavailable" : ""}`}>
             <span />
             {full
               ? "Toutes les places sont prises"
               : `${detail.remaining} places encore disponibles`}
           </div>
-          {activity.closesAt && <p>Clôture des inscriptions : {new Date(activity.closesAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels" })} (heure de Bruxelles)</p>}
+          {activity.closesAt && <p className="booking-deadline">Inscriptions jusqu’au {new Date(activity.closesAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · heure de Bruxelles</p>}
           {existingRegistration ? <p className="account-notice" role="status">{existingRegistration === "confirmed" ? "Vous êtes déjà inscrit à cette activité." : "Une inscription ou un paiement est déjà en cours pour cette activité."} <a href="/mon-espace#mes-inscriptions">Voir mon inscription</a></p> : closed ? <p className="account-notice" role="status">Les inscriptions sont closes pour cette activité.</p> : full ? (
             <div className="full-message">
               <h2>On se retrouve une prochaine fois ?</h2>
@@ -367,6 +356,7 @@ export function ActivityDetail({
           </p>
         </aside>
       </div>
+
       <section className="detail-related" id="autres-activites">
         <div className="section-heading">
           <div>

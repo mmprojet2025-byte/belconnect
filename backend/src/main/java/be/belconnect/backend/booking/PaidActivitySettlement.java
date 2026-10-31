@@ -40,6 +40,7 @@ public class PaidActivitySettlement {
         UPDATE reservation_payante_activite SET session_stripe=?,paiement_stripe=?,inscription_id=?,statut='PAYE',date_paiement=now()
         WHERE id=? AND statut='EN_ATTENTE'
         """,session,paymentIntent,registration,id);
+      BookingNotifications.confirmed(jdbc,registration,true);
     } else if("checkout.session.expired".equals(eventType) || "checkout.session.async_payment_failed".equals(eventType)) {
       jdbc.update("UPDATE reservation_payante_activite SET session_stripe=?,statut=? WHERE id=? AND statut='EN_ATTENTE'",
         session,"checkout.session.expired".equals(eventType)?"EXPIRE":"ECHOUE",id);

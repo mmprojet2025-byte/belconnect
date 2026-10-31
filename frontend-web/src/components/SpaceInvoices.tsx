@@ -32,7 +32,7 @@ export function SpaceInvoices({ spaceId }: { spaceId: number }) {
     finally { setBusy(false); }
   }
   return <section aria-labelledby="space-invoices-title">
-    <div className="account-section-heading"><h2 id="space-invoices-title">Factures de cet espace</h2><button className="text-link" onClick={() => { setLoaded(false); setItems([]); setCursor(null); setError(''); setRefresh(value => value + 1); }}>Actualiser</button></div>
+    <div className="account-section-heading"><h2 id="space-invoices-title">Factures d’abonnement</h2><button className="text-link" onClick={() => { setLoaded(false); setItems([]); setCursor(null); setError(''); setRefresh(value => value + 1); }}>Actualiser</button></div>
     {error && <p role="alert">{error}</p>}
     {!loaded && <p role="status">Chargement des factures…</p>}
     {loaded && !configured && <p>Stripe test n’est pas configuré sur ce serveur.</p>}

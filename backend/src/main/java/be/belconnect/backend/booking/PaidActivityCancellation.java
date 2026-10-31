@@ -103,7 +103,7 @@ public class PaidActivityCancellation {
         INSERT INTO notification_activite(utilisateur_id,inscription_id,activite_id)
         SELECT utilisateur_id,id,activite_id FROM inscription_activite
         WHERE activite_id=? AND statut='CONFIRMEE'
-        ON CONFLICT (inscription_id) DO NOTHING
+        ON CONFLICT (inscription_id,utilisateur_id,evenement) DO NOTHING
         """,activityId);
       jdbc.update("UPDATE inscription_activite SET statut='ANNULEE',date_annulation=now(),version=version+1 WHERE activite_id=? AND statut='CONFIRMEE'",activityId);
       jdbc.update("UPDATE activite SET places_disponibles=capacite WHERE id=?",activityId);

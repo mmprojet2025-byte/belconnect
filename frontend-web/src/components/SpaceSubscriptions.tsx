@@ -57,12 +57,12 @@ export function SpaceSubscriptions({ spaces }: { spaces: Space[] }) {
     finally { setBusy(null); }
   }
   return <section aria-labelledby="space-subscriptions-title">
-    <div className="account-section-heading"><h2 id="space-subscriptions-title">Abonnement des espaces</h2><button className="text-link" onClick={() => setRefresh(n => n + 1)}>Actualiser</button></div>
+    <div className="account-section-heading"><h2 id="space-subscriptions-title">Abonnement</h2><button className="text-link" onClick={() => setRefresh(n => n + 1)}>Actualiser</button></div>
     <p className="workspace-description">Starter est gratuit. Pro est proposé à 10 € HT par mois au lancement ; la commission est de 8 % avec Starter et de 5 % avec Pro sur les transactions. Le paiement est encore en mode test.</p>
     {error && <p role="alert">{error}</p>}
     <div className="workspace-grid">{spaces.map(space => {
       const status = statuses[space.id];
-      return <article className="workspace-card" key={space.id}><h3>{space.name}</h3>
+      return <article className="workspace-card" key={space.id}>{spaces.length > 1 && <h3>{space.name}</h3>}
         <p>{!status ? 'Chargement…' : status.plan === 'PRO' ? 'Formule Pro active' : 'Formule Starter gratuite'}{status?.status === 'PAIEMENT_ECHOUE' && ' · Paiement à régulariser'}{status?.status === 'EN_ATTENTE' && ' · Paiement en attente de confirmation'}</p>
         {status?.periodEnd && <p>Fin de période connue : {new Date(status.periodEnd).toLocaleDateString('fr-BE')}.</p>}
         {status?.plan === 'STARTER' && (requests[space.id]

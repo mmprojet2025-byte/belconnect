@@ -195,7 +195,7 @@ export function EnrollmentPage({
                     <Icon name="arrow" />
                   </a>
                   <a
-                    className="text-link"
+                    className="button outline"
                     href={bookingUrl(activity.id, "inscription", quantity)}
                   >
                     Modifier les informations

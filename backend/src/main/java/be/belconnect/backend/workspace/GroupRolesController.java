@@ -72,6 +72,8 @@ public class GroupRolesController {
             throw error(HttpStatus.CONFLICT,"Le rôle a changé. Actualisez les membres avant de réessayer.");
         }
         if(body.role().equals(row.get("role"))) return roster(id,access);
+        if("REFERENT".equals(body.role()) && Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE groupe_id=? AND role='REFERENT' AND statut='ACTIF' AND utilisateur_id<>?)",Boolean.class,id,memberId)))
+            throw error(HttpStatus.CONFLICT,"Ce groupe a déjà un référent. Retirez son rôle avant d’en désigner un autre.");
         jdbc.update("UPDATE appartenance_groupe SET role=?,version=version+1 WHERE groupe_id=? AND utilisateur_id=?",body.role(),id,memberId);
         jdbc.update("""
             INSERT INTO historique_gestion_espace(espace_id,groupe_id,acteur_id,cible_utilisateur_id,action,version)

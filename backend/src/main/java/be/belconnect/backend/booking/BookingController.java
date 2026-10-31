@@ -71,6 +71,7 @@ public class BookingController {
    VALUES (?,?,?,?,?,?,?) RETURNING id
    """,Long.class,userId,activityId,body.quantity(),body.firstName().strip(),body.lastName().strip(),
    body.email().strip(),body.phone()==null?"":body.phone().strip());
+  BookingNotifications.confirmed(jdbc,id,false);
   return listFor(userId).stream().filter(b->b.id()==id).findFirst().orElseThrow();
  }
  @PostMapping("/{id}/cancel") @Transactional @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -104,11 +105,14 @@ public class BookingController {
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Cette inscription a changé. Rechargez vos inscriptions avant de la modifier.");
   if(jdbc.queryForObject("SELECT debut <= clock_timestamp() FROM activite WHERE id=?",Boolean.class,activityId))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Cette activité a déjà commencé. La modification n’est plus disponible.");
-  if(!Boolean.TRUE.equals(activity.get("publiee")) || ((java.math.BigDecimal)activity.get("prix")).signum()!=0)
+  if(!Boolean.TRUE.equals(activity.get("publiee")))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Cette activité ne permet plus la modification. Vous pouvez encore annuler votre inscription avant son début.");
   if(jdbc.queryForObject("SELECT COALESCE(cloture_inscriptions,debut) <= clock_timestamp() FROM activite WHERE id=?",Boolean.class,activityId))
    throw new ResponseStatusException(HttpStatus.CONFLICT,"La clôture des inscriptions ne permet plus de modification. L’annulation reste disponible avant le début.");
   int delta=body.quantity()-((Number)booking.get("quantite")).intValue();
+  boolean paid=jdbc.queryForObject("SELECT count(*) FROM reservation_payante_activite WHERE inscription_id=?",Integer.class,id)>0;
+  if(delta!=0 && (paid || ((java.math.BigDecimal)activity.get("prix")).signum()!=0))
+   throw new ResponseStatusException(HttpStatus.CONFLICT,"Pour une inscription payante, seules les coordonnées peuvent être modifiées. Le changement de places nécessite un ajustement du paiement, pas encore disponible.");
   if(delta>((Number)activity.get("places_disponibles")).intValue())
    throw new ResponseStatusException(HttpStatus.CONFLICT,"Il ne reste pas assez de places pour ajouter ces participants. Votre inscription est inchangée.");
   jdbc.update("UPDATE activite SET places_disponibles=places_disponibles-? WHERE id=?",delta,activityId);

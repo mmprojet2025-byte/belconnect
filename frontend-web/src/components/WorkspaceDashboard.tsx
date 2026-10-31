@@ -14,11 +14,10 @@ type OwnerActivitySummary = { upcomingActivities: number; availablePlaces: numbe
 type Booking = { id: number; title: string; startsAt: string; status: string; activityCancelled: boolean; quantity: number };
 type ProjectEnrollment = { id: number; projectId: number; projectTitle: string; spaceName: string; status: string; startsOn: string | null; endsOn: string | null };
 
-export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 0 }: { data: Overview; firstName: string; onRefresh: () => void; refreshToken?: number }) {
+export function WorkspaceDashboard({ data, onRefresh, refreshToken = 0 }: { data: Overview; firstName: string; onRefresh: () => void; refreshToken?: number }) {
   const organizer = !data.owner && data.spaces.some(space => space.role === 'ADMINISTRATEUR');
   const referent = !data.owner && data.groups.some(group => group.role === 'REFERENT');
   const manager = organizer || referent || data.groups.some(group => group.canManageMemberships);
-  const role = data.owner ? 'Propriétaire' : organizer ? 'Administrateur d’espace' : referent ? 'Référent de groupe' : 'Membre';
   const [finance, setFinance] = useState<Finance | null>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [error, setError] = useState('');
@@ -97,7 +96,6 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
   const activeProjects = projectEnrollments.filter(item => ['CONFIRMEE', 'PAYE'].includes(item.status) && (!item.endsOn || item.endsOn >= new Date().toISOString().slice(0, 10)))
     .sort((a, b) => (a.startsOn ?? '').localeCompare(b.startsOn ?? ''));
   if (!data.owner && !manager) return <div className="workspace-dashboard workspace-dashboard--member">
-    <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · Membre</span><h2>Bonjour {firstName} !</h2><p>Voici vos groupes et vos inscriptions en cours.</p></header>
     <div className="dashboard-member-overview">
       <section className="dashboard-panel" aria-labelledby="member-activities"><span className="dashboard-eyebrow">Mes inscriptions</span><h2 id="member-activities">Activités</h2>
         {bookingError ? <p>Vos activités sont momentanément indisponibles.</p> : bookingLoading ? <p role="status">Chargement des activités…</p> : upcomingBookings.length ? <ul className="dashboard-member-items">{upcomingBookings.slice(0, 2).map(booking => <li key={booking.id}><strong>{booking.title}</strong><span>{new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(booking.startsAt))}</span></li>)}</ul> : <p>Aucune activité à venir.</p>}
@@ -114,20 +112,15 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
     </div>
   </div>;
   return <div className={`workspace-dashboard workspace-dashboard--organizer${organizer ? ' workspace-dashboard--single' : ''}`}>
-    <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · {role}</span><h2>Bonjour {firstName} !</h2><p>{data.owner ? 'Suivez les espaces et prenez les décisions qui relèvent de Belconnect.' : manager ? 'Retrouvez vos espaces et les demandes qui attendent votre décision.' : 'Retrouvez vos groupes, vos projets et vos participations au même endroit.'}</p></header>
     <div className="dashboard-main"><div className="account-section-heading"><h2>Vue d’ensemble</h2><button className="text-link" type="button" onClick={onRefresh}>Actualiser</button></div>
     {error && <p className="account-notice" role="alert">{error}</p>}
-    <div className="dashboard-stats" aria-label="Indicateurs de mon espace">
-      {data.owner ? <>
+    {data.owner && <div className="dashboard-stats" aria-label="Indicateurs de mon espace">
+      <>
         <div className="dashboard-stat"><strong>{finance?.activeSpaces ?? '—'}</strong><span>espaces actifs</span></div>
         <div className="dashboard-stat"><strong>{finance?.proSpaces ?? '—'}</strong><span>abonnements Pro actifs</span></div>
         <a className="dashboard-stat" href="/mon-espace#suivi-belconnect"><strong>{finance?.pendingRefunds ?? '—'}</strong><span>remboursements en cours · voir le suivi</span></a>
-      </> : <>
-        <div className="dashboard-stat"><strong>{data.spaces.length}</strong><span>mes espaces</span></div>
-        <div className="dashboard-stat"><strong>{data.groups.length}</strong><span>mes groupes</span></div>
-        <div className="dashboard-stat"><strong>{data.projects.length}</strong><span>mes projets</span></div>
-      </>}
-    </div>
+      </>
+    </div>}
     {organizer && currentSpaceId != null && <><label className="dashboard-space-selector">Espace suivi<select value={currentSpaceId} onChange={event => setSelectedSpaceId(Number(event.target.value))}>{adminSpaces.map(space => <option key={space.id} value={space.id}>{space.name}</option>)}</select></label><SpaceDashboardCharts key={currentSpaceId} spaceId={currentSpaceId} view="places" refreshToken={refreshToken} /></>}
     {(data.owner || manager) && <section className="dashboard-panel" aria-labelledby="dashboard-tasks"><div className="account-section-heading"><h2 id="dashboard-tasks">{data.owner ? 'Demandes d’ouverture à examiner' : 'Demandes à examiner'}</h2><a className="text-link" href="/mon-espace#a-traiter">Voir les demandes →</a></div>
       {tasks === null ? <p role={error ? undefined : 'status'}>{error ? 'Demandes momentanément indisponibles.' : 'Chargement des demandes…'}</p> : tasks === 0 ? <p>Aucune demande en attente pour le moment.</p> : <div className="dashboard-action-list">

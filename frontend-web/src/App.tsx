@@ -1,3 +1,4 @@
+import { HeaderAccountControls } from './components/HeaderAccountControls';
 import { PageBoundary } from "./components/PageBoundary";
 import { CatalogNotice } from "./components/CatalogNotice";
 import { NotFound } from "./pages/NotFound";
@@ -223,7 +224,7 @@ function App() {
             {user && <a className={pathname === '/mon-espace' ? 'active' : ''} aria-current={pathname === '/mon-espace' ? 'page' : undefined} href="/mon-espace">{tr(locale, 'Mon espace', 'My space', 'Mijn ruimte')}</a>}
           </nav>
           <div className="header-actions">
-            {pathname !== '/mon-espace' && <button
+            {!user && pathname !== '/mon-espace' && <button
               className="button outline organize"
               onClick={() => navigate('/mon-espace#espaces')}
             >
@@ -231,6 +232,7 @@ function App() {
             </button>}
             {!user && pathname !== '/mon-espace' && <a className="login" href="/connexion">{tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}</a>}
             <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="nl">🇳🇱 Nederlands</option></select></label>
+            {user && pathname !== '/mon-espace' && <HeaderAccountControls user={user} onLogout={logout} />}
             {pathname === '/mon-espace' && <div id="account-header-tools" />}
             {pathname === '/mon-espace' && <div id="account-header-profile" />}
           </div>
