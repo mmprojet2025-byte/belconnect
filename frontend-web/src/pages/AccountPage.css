@@ -291,12 +291,6 @@
 .workspace-management-nav button { padding:10px 14px; border-radius:8px; background:white; border:1px solid #dce7ec; color:var(--navy); font-size:13px; font-weight:650; }
 .workspace-management-nav button[aria-pressed=true] { background:var(--navy); border-color:var(--navy); color:white; }
 .workspace-management-nav button:disabled { opacity:.55; cursor:not-allowed; }
-.workspace-access-tabs { display:flex; gap:0; margin:0 0 18px; border-bottom:1px solid #dce7ec; }
-.workspace-access-tabs a { display:flex; align-items:center; gap:9px; padding:12px 18px; border-bottom:3px solid transparent; color:#617583; font-size:14px; font-weight:650; }
-.workspace-access-tabs a:hover { color:#146d69; background:#f4f8f7; }
-.workspace-access-tabs a[aria-current=page] { color:#146d69; border-bottom-color:#16827c; }
-.workspace-access-tabs a span { min-width:22px; padding:2px 6px; border-radius:12px; background:#eef3f3; color:#536b75; text-align:center; font-size:12px; }
-@media(max-width:480px) { .workspace-access-tabs a { flex:1; justify-content:center; padding:11px 8px; font-size:12px; } }
 .workspace-management-layout { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; min-width:0; }
 .workspace-context-header { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; padding:24px 28px 16px; border:1px solid #dce7ec; border-radius:14px; background:#fff; min-width:0; }
 .workspace-context-heading { display:flex; align-items:flex-start; gap:16px; min-width:0; }
