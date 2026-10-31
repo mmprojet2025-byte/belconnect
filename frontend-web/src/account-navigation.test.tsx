@@ -291,7 +291,7 @@ it('montre au référent uniquement les tâches de son groupe, sans réglages d�
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
   fireEvent.click(await screen.findByRole('link', { name: 'Mes groupes' }));
   expect(screen.getByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
-  expect(screen.getByText('Référent du groupe')).toBeTruthy();
+  expect(await screen.findByText('Référent du groupe')).toBeTruthy();
   expect(screen.getByText('Projets et annonces · Activités')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Voir le groupe →' }).getAttribute('href')).toBe('/groupes?groupe=17');
   expect(screen.queryByRole('button', { name: 'Gérer cet espace' })).toBeNull();

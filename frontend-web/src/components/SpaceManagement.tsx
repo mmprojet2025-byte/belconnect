@@ -96,6 +96,27 @@ function RequestDecision({ request, onDone }: { request: Opening; onDone: () => 
   </fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
 }
 
+function OpeningReviewCard({ request, onDone }: { request: Opening; onDone: () => void }) {
+  return <article className="workspace-card opening-review-card" aria-label={`Demande ${request.name}`}>
+    <header className="opening-review-header"><div><span className="opening-review-kicker">Demande d’ouverture</span><h3>{request.name}</h3></div><span className="account-status">En attente</span></header>
+    <div className="opening-review-sections">
+      <section aria-label="Organisateur" className="opening-review-section"><h4>Organisateur</h4><dl>
+        <div><dt>Demandeur</dt><dd>{request.applicant}</dd></div>
+        <div><dt>Type</dt><dd>{spaceTypes[request.type as keyof typeof spaceTypes]}</dd></div>
+        <div><dt>Responsable déclaré</dt><dd>{request.organizerName || request.applicant}</dd></div>
+        {request.city && <div><dt>Ville</dt><dd>{request.city}</dd></div>}
+        <div><dt>Formule souhaitée</dt><dd>{request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</dd></div>
+      </dl></section>
+      <section aria-label="Projet proposé" className="opening-review-section"><h4>Projet proposé</h4><dl>
+        {request.targetAudience && <div><dt>Public</dt><dd>{request.targetAudience}</dd></div>}
+        {request.plannedContent && <div><dt>Activités ou projets</dt><dd>{request.plannedContent}</dd></div>}
+        <div><dt>Présentation</dt><dd>{request.description || 'Aucune présentation renseignée.'}</dd></div>
+      </dl></section>
+    </div>
+    <div className="opening-review-decision"><h4>Décision</h4><RequestDecision request={request} onDone={onDone} /></div>
+  </article>;
+}
+
 export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boolean; onChanged: () => void; mode?: 'all' | 'combined' | 'inbox' }) {
   const [mine, setMine] = useState<Opening[]>([]);
   const [queue, setQueue] = useState<Opening[]>([]);
@@ -106,6 +127,7 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   const [editing, setEditing] = useState(mode === 'combined');
   const [requestTab, setRequestTab] = useState<'form' | 'tracking'>('form');
   const [historyLimit, setHistoryLimit] = useState(10);
+  const [historyQuery, setHistoryQuery] = useState('');
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [requestLimit, setRequestLimit] = useState(5);
   const [attempt, setAttempt] = useState(0);
@@ -121,6 +143,9 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   const filteredMine = mine
     .filter(request => requestFilter === 'ALL' || request.status === requestFilter)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const reviewedRequests = queue.filter(request => request.status !== 'EN_ATTENTE')
+    .filter(request => `${request.name} ${request.applicant} ${request.organizerName} ${request.city}`.toLocaleLowerCase('fr').includes(historyQuery.trim().toLocaleLowerCase('fr')))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return <section id={mode === 'combined' ? 'demander-espace' : undefined} aria-labelledby="space-requests-title">
     <div className="account-section-heading"><h2 id="space-requests-title">{owner ? mode === 'inbox' ? 'Demandes d’ouverture à examiner' : 'Demandes d’ouverture d’espace' : 'Demander un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
     <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : 'Remplissez la fiche, puis consultez sa réponse dans « Suivi demande ».'}</p>
@@ -135,7 +160,7 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
       <div className="account-filters" aria-label="Filtrer mes demandes d’espace">{Object.entries({ ALL: 'Toutes', EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvées', REFUSEE: 'Refusées' }).map(([status, label]) => <button key={status} aria-pressed={requestFilter === status} onClick={() => { setRequestFilter(status); setRequestLimit(5); }}>{label} ({status === 'ALL' ? mine.length : mine.filter(request => request.status === status).length})</button>)}</div>
       {filteredMine.length > 0 ? <><div className="workspace-grid">{filteredMine.slice(0, requestLimit).map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>{filteredMine.length > requestLimit && <button className="button outline workspace-create" onClick={() => setRequestLimit(value => value + 5)}>Voir 5 demandes de plus</button>}</> : <p className="workspace-description">Aucune demande avec ce statut.</p>}
     </> : loaded && <p className="workspace-description">Aucune demande d’espace pour le moment.</p>)}
-    {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <article className="workspace-card" key={request.id}><span className="account-status">En attente</span><h3>{request.name}</h3><p>{request.applicant} · {spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p><p><strong>Responsable :</strong> {request.organizerName || request.applicant}</p>{request.city && <p><strong>Ville :</strong> {request.city}</p>}{request.targetAudience && <p><strong>Public :</strong> {request.targetAudience}</p>}{request.plannedContent && <p><strong>Prévu :</strong> {request.plannedContent}</p>}<p className="management-copy"><strong>Présentation :</strong> {request.description || 'Aucune présentation renseignée.'}</p><RequestDecision request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} /></article>)}{queue.some(r => r.status !== 'EN_ATTENTE') && <details className="workspace-card"><summary>Décisions passées ({queue.filter(r => r.status !== 'EN_ATTENTE').length})</summary>{queue.filter(r => r.status !== 'EN_ATTENTE').slice(0, historyLimit).map(request => <article key={request.id} className="management-copy"><strong>{request.name}</strong> — {requestStatuses[request.status]} · {request.applicant} · demande du {new Date(request.createdAt).toLocaleDateString('fr-BE')}{request.reason && <p>Motif : {request.reason}</p>}</article>)}{queue.filter(r => r.status !== 'EN_ATTENTE').length > historyLimit && <button className="button outline" onClick={() => setHistoryLimit(value => value + 10)}>Voir 10 décisions de plus</button>}</details>}</div>}
+    {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <OpeningReviewCard key={request.id} request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} />)}{queue.some(r => r.status !== 'EN_ATTENTE') && <section className="opening-review-history" aria-labelledby="opening-history-title"><div className="account-section-heading"><h3 id="opening-history-title">Demandes examinées</h3><span>{queue.filter(r => r.status !== 'EN_ATTENTE').length} dossier{queue.filter(r => r.status !== 'EN_ATTENTE').length > 1 ? 's' : ''}</span></div><label className="opening-review-search">Rechercher une demande<input type="search" value={historyQuery} onChange={event => { setHistoryQuery(event.target.value); setHistoryLimit(10); }} placeholder="Nom de l’espace, demandeur ou ville" /></label>{reviewedRequests.length ? <div className="opening-review-history-list">{reviewedRequests.slice(0, historyLimit).map(request => <article key={request.id} className="opening-review-history-item"><div className="opening-review-history-top"><strong>{request.name}</strong><span className="account-status">{requestStatuses[request.status]}</span></div><span>{request.applicant} · {new Date(request.createdAt).toLocaleDateString('fr-BE')}</span>{request.city && <span>{request.city}</span>}{request.reason && <p>Motif : {request.reason}</p>}</article>)}</div> : <p className="workspace-description">Aucune demande ne correspond à cette recherche.</p>}{reviewedRequests.length > historyLimit && <button className="button outline" onClick={() => setHistoryLimit(value => value + 10)}>Voir 10 demandes de plus</button>}</section>}</div>}
   </section>;
 }
 
