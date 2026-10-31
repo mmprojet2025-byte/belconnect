@@ -2,6 +2,7 @@ import { Locale } from '@/context/locale-context';
 
 const entries: Record<string, [string, string]> = {
   'Choisir mon avatar': ['Choose my avatar', 'Mijn avatar kiezen'],
+  'Avatar': ['Avatar', 'Avatar'],
   'Choisissez un personnage pour votre profil et vos messages.': ['Choose a character for your profile and messages.', 'Kies een personage voor uw profiel en berichten.'],
   'Avatar indisponible': ['Avatar unavailable', 'Avatar niet beschikbaar'],
   'Réessayez dans un moment.': ['Try again in a moment.', 'Probeer het straks opnieuw.'],
