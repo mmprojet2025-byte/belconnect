@@ -93,8 +93,9 @@ public class PaidActivityBookingController {
     }
     if(jdbc.queryForObject("SELECT count(*) FROM inscription_activite WHERE utilisateur_id=? AND activite_id=? AND statut='CONFIRMEE'",Integer.class,uid,activityId)>0)
       throw fail(HttpStatus.CONFLICT,"Vous êtes déjà inscrit à cette activité.");
-    if(!jdbc.queryForList("SELECT id FROM reservation_payante_activite WHERE utilisateur_id=? AND activite_id=? AND statut='EN_ATTENTE' LIMIT 1",uid,activityId).isEmpty())
-      throw fail(HttpStatus.CONFLICT,"Un paiement est déjà en cours pour cette activité.");
+    var prior=jdbc.queryForList("SELECT statut FROM reservation_payante_activite WHERE utilisateur_id=? AND activite_id=? AND statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS') LIMIT 1",uid,activityId);
+    if(!prior.isEmpty()) throw fail(HttpStatus.CONFLICT,"PAYE".equals(prior.getFirst().get("statut"))
+      ? "Vous êtes déjà inscrit à cette activité." : "Un paiement est déjà en cours pour cette activité.");
     int held=jdbc.queryForObject("SELECT COALESCE(sum(quantite),0) FROM reservation_payante_activite WHERE activite_id=? AND statut='EN_ATTENTE'",Integer.class,activityId);
     if(((Number)a.get("places_disponibles")).intValue()-held<body.quantity())
       throw fail(HttpStatus.CONFLICT,"Il ne reste pas assez de places.");

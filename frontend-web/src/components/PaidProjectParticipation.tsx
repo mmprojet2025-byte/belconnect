@@ -19,6 +19,7 @@ export function PaidProjectParticipation({ projectId, signedIn, userId, demonstr
   const [requestId] = useState(() => crypto.randomUUID());
   const [booking, setBooking] = useState<Enrollment | null>(null);
   const [freeBooking, setFreeBooking] = useState<FreeEnrollment | null>(null);
+  const [existingPaid, setExistingPaid] = useState<Enrollment | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [demoCompleted, setDemoCompleted] = useState(() => userId ? readDemoProjectPayments(userId).some(item => item.projectId === projectId) : false);
   const returned = new URLSearchParams(window.location.search).get('participation');
@@ -36,6 +37,15 @@ export function PaidProjectParticipation({ projectId, signedIn, userId, demonstr
       .then(result).then((items: FreeEnrollment[]) => { if (!c.signal.aborted) setFreeBooking(items.find(item => item.projectId === projectId) ?? null); })
       .catch(cause => { if (!c.signal.aborted) setError(message(cause)); });
     return () => c.abort();
+  }, [projectId, signedIn]);
+  useEffect(() => {
+    if (!signedIn) return;
+    const controller = new AbortController();
+    fetch('/api/project-paid-participations', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(result).then((items: Enrollment[]) => {
+        if (!controller.signal.aborted) setExistingPaid(items.find(item => item.projectId === projectId && ['PAYE', 'EN_ATTENTE', 'REMBOURSEMENT_EN_COURS'].includes(item.status)) ?? null);
+      }).catch(cause => { if (!controller.signal.aborted) setError(message(cause)); });
+    return () => controller.abort();
   }, [projectId, signedIn]);
   useEffect(() => {
     if (!signedIn || !returned || !/^\d+$/.test(returned)) return;
@@ -74,18 +84,20 @@ export function PaidProjectParticipation({ projectId, signedIn, userId, demonstr
   return <section className="project-donation" aria-labelledby="paid-project-title">
     <h2 id="paid-project-title">S’inscrire à ce projet</h2>
     {!offer && !error && <><p>Inscription gratuite au projet. Les dates et les modalités pratiques pourront être précisées par l’organisateur.</p>
-      {freeBooking?.status === 'CONFIRMEE' ? <p role="status">Vous êtes inscrit à ce projet. <a href="/mon-espace#participations-projets">Voir mon inscription</a></p>
+      {freeBooking?.status === 'CONFIRMEE' || existingPaid?.status === 'PAYE' ? <p role="status">Vous êtes déjà inscrit à ce projet. <a href="/mon-espace#participations-projets">Voir mon inscription</a></p>
+        : existingPaid ? <p role="status">Une inscription ou un paiement est déjà en cours pour ce projet. <a href="/mon-espace#participations-projets">Voir le suivi</a></p>
         : signedIn ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'M’inscrire gratuitement au projet'}</button>
         : <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a>}
     </>}
     {offer && <><p><strong>Ce que comprend l’inscription :</strong> {offer.description}</p><p>L’inscription concerne le projet dans sa durée, et non uniquement sa première rencontre.</p>{offer.startsAt && offer.venue && <p><strong>Départ ou première rencontre :</strong> {meeting(offer.startsAt)} · {offer.venue}</p>}<p><strong>{offer.priceCents === 0 ? 'Gratuit' : euro(offer.priceCents)}</strong> par personne · {offer.placesLeft} {offer.placesLeft > 1 ? 'places disponibles' : 'place disponible'} sur {offer.capacity}.{offer.priceCents > 0 && ` Commission Belconnect : ${offer.commissionPercent} % du prix.`}</p>
-      {freeBooking?.status === 'CONFIRMEE' && <p role="status">Inscription confirmée. <a href="/mon-espace#participations-projets">Voir mon inscription dans Mon espace</a></p>}
+      {(freeBooking?.status === 'CONFIRMEE' || existingPaid?.status === 'PAYE') && <p role="status">Vous êtes déjà inscrit à ce projet. <a href="/mon-espace#participations-projets">Voir mon inscription dans Mon espace</a></p>}
+      {existingPaid && existingPaid.status !== 'PAYE' && <p role="status">Une inscription ou un paiement est déjà en cours pour ce projet. <a href="/mon-espace#participations-projets">Voir le suivi</a></p>}
       {returned === 'annule' && <p role="status">Le paiement a été interrompu. La participation n'est pas confirmée.</p>}
       {booking && <p role="status">Votre participation : {booking.status === 'PAYE' ? 'confirmée' : booking.status === 'REMBOURSE' ? 'remboursée' : booking.status === 'REMBOURSEMENT_EN_COURS' ? 'remboursement en cours' : booking.status === 'EN_ATTENTE' ? 'en attente de confirmation ; vérification automatique en cours' : booking.status === 'ECHOUE' || booking.status === 'EXPIRE' ? 'paiement non abouti' : booking.status.toLowerCase()}.</p>}
       {demonstration && offer.priceCents > 0 && <p>Projet de démonstration : le paiement est simulé. Aucune place n’est réservée.</p>}
       {demoCompleted && <p role="status">Simulation terminée. <a href="/mon-espace#participations-projets">Voir mon essai dans Mes participations</a>.</p>}
       {signedIn && returned && /^\d+$/.test(returned) && (booking?.status === 'EN_ATTENTE' || error) && <button className="text-link" onClick={() => { setError(''); setRefresh(value => value + 1); }}>Revérifier la participation</button>}
-      {!offer.active ? <p>Les inscriptions sont fermées.</p> : !offer.startsAt || !offer.venue ? <p>La date et le lieu de la première rencontre doivent être précisés avant d’ouvrir les inscriptions.</p> : demonstration && offer.priceCents > 0 ? !signedIn || !userId ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour essayer la simulation</a> : <button className="button coral" onClick={simulate}>Simuler une inscription à {euro(offer.priceCents)}</button> : !offer.paymentReady ? <p>Les inscriptions ne sont pas encore ouvertes ou le projet a commencé.</p> : freeBooking?.status === 'CONFIRMEE' ? null : offer.placesLeft < 1 ? <p>Toutes les places sont réservées.</p> : !signedIn ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a> : offer.priceCents === 0 ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'Confirmer mon inscription gratuite'}</button> : <button className="button coral" disabled={busy} onClick={join}>{busy ? 'Ouverture du paiement…' : `S’inscrire pour ${euro(offer.priceCents)}`}</button>}</>}
+      {freeBooking?.status === 'CONFIRMEE' || existingPaid ? null : !offer.active ? <p>Les inscriptions sont fermées.</p> : !offer.startsAt || !offer.venue ? <p>La date et le lieu de la première rencontre doivent être précisés avant d’ouvrir les inscriptions.</p> : demonstration && offer.priceCents > 0 ? !signedIn || !userId ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour essayer la simulation</a> : <button className="button coral" onClick={simulate}>Simuler une inscription à {euro(offer.priceCents)}</button> : !offer.paymentReady ? <p>Les inscriptions ne sont pas encore ouvertes ou le projet a commencé.</p> : offer.placesLeft < 1 ? <p>Toutes les places sont réservées.</p> : !signedIn ? <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a> : offer.priceCents === 0 ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'Confirmer mon inscription gratuite'}</button> : <button className="button coral" disabled={busy} onClick={join}>{busy ? 'Ouverture du paiement…' : `S’inscrire pour ${euro(offer.priceCents)}`}</button>}</>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }

@@ -155,6 +155,9 @@ public class PaidProjectParticipationController {
       return new Pending(((Number)r.get("id")).longValue(),body.projectId(),"",((Number)r.get("prix_centimes")).longValue(),
         ((Number)r.get("commission_centimes")).longValue(),(String)r.get("compte_stripe"),(String)r.get("session_stripe"),(String)r.get("statut"));
     }
+    var prior=jdbc.queryForList("SELECT statut FROM inscription_payante_projet WHERE projet_id=? AND participant_id=? AND statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS') LIMIT 1",body.projectId(),uid);
+    if(!prior.isEmpty()) throw fail(HttpStatus.CONFLICT,"PAYE".equals(prior.getFirst().get("statut"))
+      ? "Vous êtes déjà inscrit à ce projet." : "Une inscription ou un paiement est déjà en cours pour ce projet.");
     if(offer.placesLeft()<1) throw fail(HttpStatus.CONFLICT,"Toutes les places sont réservées.");
     if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM inscription_gratuite_projet WHERE projet_id=? AND participant_id=? AND statut='CONFIRMEE')",Boolean.class,body.projectId(),uid)))
       throw fail(HttpStatus.CONFLICT,"Vous êtes déjà inscrit à ce projet.");

@@ -20,6 +20,22 @@ export function ActivityDetail({
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const [quantity, setQuantity] = useState(1);
   const [shareMessage, setShareMessage] = useState("");
+  const [existingRegistration, setExistingRegistration] = useState<"confirmed" | "pending" | null>(null);
+  useEffect(() => {
+    if (!activity) return;
+    const controller = new AbortController();
+    const options = { credentials: "same-origin" as const, cache: "no-store" as const, signal: controller.signal };
+    Promise.all([
+      fetch("/api/bookings", options).then(response => response.ok ? response.json() : []),
+      fetch("/api/paid-activity-bookings", options).then(response => response.ok ? response.json() : []),
+    ]).then(([bookings, paid]: [{ activityId: string; status: string }[], { activityId: string; status: string }[]]) => {
+      if (controller.signal.aborted) return;
+      const confirmed = bookings.some(item => item.activityId === activity.id && item.status === "CONFIRMEE") || paid.some(item => item.activityId === activity.id && item.status === "PAYE");
+      const pending = paid.some(item => item.activityId === activity.id && item.status === "EN_ATTENTE");
+      setExistingRegistration(confirmed ? "confirmed" : pending ? "pending" : null);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [activity?.id]);
   if (!activity)
     return (
       <section className="container detail-not-found">
@@ -281,7 +297,7 @@ export function ActivityDetail({
               : `${detail.remaining} places encore disponibles`}
           </div>
           {activity.closesAt && <p>Clôture des inscriptions : {new Date(activity.closesAt).toLocaleString("fr-BE", { timeZone: "Europe/Brussels" })} (heure de Bruxelles)</p>}
-          {closed ? <p className="account-notice" role="status">Les inscriptions sont closes pour cette activité.</p> : full ? (
+          {existingRegistration ? <p className="account-notice" role="status">{existingRegistration === "confirmed" ? "Vous êtes déjà inscrit à cette activité." : "Une inscription ou un paiement est déjà en cours pour cette activité."} <a href="/mon-espace#mes-inscriptions">Voir mon inscription</a></p> : closed ? <p className="account-notice" role="status">Les inscriptions sont closes pour cette activité.</p> : full ? (
             <div className="full-message">
               <h2>On se retrouve une prochaine fois ?</h2>
               <p>
