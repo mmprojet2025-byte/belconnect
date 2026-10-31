@@ -348,6 +348,7 @@
 .workspace-context-role { display:inline-flex; align-items:center; min-height:40px; padding:0 12px; border-radius:20px; background:#eff6f4; color:#176f6b; font-size:12px; font-weight:700; white-space:nowrap; }
 .workspace-context-location { display:flex; flex-wrap:wrap; align-items:center; gap:6px; grid-column:1/-1; padding-top:14px; border-top:1px solid #e7eff1; color:#617583; font-size:12px; }
 .workspace-context-location .icon { width:14px; height:14px; }
+.workspace-context-path-part { display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .workspace-context-location strong { color:var(--navy); font-weight:700; }
 @media(max-width:760px) { .workspace-context-header { padding:20px; grid-template-columns:1fr; }.workspace-context-header-actions { flex-wrap:wrap; }.workspace-context-location { grid-column:1; }.workspace-context-symbol { width:44px; height:44px; } }
 .workspace-context-nav { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0 0 12px; border-bottom:1px solid #dce7ec; }

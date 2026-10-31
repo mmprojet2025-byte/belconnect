@@ -64,7 +64,7 @@ function ActivityEditor({ activity, spaces, groups, onSaved, onClose }: { activi
   </form>;
 }
 
-export function ManagedActivities({ spaces, groups, startCreating = false, onCreationFinished, settlementOnly = false, highlightId }: { spaces: Space[]; groups: Group[]; startCreating?: boolean; onCreationFinished?: (id?: number) => void; settlementOnly?: boolean; highlightId?: number | null }) {
+export function ManagedActivities({ spaces, groups, startCreating = false, onCreationFinished, onPathChange, settlementOnly = false, highlightId }: { spaces: Space[]; groups: Group[]; startCreating?: boolean; onCreationFinished?: (id?: number) => void; onPathChange?: (parts: string[]) => void; settlementOnly?: boolean; highlightId?: number | null }) {
   const [now] = useState(() => Date.now());
   const [activities, setActivities] = useState<Managed[]>([]);
   const [total, setTotal] = useState(0);
@@ -109,9 +109,10 @@ export function ManagedActivities({ spaces, groups, startCreating = false, onCre
   const editingActivity = editing && editing !== 'new' ? editing : null;
   const currentActivity = registrationsId === null ? null : activities.find(activity => activity.id === registrationsId);
   const activitySection = editing === 'new' ? 'Créer une activité' : editing ? 'Modifier le brouillon' : currentActivity ? 'Inscriptions' : { ALL: 'En cours et à venir', DRAFT: 'Brouillons', PUBLISHED: 'Publiées', HISTORY: 'Historique' }[filter] ?? 'En cours et à venir';
+  const activityName = editingActivity?.content.title ?? (!editing ? currentActivity?.content.title : undefined);
+  useEffect(() => { onPathChange?.(activityName ? [activityName, activitySection] : [activitySection]); }, [activityName, activitySection, onPathChange]);
   return <section aria-labelledby="managed-activities-title">
-    <div className="account-section-heading"><h2 id="managed-activities-title">Mes activités</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser</button></div>
-    <nav className="workspace-context-location" aria-label="Chemin des activités"><span>Mes activités</span><span aria-hidden="true">›</span><span>J’organise</span><span aria-hidden="true">›</span>{editingActivity || currentActivity && !editing ? <><span>{editingActivity?.content.title ?? currentActivity?.content.title}</span><span aria-hidden="true">›</span></> : null}<strong aria-current="page">{activitySection}</strong></nav>
+    <div className="account-section-heading"><h2 id="managed-activities-title">Activités que j’organise</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser</button></div>
     <p className="workspace-description">{settlementOnly ? 'L’espace est suspendu. Consultez les inscriptions et traitez les annulations ou remboursements nécessaires. Aucune nouvelle activité ne peut être créée ou publiée.' : 'Préparez une activité, publiez-la et retrouvez vos inscrits ici.'}</p>
     {!settlementOnly && editing === null && <button className="button coral workspace-create" disabled={busy} onClick={() => setEditing('new')}>Créer une activité</button>}
     {(notice || highlightId) && <p className="account-notice" role="status">{notice || 'Votre activité a été enregistrée. Retrouvez-la ci-dessous dans « Mes activités » ; elle reste un brouillon tant que vous ne la publiez pas.'}</p>}
