@@ -83,9 +83,9 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   expect(screen.getByRole('link', { name: 'Mon profil' })).toBeTruthy();
   fireEvent.click(screen.getByRole('link', { name: 'Espaces et groupes' }));
   await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url === '/api/workspace')).toBe(true));
-  expect(document.getElementById('workspace-title')?.textContent).toBe('Mes espaces et groupes');
+  expect(document.getElementById('workspace-title')?.textContent).toBe('Espaces et groupes');
   expect(screen.getByRole('link', { name: 'Espaces et groupes' }).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByText(/Les demandes d’ouverture et d’adhésion sont dans/)).toBeTruthy();
+  expect(screen.getByText(/Pour demander un nouvel espace, ouvrez « Mes demandes »/)).toBeTruthy();
   expect(within(screen.getByRole('navigation', { name: 'Voir mes accès' })).getAllByRole('button')).toHaveLength(2);
   fireEvent.click(screen.getByRole('button', { name: 'Groupes (0)' }));
   expect(screen.getByRole('heading', { name: 'Aucun groupe pour le moment' })).toBeTruthy();
@@ -246,7 +246,7 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   expect(within(await screen.findByRole('navigation', { name: 'Réglages de l’espace' })).getAllByRole('button')).toHaveLength(3);
   fireEvent.click(screen.getByRole('button', { name: 'Retour à mes espaces' }));
   expect(window.location.search).toBe('');
-  expect(await screen.findByRole('heading', { name: 'Mes espaces et groupes' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Espaces et groupes' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Choisir un espace à gérer' })).toBeNull();
 });
 
@@ -266,7 +266,7 @@ it('gère et crée les activités dans une rubrique distincte des espaces et gro
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
   expect(await screen.findByRole('link', { name: 'Mes activités' })).toBeTruthy();
   expect(screen.getByText('Organisateur')).toBeTruthy();
-  await screen.findByRole('heading', { name: 'Mes espaces et groupes' });
+  await screen.findByRole('heading', { name: 'Espaces et groupes' });
   expect(screen.queryByRole('button', { name: 'Créer une activité' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes activités' }));
   expect(await screen.findByRole('heading', { name: 'Mes activités' })).toBeTruthy();
