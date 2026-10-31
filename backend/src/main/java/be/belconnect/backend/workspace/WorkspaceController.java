@@ -15,7 +15,7 @@ public class WorkspaceController {
     public WorkspaceController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
     public record Space(long id, String name, String role) {}
     public record Group(long id, long spaceId, String name, String role, boolean canManageMemberships, boolean canManageActivities) {}
-    public record Project(long id, String title, String status, String spaceName, String reviewStage) {}
+    public record Project(long id, String title, String status, long spaceId, String spaceName, String reviewStage, boolean published) {}
     public record SuspendedSpace(long id,String name,String reason) {}
     public record ModerationNotice(String spaceName,String action,String contentName,String reason) {}
     public record Overview(boolean owner, List<Space> spaces, List<Group> groups,
@@ -142,10 +142,10 @@ public class WorkspaceController {
             """, (r,n) -> new Group(r.getLong("id"), r.getLong("espace_id"), r.getString("nom"), r.getString("role"),r.getBoolean("gestion_adhesions"),r.getBoolean("gestion_activites")), userId);
         // Personal drafts stay private, including from administrators and the platform owner.
         List<Project> projects = owner ? List.of() : jdbc.query("""
-            SELECT p.id, p.titre, CASE WHEN p.termine_le IS NOT NULL THEN 'TERMINE' ELSE p.statut END AS statut, p.etape_validation, e.nom FROM projet p
+            SELECT p.id, p.titre, CASE WHEN p.termine_le IS NOT NULL THEN 'TERMINE' ELSE p.statut END AS statut, p.etape_validation, p.espace_id, p.publie, e.nom FROM projet p
             JOIN espace_organisateur e ON e.id=p.espace_id
             WHERE p.auteur_id=? ORDER BY p.date_modification DESC, p.id DESC
-            """, (r,n) -> new Project(r.getLong("id"), r.getString("titre"), r.getString("statut"), r.getString("nom"), r.getString("etape_validation")), userId);
+            """, (r,n) -> new Project(r.getLong("id"), r.getString("titre"), r.getString("statut"), r.getLong("espace_id"), r.getString("nom"), r.getString("etape_validation"), r.getBoolean("publie")), userId);
         List<Space> managedSpaces = owner ? jdbc.query("""
             SELECT e.id, e.nom, u.email FROM espace_organisateur e
             JOIN utilisateur u ON u.id=e.createur_id
