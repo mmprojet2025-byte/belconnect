@@ -1,6 +1,17 @@
 import { Locale } from '@/context/locale-context';
 
 const entries: Record<string, [string, string]> = {
+  'BIENVENUE': ['WELCOME', 'WELKOM'],
+  'Rencontrez des personnes, découvrez des activités et soutenez des projets près de vous.': ['Meet people, discover activities and support projects near you.', 'Ontmoet mensen, ontdek activiteiten en steun projecten bij u in de buurt.'],
+  'Commencez votre parcours': ['Get started', 'Aan de slag'],
+  'Découvrez BelConnect': ['Discover BelConnect', 'Ontdek BelConnect'],
+  'Rejoignez un groupe, puis retrouvez ici vos activités et vos projets.': ['Join a group, then find your activities and projects here.', 'Sluit u aan bij een groep en vind hier uw activiteiten en projecten terug.'],
+  'Explorez librement. Créez un compte quand vous souhaitez participer ou échanger.': ['Explore freely. Create an account when you want to participate or connect.', 'Ontdek vrijuit. Maak een account aan wanneer u wilt deelnemen of contact leggen.'],
+  'Découvrir les groupes': ['Explore groups', 'Groepen ontdekken'],
+  'Activités →': ['Activities →', 'Activiteiten →'],
+  'Projets →': ['Projects →', 'Projecten →'],
+  'Créer un compte pour participer →': ['Create an account to participate →', 'Maak een account aan om deel te nemen →'],
+  'Communautés à découvrir': ['Communities to discover', 'Gemeenschappen om te ontdekken'],
   'Quitter cette conversation': ['Leave this conversation', 'Dit gesprek verlaten'],
   'Quitter cette conversation ?': ['Leave this conversation?', 'Dit gesprek verlaten?'],
   'Elle disparaîtra de votre liste. Les messages de l’autre personne restent disponibles et un nouveau message fera réapparaître la conversation.': ['It will disappear from your list. The other person keeps their messages, and a new message will bring the conversation back.', 'Het gesprek verdwijnt uit uw lijst. De andere persoon behoudt de berichten; bij een nieuw bericht verschijnt het gesprek opnieuw.'],

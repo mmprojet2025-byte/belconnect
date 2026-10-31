@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LocalizedTextInput as TextInput } from '@/components/localized-text-input';
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -17,7 +17,12 @@ import { translate } from '@/lib/translations';
 
 
 export default function AccountScreen(){
-  const auth=useAuth(); const [mode,setMode]=useState<'login'|'register'>('login'); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  const { mode: initialMode } = useLocalSearchParams<{ mode?: string }>();
+  return <AccountContent key={initialMode === 'register' ? 'register' : 'login'} initialMode={initialMode} />;
+}
+
+function AccountContent({initialMode}:{initialMode?:string}){
+  const auth=useAuth(); const [mode,setMode]=useState<'login'|'register'>(initialMode==='register'?'register':'login'); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
   const {locale}=useLocale(); const t=(text:string)=>translate(locale,text);
   const [firstName,setFirstName]=useState(''); const [lastName,setLastName]=useState(''); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [passwordConfirmation,setPasswordConfirmation]=useState(''); const [passwordVisible,setPasswordVisible]=useState(false);
   const [bookings,setBookings]=useState<Booking[]>([]); const [paidAttempts,setPaidAttempts]=useState<PaidAttempt[]>([]); const [bookingError,setBookingError]=useState(''); const [loadingBookings,setLoadingBookings]=useState(false); const [cancelling,setCancelling]=useState<number>();
