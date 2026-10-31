@@ -25,6 +25,8 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
   const [error, setError] = useState('');
   const [busyKey, setBusyKey] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'activity' | 'project' | 'group' | 'workspace' | 'message'>('all');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -83,8 +85,10 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
     if (notice.source === 'message') return t('MESSAGE', 'MESSAGE', 'BERICHT');
     return notice.source === 'group' || notice.source === 'group-invite' ? t('GROUPE', 'GROUP', 'GROEP') : t('ESPACE', 'SPACE', 'RUIMTE');
   }
-  const unread = notices.filter(notice => !notice.readAt);
-  const history = notices.filter(notice => !!notice.readAt);
+  const matchesType = (notice: Notice) => typeFilter === 'all' || (typeFilter === 'group' ? notice.source === 'group' || notice.source === 'group-invite' : notice.source === typeFilter);
+  const unread = notices.filter(notice => !notice.readAt && matchesType(notice));
+  const history = notices.filter(notice => !!notice.readAt && matchesType(notice));
+  const visibleCount = (statusFilter === 'read' ? 0 : unread.length) + (statusFilter === 'unread' ? 0 : history.length);
   const renderNotice = (notice: Notice) => {
     const key = `${notice.source}-${notice.id}`;
     const icon = notice.source === 'activity' ? 'calendar' : notice.source === 'project' ? 'folder' : notice.source === 'message' ? 'chat' : notice.source === 'group' || notice.source === 'group-invite' ? 'users' : 'inbox';
@@ -107,9 +111,23 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
 
   return <section className="account-notifications" id="notifications" aria-label={t('Notifications', 'Notifications', 'Meldingen')}>
     <h2>{t('Notifications récentes', 'Recent notifications', 'Recente meldingen')}</h2>
+    <div className="account-notification-filters">
+      <div className="account-notification-status" role="group" aria-label={t('Filtrer par lecture', 'Filter by read status', 'Filter op leesstatus')}>
+        {(['all', 'unread', 'read'] as const).map(value => <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)}>{value === 'all' ? t('Toutes', 'All', 'Alle') : value === 'unread' ? t('À lire', 'Unread', 'Ongelezen') : t('Déjà lues', 'Read', 'Gelezen')}</button>)}
+      </div>
+      <label>{t('Type', 'Type', 'Type')} <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}>
+        <option value="all">{t('Tous les types', 'All types', 'Alle soorten')}</option>
+        <option value="activity">{t('Activités', 'Activities', 'Activiteiten')}</option>
+        <option value="project">{t('Projets', 'Projects', 'Projecten')}</option>
+        <option value="group">{t('Groupes', 'Groups', 'Groepen')}</option>
+        <option value="workspace">{t('Espaces', 'Spaces', 'Ruimtes')}</option>
+        <option value="message">{t('Messages', 'Messages', 'Berichten')}</option>
+      </select></label>
+    </div>
     {!notices.length && !error && <p className="account-notice account-notice-empty">{t('Aucune notification pour le moment.', 'No notifications yet.', 'Nog geen meldingen.')}</p>}
     {error && <p role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>{t('Réessayer', 'Try again', 'Opnieuw proberen')}</button></p>}
-    {unread.length > 0 && <><h3>{t('À lire', 'Unread', 'Ongelezen')} · {unread.length}</h3><div className="account-notification-list">{unread.map(renderNotice)}</div></>}
-    {history.length > 0 && <><h3>{t('Déjà lues', 'Read', 'Gelezen')}</h3><div className="account-notification-list">{history.map(renderNotice)}</div></>}
+    {notices.length > 0 && visibleCount === 0 && !error && <p className="account-notice account-notice-empty">{t('Aucune notification pour ce filtre.', 'No notifications match this filter.', 'Geen meldingen voor dit filter.')}</p>}
+    {statusFilter !== 'read' && unread.length > 0 && <><h3>{t('À lire', 'Unread', 'Ongelezen')} · {unread.length}</h3><div className="account-notification-list">{unread.map(renderNotice)}</div></>}
+    {statusFilter !== 'unread' && history.length > 0 && <><h3>{t('Déjà lues', 'Read', 'Gelezen')}</h3><div className="account-notification-list">{history.map(renderNotice)}</div></>}
   </section>;
 }
