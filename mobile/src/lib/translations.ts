@@ -4,6 +4,7 @@ const entries: Record<string, [string, string]> = {
   'Vos rendez-vous, vos nouvelles et les groupes à découvrir.': ['Your plans, your updates and groups to discover.', 'Uw afspraken, uw nieuws en groepen om te ontdekken.'],
   'Vos rendez-vous, vos nouvelles et vos groupes.': ['Your plans, your updates and your groups.', 'Uw afspraken, uw nieuws en uw groepen.'],
   'Mes projets à suivre': ['My projects to follow', 'Mijn projecten om te volgen'],
+  'Mon projet': ['My project', 'Mijn project'],
   'Voir mon projet →': ['View my project →', 'Mijn project bekijken →'],
   'Chargement de vos projets…': ['Loading your projects…', 'Uw projecten worden geladen…'],
   'Vos projets sont momentanément indisponibles.': ['Your projects are temporarily unavailable.', 'Uw projecten zijn tijdelijk niet beschikbaar.'],
