@@ -3,6 +3,12 @@ import { Locale } from '@/context/locale-context';
 const entries: Record<string, [string, string]> = {
   'Vos rendez-vous, vos nouvelles et les groupes à découvrir.': ['Your plans, your updates and groups to discover.', 'Uw afspraken, uw nieuws en groepen om te ontdekken.'],
   'Vos rendez-vous, vos nouvelles et vos groupes.': ['Your plans, your updates and your groups.', 'Uw afspraken, uw nieuws en uw groepen.'],
+  'Mes projets à suivre': ['My projects to follow', 'Mijn projecten om te volgen'],
+  'Voir mon projet →': ['View my project →', 'Mijn project bekijken →'],
+  'Chargement de vos projets…': ['Loading your projects…', 'Uw projecten worden geladen…'],
+  'Vos projets sont momentanément indisponibles.': ['Your projects are temporarily unavailable.', 'Uw projecten zijn tijdelijk niet beschikbaar.'],
+  'Aucun projet rejoint pour le moment.': ['You have not joined any projects yet.', 'U neemt nog niet deel aan projecten.'],
+  'Découvrir les projets →': ['Explore projects →', 'Projecten ontdekken →'],
   'Aucun groupe rejoint pour le moment.': ['No groups joined yet.', 'Nog geen groep waarvan u lid bent.'],
   'Retirer': ['Remove', 'Verwijderen'],
   'Voir le profil de': ['View profile of', 'Profiel bekijken van'],
