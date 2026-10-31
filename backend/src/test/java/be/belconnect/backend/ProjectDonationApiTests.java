@@ -105,6 +105,23 @@ class ProjectDonationApiTests {
       assertEquals(200,third.post(path,Map.of(),true).statusCode());
     } finally { cleanup(); }
   }
+  @Test void publishedProjectWithoutOfferAllowsSimpleFreeEnrollment() throws Exception {
+    try {
+      actor(); setupData(); var participant=actor();
+      String path="/api/project-paid-participations/free/"+project;
+      assertEquals(404,participant.get("/api/project-paid-participations/offer/"+project).statusCode());
+      var joined=participant.post(path,Map.of(),true);
+      assertEquals(200,joined.statusCode(),joined.body());
+      long enrollment=json.readTree(joined.body()).get("id").asLong();
+      assertEquals(enrollment,json.readTree(participant.post(path,Map.of(),true).body()).get("id").asLong());
+      assertEquals(1,json.readTree(participant.get("/api/project-paid-participations/free").body()).size());
+      assertEquals(200,participant.post("/api/project-paid-participations/free/"+enrollment+"/cancel",Map.of(),true).statusCode());
+      assertEquals(200,participant.post(path,Map.of(),true).statusCode());
+      jdbc.update("UPDATE projet SET publie=false WHERE id=?",project);
+      assertEquals(200,participant.post("/api/project-paid-participations/free/"+enrollment+"/cancel",Map.of(),true).statusCode());
+      assertEquals(404,participant.post(path,Map.of(),true).statusCode());
+    } finally { cleanup(); }
+  }
   @Test void publicCanReadPaidProjectOfferWithoutAccessToManagement() throws Exception {
     try {
       actor(); setupData();

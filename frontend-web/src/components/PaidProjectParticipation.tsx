@@ -73,7 +73,11 @@ export function PaidProjectParticipation({ projectId, signedIn, userId, demonstr
   }
   return <section className="project-donation" aria-labelledby="paid-project-title">
     <h2 id="paid-project-title">S’inscrire à ce projet</h2>
-    {!offer && !error && <p>L’organisateur n’a pas encore ouvert les inscriptions. Vous pouvez consulter le projet ou proposer une aide.</p>}
+    {!offer && !error && <><p>Inscription gratuite au projet. Les dates et les modalités pratiques pourront être précisées par l’organisateur.</p>
+      {freeBooking?.status === 'CONFIRMEE' ? <p role="status">Vous êtes inscrit à ce projet. <a href="/mon-espace#participations-projets">Voir mon inscription</a></p>
+        : signedIn ? <button className="button coral" disabled={busy} onClick={joinFree}>{busy ? 'Inscription…' : 'M’inscrire gratuitement au projet'}</button>
+        : <a className="text-link" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour s’inscrire</a>}
+    </>}
     {offer && <><p><strong>Ce que comprend l’inscription :</strong> {offer.description}</p><p>L’inscription concerne le projet dans sa durée, et non uniquement sa première rencontre.</p>{offer.startsAt && offer.venue && <p><strong>Départ ou première rencontre :</strong> {meeting(offer.startsAt)} · {offer.venue}</p>}<p><strong>{offer.priceCents === 0 ? 'Gratuit' : euro(offer.priceCents)}</strong> par personne · {offer.placesLeft} {offer.placesLeft > 1 ? 'places disponibles' : 'place disponible'} sur {offer.capacity}.{offer.priceCents > 0 && ` Commission Belconnect : ${offer.commissionPercent} % du prix.`}</p>
       {freeBooking?.status === 'CONFIRMEE' && <p role="status">Inscription confirmée. <a href="/mon-espace#participations-projets">Voir mon inscription dans Mon espace</a></p>}
       {returned === 'annule' && <p role="status">Le paiement a été interrompu. La participation n'est pas confirmée.</p>}
