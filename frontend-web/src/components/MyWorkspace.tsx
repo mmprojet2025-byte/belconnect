@@ -134,13 +134,16 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       </>}
     </div>}
     {view === 'requests' && <div className="workspace-panel">
-      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Suivez vos demandes d’adhésion et d’ouverture d’espace. Vous pouvez demander un nouvel espace ici.</p></div>}
+      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Retrouvez ici les réponses à vos demandes pour rejoindre un groupe ou créer un espace organisateur.</p></div>}
       {!data.owner ? <div className="requests-layout">
         <nav className="requests-side-nav" aria-label="Type de demande">
           <button aria-current={requestsTab === 'memberships' ? 'page' : undefined} onClick={() => setRequestsTab('memberships')}>Adhésions aux groupes</button>
-          <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Ouverture d’espace</button>
+          <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Ouvrir un espace</button>
         </nav>
-        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode="all" onChanged={() => setAttempt(n => n + 1)} />}</div>
+        <div className="requests-content">
+          <p className="workspace-description">{requestsTab === 'memberships' ? 'Vos demandes pour rejoindre un groupe, en attente ou déjà traitées.' : 'Vos demandes pour créer un espace où organiser des groupes, activités et projets.'}</p>
+          {requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode="all" onChanged={() => setAttempt(n => n + 1)} />}
+        </div>
       </div> : <SpaceRequests owner mode="all" onChanged={() => setAttempt(n => n + 1)} />}
     </div>}
     {view === 'projects' && <div className="workspace-panel">
