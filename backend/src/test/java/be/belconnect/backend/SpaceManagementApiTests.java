@@ -72,6 +72,25 @@ class SpaceManagementApiTests {
    assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
   } finally { cleanup(); }
  }
+ @Test void proRequestIsTrackedWithoutActivatingOrChargingSubscription() throws Exception {
+  try {
+   var admin=actor(); var outsider=actor(); var proprietor=actor(); owner(proprietor);
+   long space=setupSpace(admin);
+   String path="/api/workspace/spaces/"+space+"/pro-request";
+   assertEquals(404,admin.get(path).statusCode());
+   assertEquals(404,outsider.get(path).statusCode());
+   assertEquals(404,outsider.post(path,Map.of(),true).statusCode());
+   var created=ok(admin.post(path,Map.of(),true),201);
+   assertEquals("EN_ATTENTE",created.get("status").asText());
+   assertEquals(space,ok(admin.post(path,Map.of(),true),201).get("spaceId").asLong());
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM abonnement_espace WHERE espace_id=?",Integer.class,space));
+   assertEquals(403,outsider.get("/api/workspace/owner/pro-requests").statusCode());
+   assertEquals(1,ok(proprietor.get("/api/workspace/owner/pro-requests"),200).size());
+   assertEquals("PRISE_EN_CHARGE",ok(proprietor.post("/api/workspace/owner/pro-requests/"+space+"/take",Map.of(),true),200).get("status").asText());
+   assertEquals("PRISE_EN_CHARGE",ok(admin.get(path),200).get("status").asText());
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM abonnement_espace WHERE espace_id=?",Integer.class,space));
+  } finally { cleanup(); }
+ }
  JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",opening(name),true),201); }
  @Test void starterAndProLimitOrganiserSpaceRequests() throws Exception {
   try {
@@ -134,6 +153,7 @@ class SpaceManagementApiTests {
   for(long user:users) for(long space:jdbc.queryForList("SELECT id FROM espace_organisateur WHERE createur_id=?",Long.class,user)) {
    jdbc.update("DELETE FROM moderation_plateforme WHERE espace_id=?",space);
    jdbc.update("DELETE FROM abonnement_espace WHERE espace_id=?",space);
+   jdbc.update("DELETE FROM demande_passage_pro WHERE espace_id=?",space);
    jdbc.update("DELETE FROM annonce_groupe WHERE groupe_id IN (SELECT id FROM groupe WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM notification_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
    jdbc.update("DELETE FROM inscription_activite WHERE activite_id IN (SELECT id FROM activite WHERE espace_id=?)",space);
