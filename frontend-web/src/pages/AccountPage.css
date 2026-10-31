@@ -294,7 +294,7 @@
 .opening-review-section dd { margin:0; color:var(--navy); overflow-wrap:anywhere; }
 .opening-review-decision { padding:20px 24px 24px; border-top:1px solid #dce7ec; background:#fcf9f6; }
 .opening-review-decision .management-actions { margin-top:12px; }
-.opening-review-tabs { display:flex; gap:8px; margin:0 0 18px; border-bottom:1px solid #dce7ec; }
+.opening-review-tabs { position:sticky; top:82px; z-index:19; display:flex; gap:8px; margin:0 0 18px; border-bottom:1px solid #dce7ec; background:#f7faf9; overflow-x:auto; white-space:nowrap; box-shadow:0 7px 12px -12px #28424a; }
 .opening-review-tabs button { padding:12px 18px; border:0; border-bottom:3px solid transparent; background:transparent; color:#526b75; font:inherit; font-weight:650; cursor:pointer; }
 .opening-review-tabs button[aria-pressed="true"] { border-bottom-color:#dc9062; color:var(--navy); }
 .opening-review-history { margin-top:8px; }
