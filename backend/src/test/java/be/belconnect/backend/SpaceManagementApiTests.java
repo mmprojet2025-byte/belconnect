@@ -84,16 +84,15 @@ class SpaceManagementApiTests {
    assertEquals(1,ok(applicant.get(quotaPath),200).get("used").asInt());
    assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Deuxième espace")),true).statusCode());
    jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",firstSpace,applicant.id);
-   assertEquals(3,ok(applicant.get(quotaPath),200).get("max").asInt());
+   assertEquals(2,ok(applicant.get(quotaPath),200).get("max").asInt());
    long second=request(applicant,"Deuxième espace").get("id").asLong();
-   long third=request(applicant,"Troisième espace").get("id").asLong();
-   assertEquals(3,ok(applicant.get(quotaPath),200).get("used").asInt());
-   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Quatrième espace")),true).statusCode());
+   assertEquals(2,ok(applicant.get(quotaPath),200).get("used").asInt());
+   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Troisième espace")),true).statusCode());
    jdbc.update("UPDATE abonnement_espace SET formule='STARTER',statut='ANNULE' WHERE espace_id=?",firstSpace);
    assertEquals(409,proprietor.post("/api/workspace/opening-requests/"+second+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true).statusCode());
    jdbc.update("UPDATE abonnement_espace SET formule='PRO',statut='ACTIF' WHERE espace_id=?",firstSpace);
-   for(long id:List.of(second,third)) ok(proprietor.post("/api/workspace/opening-requests/"+id+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200);
-   assertEquals(3,jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=?",Integer.class,applicant.id));
+   ok(proprietor.post("/api/workspace/opening-requests/"+second+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200);
+   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=?",Integer.class,applicant.id));
   } finally { cleanup(); }
  }
  void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }

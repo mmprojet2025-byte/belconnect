@@ -83,7 +83,7 @@ public class SpaceManagementController {
             """,Boolean.class,applicant,applicant));
         int active=jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=? AND statut<>'FERME'",Integer.class,applicant);
         int pending=jdbc.queryForObject("SELECT count(*) FROM demande_espace WHERE demandeur_id=? AND statut='EN_ATTENTE'",Integer.class,applicant);
-        return new SpaceQuota(active+pending,pro?3:1,pro);
+        return new SpaceQuota(active+pending,pro?2:1,pro);
     }
     private void lockApplicant(long applicant) {
         jdbc.query("SELECT pg_advisory_xact_lock(?)",(r,n)->0,8_500_000_000L+applicant);
