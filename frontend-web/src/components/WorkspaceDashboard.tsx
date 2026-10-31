@@ -12,6 +12,7 @@ type Finance = { activeSpaces: number; proSpaces: number; paidTransactions: numb
 type Queue = { memberships: number; projects: number; openings: number };
 type OwnerActivitySummary = { upcomingActivities: number; availablePlaces: number; paidTickets: number };
 type Booking = { id: number; title: string; startsAt: string; status: string; activityCancelled: boolean; quantity: number };
+type ProjectEnrollment = { id: number; projectId: number; projectTitle: string; spaceName: string; status: string; startsOn: string | null; endsOn: string | null };
 
 export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 0 }: { data: Overview; firstName: string; onRefresh: () => void; refreshToken?: number }) {
   const organizer = !data.owner && data.spaces.some(space => space.role === 'ADMINISTRATEUR');
@@ -26,9 +27,12 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
   const adminSpaces = data.spaces.filter(space => space.role === 'ADMINISTRATEUR');
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | null>(null);
   const currentSpaceId = adminSpaces.some(space => space.id === selectedSpaceId) ? selectedSpaceId : adminSpaces[0]?.id;
-  const [nextBooking, setNextBooking] = useState<Booking | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingLoading, setBookingLoading] = useState(true);
   const [bookingError, setBookingError] = useState(false);
+  const [projectEnrollments, setProjectEnrollments] = useState<ProjectEnrollment[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState(false);
 
   useEffect(() => {
     if (data.owner || organizer) return;
@@ -37,13 +41,23 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
       .then(result)
       .then((bookings: Booking[]) => {
         if (controller.signal.aborted) return;
-        const next = bookings.filter(booking => booking.status === 'CONFIRMEE' && !booking.activityCancelled && new Date(booking.startsAt).getTime() > Date.now())
-          .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] ?? null;
-        setNextBooking(next); setBookingError(false); setBookingLoading(false);
+        setBookings(bookings); setBookingError(false); setBookingLoading(false);
       })
       .catch(() => { if (!controller.signal.aborted) { setBookingError(true); setBookingLoading(false); } });
     return () => controller.abort();
   }, [data, organizer]);
+
+  useEffect(() => {
+    if (data.owner || manager) return;
+    const controller = new AbortController();
+    const options = { credentials: 'same-origin' as const, cache: 'no-store' as const, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) };
+    Promise.all([
+      fetch('/api/project-paid-participations/free', options).then(result) as Promise<ProjectEnrollment[]>,
+      fetch('/api/project-paid-participations', options).then(result) as Promise<ProjectEnrollment[]>,
+    ]).then(([free, paid]) => { if (!controller.signal.aborted) { setProjectEnrollments([...free, ...paid]); setProjectsError(false); setProjectsLoading(false); } })
+      .catch(() => { if (!controller.signal.aborted) { setProjectsError(true); setProjectsLoading(false); } });
+    return () => controller.abort();
+  }, [data.owner, manager]);
 
   useEffect(() => {
     if (!data.owner) return;
@@ -77,17 +91,27 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
   }, [data.owner, manager, data]);
 
   const tasks = queue ? queue.openings + queue.memberships + queue.projects : null;
+  const upcomingBookings = bookings.filter(booking => booking.status === 'CONFIRMEE' && !booking.activityCancelled && new Date(booking.startsAt).getTime() > Date.now())
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  const nextBooking = upcomingBookings[0] ?? null;
+  const activeProjects = projectEnrollments.filter(item => ['CONFIRMEE', 'PAYE'].includes(item.status) && (!item.endsOn || item.endsOn >= new Date().toISOString().slice(0, 10)))
+    .sort((a, b) => (a.startsOn ?? '').localeCompare(b.startsOn ?? ''));
   if (!data.owner && !manager) return <div className="workspace-dashboard workspace-dashboard--member">
-    <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · Membre</span><h2>Bonjour {firstName} !</h2><p>Votre prochain rendez-vous et vos groupes, au même endroit.</p></header>
+    <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · Membre</span><h2>Bonjour {firstName} !</h2><p>Voici vos groupes et vos inscriptions en cours.</p></header>
     <div className="dashboard-member-overview">
-      <section className="dashboard-panel" aria-labelledby="member-next-booking"><span className="dashboard-eyebrow">À retenir</span><h2 id="member-next-booking">Mon prochain rendez-vous</h2>
-        {bookingError ? <p>Vos inscriptions sont momentanément indisponibles.</p> : bookingLoading ? <p role="status">Chargement de vos inscriptions…</p> : nextBooking ? <><h3>{nextBooking.title}</h3><p>{new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(nextBooking.startsAt))} · {nextBooking.quantity} place{nextBooking.quantity > 1 ? 's' : ''}</p><a className="text-link" href="/mon-espace#mes-inscriptions">Voir mon inscription →</a></> : <><p>Vous n’avez pas d’activité réservée à venir.</p><a className="text-link" href="/activites">Découvrir les activités →</a></>}
+      <section className="dashboard-panel" aria-labelledby="member-activities"><span className="dashboard-eyebrow">Mes inscriptions</span><h2 id="member-activities">Activités</h2>
+        {bookingError ? <p>Vos activités sont momentanément indisponibles.</p> : bookingLoading ? <p role="status">Chargement des activités…</p> : upcomingBookings.length ? <ul className="dashboard-member-items">{upcomingBookings.slice(0, 2).map(booking => <li key={booking.id}><strong>{booking.title}</strong><span>{new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(booking.startsAt))}</span></li>)}</ul> : <p>Aucune activité à venir.</p>}
+        <a className="text-link" href="/mon-espace#mes-inscriptions">Voir mes inscriptions →</a>
       </section>
-      <section className="dashboard-panel" aria-labelledby="member-groups"><span className="dashboard-eyebrow">Mes liens</span><h2 id="member-groups">Mes groupes</h2>
-        {data.groups.length ? <><ul className="dashboard-member-groups">{data.groups.slice(0, 2).map(group => <li key={group.id}><strong>{group.name}</strong><span>{data.spaces.find(space => space.id === group.spaceId)?.name ?? 'Espace organisateur'}</span></li>)}</ul><a className="text-link" href="/mon-espace#groupes">Voir mes groupes →</a></> : <><p>Vous n’avez pas encore rejoint de groupe.</p><a className="text-link" href="/groupes">Découvrir les groupes →</a></>}
+      <section className="dashboard-panel" aria-labelledby="member-projects"><span className="dashboard-eyebrow">Mes inscriptions</span><h2 id="member-projects">Projets</h2>
+        {projectsError ? <p>Vos projets sont momentanément indisponibles.</p> : projectsLoading ? <p role="status">Chargement des projets…</p> : activeProjects.length ? <ul className="dashboard-member-items">{activeProjects.slice(0, 2).map(project => <li key={`${project.projectId}-${project.id}`}><a href={`/projets/${project.projectId}`}>{project.projectTitle}</a><span>{project.spaceName}</span></li>)}</ul> : <p>Aucune inscription à un projet en cours.</p>}
+        <a className="text-link" href="/mon-espace#participations-projets">Voir mes projets →</a>
+      </section>
+      <section className="dashboard-panel" aria-labelledby="member-groups"><span className="dashboard-eyebrow">Mes communautés</span><h2 id="member-groups">Groupes</h2>
+        {data.groups.length ? <ul className="dashboard-member-items">{data.groups.slice(0, 2).map(group => <li key={group.id}><strong>{group.name}</strong><span>{data.spaces.find(space => space.id === group.spaceId)?.name ?? 'Espace organisateur'}</span></li>)}</ul> : <p>Vous n’avez pas encore rejoint de groupe.</p>}
+        <a className="text-link" href="/mon-espace#groupes">Voir mes groupes →</a>
       </section>
     </div>
-    <a className="dashboard-member-project-link" href="/mon-espace#participations-projets">Retrouver mes participations aux projets →</a>
   </div>;
   return <div className={`workspace-dashboard workspace-dashboard--organizer${organizer ? ' workspace-dashboard--single' : ''}`}>
     <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · {role}</span><h2>Bonjour {firstName} !</h2><p>{data.owner ? 'Suivez les espaces et prenez les décisions qui relèvent de Belconnect.' : manager ? 'Retrouvez vos espaces et les demandes qui attendent votre décision.' : 'Retrouvez vos groupes, vos projets et vos participations au même endroit.'}</p></header>
