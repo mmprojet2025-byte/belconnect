@@ -232,6 +232,7 @@ function App() {
             {!user && pathname !== '/mon-espace' && <a className="login" href="/connexion">{tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}</a>}
             {pathname === '/mon-espace' && <div id="account-header-tools" />}
             <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="nl">🇳🇱 Nederlands</option></select></label>
+            {pathname === '/mon-espace' && <div id="account-header-profile" />}
           </div>
           <button
             className="menu-button"

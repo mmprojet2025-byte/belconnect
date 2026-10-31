@@ -66,7 +66,7 @@
 .dashboard-action-list a:hover { color:#0d7774; }
 @media(max-width:600px) { .dashboard-stats { grid-template-columns:1fr 1fr; } .dashboard-hero { padding:24px; } }
 .account-toolbar-actions { display:flex; align-items:center; gap:8px; }
-.account-tools-fallback { display:flex; justify-content:flex-end; margin:0 16px 16px; }
+.account-tools-fallback { display:flex; justify-content:flex-end; gap:8px; margin:0 16px 16px; }
 .account-header ~ main .account-tools-fallback { display:none; }
 .account-sidebar-toggle { display:grid; place-items:center; width:40px; height:40px; border:1px solid #dce7ec; border-radius:9px; color:var(--navy); background:#fff; }
 .account-sidebar-toggle:hover,.account-sidebar-toggle[aria-expanded=false] { background:#e9f3f2; }
