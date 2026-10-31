@@ -52,6 +52,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const managementSection: ManagementSection = managementSections.find(item => item === requestedSection) ?? 'groups';
   const [spacesTab, setSpacesTab] = useState<'spaces' | 'groups'>('spaces');
   const [requestsTab, setRequestsTab] = useState<'memberships' | 'spaces' | 'new'>('memberships');
+  const [requestKind, setRequestKind] = useState<'group' | 'space' | null>(null);
   useEffect(() => {
     if (view === 'management' && !selectedSpaceId) navigate('/mon-espace#espaces', true);
   }, [view, selectedSpaceId]);
@@ -141,7 +142,15 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
           <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Ouverture d’espace</button>
           <button aria-current={requestsTab === 'new' ? 'page' : undefined} onClick={() => setRequestsTab('new')}>Fiche de demande</button>
         </nav>
-        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode={requestsTab === 'new' ? 'create' : 'list'} onChanged={() => setAttempt(n => n + 1)} onCreated={() => setRequestsTab('spaces')} onCancelCreate={() => setRequestsTab('spaces')} />}</div>
+        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : requestsTab === 'spaces' ? <SpaceRequests owner={false} mode="list" onChanged={() => setAttempt(n => n + 1)} /> : <section aria-label="Fiche de demande">
+          <h2>Que souhaitez-vous demander ?</h2>
+          <div className="request-kind-options" role="radiogroup" aria-label="Choisir une demande">
+            <label><input type="radio" name="request-kind" checked={requestKind === 'group'} onChange={() => setRequestKind('group')} /> Rejoindre un groupe</label>
+            <label><input type="radio" name="request-kind" checked={requestKind === 'space'} onChange={() => setRequestKind('space')} /> Ouvrir un espace organisateur</label>
+          </div>
+          {requestKind === 'group' && <div className="workspace-card"><h3>Rejoindre un groupe</h3><p>Un groupe réunit des membres autour d’un thème. Choisissez un groupe existant, puis envoyez votre demande d’adhésion depuis sa fiche.</p><a className="button outline" href="/groupes">Voir les groupes</a></div>}
+          {requestKind === 'space' && <><p className="workspace-description">Un espace permet d’organiser vos propres groupes, activités et projets. Sa demande doit être approuvée avant que vous puissiez les gérer.</p><SpaceRequests owner={false} mode="create" onChanged={() => setAttempt(n => n + 1)} onCreated={() => setRequestsTab('spaces')} onCancelCreate={() => setRequestsTab('spaces')} /></>}
+        </section>}</div>
       </div> : <SpaceRequests owner mode="all" onChanged={() => setAttempt(n => n + 1)} />}
     </div>}
     {view === 'projects' && <div className="workspace-panel">

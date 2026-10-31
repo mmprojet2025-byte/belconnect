@@ -96,6 +96,9 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   fireEvent.click(await screen.findByRole('button', { name: 'Ouverture d’espace' }));
   expect(await screen.findByRole('heading', { name: 'Mes demandes d’espace' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Fiche de demande' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Rejoindre un groupe' }));
+  expect(screen.getByRole('link', { name: 'Voir les groupes' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('radio', { name: 'Ouvrir un espace organisateur' }));
   expect(await screen.findByRole('button', { name: 'Envoyer la demande' })).toBeTruthy();
 });
 

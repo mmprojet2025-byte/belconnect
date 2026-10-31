@@ -267,6 +267,12 @@
 .requests-side-nav button:hover { background:#f6f8f7; }
 .requests-side-nav button[aria-current=page] { border-color:#16827c; background:#e9f3f2; color:#146d69; }
 .requests-content { min-width:0; }
+.requests-content > section[aria-label="Fiche de demande"] { display:grid; gap:16px; }
+.requests-content > section[aria-label="Fiche de demande"] > h2 { margin:0; font-size:22px; }
+.request-kind-options { display:flex; flex-wrap:wrap; gap:10px; }
+.request-kind-options label { display:flex; align-items:center; gap:9px; padding:12px 14px; border:1px solid #cddedb; border-radius:9px; cursor:pointer; }
+.request-kind-options label:has(input:checked) { border-color:#16827c; background:#e9f3f2; }
+.request-kind-options input { accent-color:#16827c; }
 @media(max-width:760px) { .requests-side-nav button { flex:1; min-width:135px; } }
 .workspace-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; }
 .owner-finance-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr)); gap:12px; }
