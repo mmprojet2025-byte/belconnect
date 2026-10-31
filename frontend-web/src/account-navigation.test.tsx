@@ -93,7 +93,7 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   expect(screen.getByRole('heading', { name: 'Aucun espace pour le moment' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Demander un espace' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes demandes' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Demander un espace' }));
+  expect(screen.queryByRole('button', { name: 'Adhésions aux groupes' })).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Suivi de mes demandes' })).toBeTruthy();
   expect(await screen.findByRole('button', { name: 'Envoyer la demande' })).toBeTruthy();
   expect(screen.getByRole('checkbox', { name: /pris connaissance des informations de confidentialité/ })).toBeTruthy();

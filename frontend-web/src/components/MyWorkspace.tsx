@@ -51,7 +51,6 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const requestedSection = selectedRubrique === 'adhesions' ? 'memberships' : selectedRubrique === 'projets-a-examiner' ? 'project-reviews' : selectedRubrique;
   const managementSection: ManagementSection = managementSections.find(item => item === requestedSection) ?? 'groups';
   const [spacesTab, setSpacesTab] = useState<'spaces' | 'groups'>('spaces');
-  const [requestsTab, setRequestsTab] = useState<'memberships' | 'spaces'>('memberships');
   useEffect(() => {
     if (view === 'management' && !selectedSpaceId) navigate('/mon-espace#espaces', true);
   }, [view, selectedSpaceId]);
@@ -135,14 +134,8 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       </>}
     </div>}
     {view === 'requests' && <div className="workspace-panel">
-      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Suivez ici vos demandes et les réponses reçues. Un membre peut rejoindre jusqu’à 2 groupes. Pour organiser, la formule Starter permet 1 espace et jusqu’à 2 groupes par espace ; la formule Pro permet jusqu’à 2 espaces et 4 groupes par espace.</p></div>}
-      {!data.owner ? <div className="requests-layout">
-        <nav className="requests-side-nav" aria-label="Type de demande">
-          <button aria-current={requestsTab === 'memberships' ? 'page' : undefined} onClick={() => setRequestsTab('memberships')}>Adhésions aux groupes</button>
-          <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Demander un espace</button>
-        </nav>
-        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode="combined" onChanged={() => setAttempt(n => n + 1)} />}</div>
-      </div> : <SpaceRequests owner mode="all" onChanged={() => setAttempt(n => n + 1)} />}
+      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Demandez un espace organisateur et suivez la réponse de Belconnect. Starter permet 1 espace et jusqu’à 2 groupes ; Pro permet jusqu’à 2 espaces et 4 groupes par espace.</p></div>}
+      <SpaceRequests owner={data.owner} mode={data.owner ? 'all' : 'combined'} onChanged={() => setAttempt(n => n + 1)} />
     </div>}
     {view === 'projects' && <div className="workspace-panel">
     <section aria-labelledby="my-projects-title">
