@@ -81,16 +81,17 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   expect(within(screen.getByRole('navigation', { name: 'Navigation de mon espace' })).queryByRole('link', { name: 'Notifications' })).toBeNull();
   fireEvent.click(screen.getByLabelText('Ouvrir le profil'));
   expect(screen.getByRole('link', { name: 'Mon profil' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('link', { name: 'Espaces et groupes' }));
+  fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
   await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url === '/api/workspace')).toBe(true));
-  expect(document.getElementById('workspace-title')?.textContent).toBe('Espaces et groupes');
-  expect(screen.getByRole('link', { name: 'Espaces et groupes' }).getAttribute('aria-current')).toBe('page');
+  expect(document.getElementById('workspace-title')?.textContent).toBe('Mes espaces');
+  expect(screen.getByRole('link', { name: 'Mes espaces' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByText(/Pour demander un nouvel espace, ouvrez « Mes demandes »/)).toBeTruthy();
-  expect(within(screen.getByRole('navigation', { name: 'Voir mes accès' })).getAllByRole('button')).toHaveLength(2);
-  fireEvent.click(screen.getByRole('button', { name: 'Groupes (0)' }));
-  expect(screen.getByRole('heading', { name: 'Aucun groupe pour le moment' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Espaces (0)' }));
   expect(screen.getByRole('heading', { name: 'Aucun espace pour le moment' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('link', { name: 'Mes groupes' }));
+  expect(document.getElementById('workspace-title')?.textContent).toBe('Mes groupes');
+  expect(screen.getByRole('link', { name: 'Mes groupes' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('heading', { name: 'Aucun groupe pour le moment' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
   expect(screen.queryByRole('button', { name: 'Demander un espace' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes demandes' }));
   expect(screen.queryByRole('button', { name: 'Adhésions aux groupes' })).toBeNull();
@@ -246,7 +247,7 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   expect(within(await screen.findByRole('navigation', { name: 'Réglages de l’espace' })).getAllByRole('button')).toHaveLength(3);
   fireEvent.click(screen.getByRole('button', { name: 'Retour à mes espaces' }));
   expect(window.location.search).toBe('');
-  expect(await screen.findByRole('heading', { name: 'Espaces et groupes' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Mes espaces' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Choisir un espace à gérer' })).toBeNull();
 });
 
@@ -266,7 +267,7 @@ it('gère et crée les activités dans une rubrique distincte des espaces et gro
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
   expect(await screen.findByRole('link', { name: 'Mes activités' })).toBeTruthy();
   expect(screen.getByText('Organisateur')).toBeTruthy();
-  await screen.findByRole('heading', { name: 'Espaces et groupes' });
+  await screen.findByRole('heading', { name: 'Mes espaces' });
   expect(screen.queryByRole('button', { name: 'Créer une activité' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes activités' }));
   expect(await screen.findByRole('heading', { name: 'Mes activités' })).toBeTruthy();
@@ -289,13 +290,13 @@ it('montre au référent uniquement les tâches de son groupe, sans réglages d�
       projects: [], managedSpaces: [] } : []), { status: 200 }))));
   render(<CatalogProvider><AccountPage user={{ id: 18, firstName: 'Noor', lastName: 'Test', email: 'referent@example.test' }}
     onLogout={async () => {}} onProfileSaved={() => {}} /></CatalogProvider>);
-  fireEvent.click(await screen.findByRole('button', { name: 'Groupes (1)' }));
+  fireEvent.click(await screen.findByRole('link', { name: 'Mes groupes' }));
   expect(screen.getByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
   expect(screen.getByText('Référent du groupe')).toBeTruthy();
   expect(screen.getByText('Projets et annonces · Activités')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Voir le groupe →' }).getAttribute('href')).toBe('/groupes?groupe=17');
   expect(screen.queryByRole('button', { name: 'Gérer cet espace' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Espaces (1)' }));
+  fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
   fireEvent.click(screen.getByRole('button', { name: 'Voir mes tâches de référent' }));
   const management = within(await screen.findByRole('navigation', { name: 'Gérer Espace voisin' }));
   expect(management.queryByRole('button', { name: 'Réglages' })).toBeNull();
