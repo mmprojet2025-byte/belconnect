@@ -133,7 +133,7 @@ public class DraftController {
         return read(id,userId);
     }
     public record SubmissionRequest(@NotNull @Min(0) Long version) {}
-    public record Submission(long id, String title, long spaceId, String spaceName, String status, String reviewStage, boolean published) {}
+    public record Submission(long id, String title, String spaceName, String status, String reviewStage) {}
     @PostMapping("/{id}/submit") @Transactional
     public Submission submit(Authentication auth, @PathVariable long id, @Valid @RequestBody SubmissionRequest body) {
         long userId=user(auth);
@@ -150,11 +150,13 @@ public class DraftController {
         String spaceName=jdbc.queryForObject("SELECT nom FROM espace_organisateur WHERE id=?",String.class,spaceId);
         if("SOUMIS".equals(row.get("statut")) && jdbc.queryForObject(
                 "SELECT count(*) FROM soumission_projet WHERE projet_id=? AND auteur_id=? AND version_brouillon=?",Integer.class,id,userId,body.version())==1)
-            return new Submission(id,(String)row.get("titre"),spaceId,spaceName,"SOUMIS",(String)row.get("etape_validation"),false);
+            return new Submission(id,(String)row.get("titre"),spaceName,"SOUMIS",(String)row.get("etape_validation"));
         if(!java.util.List.of("BROUILLON","A_CORRIGER").contains(row.get("statut")) || ((Number)row.get("version")).longValue()!=body.version())
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Ce projet a changé. Fermez puis rouvrez le brouillon avant de le soumettre.");
         if(((String)row.get("description")).isBlank() || ((String)row.get("objectif")).isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Complétez et enregistrez la description et l’objectif avant de soumettre le projet.");
+        if(jdbc.queryForObject("SELECT count(*) FROM projet WHERE auteur_id=? AND statut='SOUMIS' AND id<>?",Integer.class,userId,id)>=3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Vous avez déjà trois projets en attente. Attendez une décision avant d’en soumettre un autre.");
         var referents=groupId==null?java.util.List.<Long>of():jdbc.query("""
             SELECT u.id FROM appartenance_groupe ag
             JOIN appartenance_espace ae ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id
@@ -174,14 +176,12 @@ public class DraftController {
             jdbc.update("UPDATE projet SET statut='APPROUVE',etape_validation=NULL,date_soumission=now(),date_modification=now(),version=version+1 WHERE id=?",id);
             jdbc.update("INSERT INTO soumission_projet(projet_id,auteur_id,version_brouillon,destination) VALUES (?,?,?,'ADMINISTRATEUR')",id,userId,body.version());
             jdbc.update("INSERT INTO validation_projet(projet_id,examinateur_id,decision,commentaire,version_projet) VALUES (?,?,'APPROUVE','Approbation automatique : administrateur unique de l’espace.',?)",id,userId,body.version()+1);
-            return new Submission(id,(String)row.get("titre"),spaceId,spaceName,"APPROUVE",null,false);
+            return new Submission(id,(String)row.get("titre"),spaceName,"APPROUVE",null);
         }
-        if(jdbc.queryForObject("SELECT count(*) FROM projet WHERE auteur_id=? AND statut='SOUMIS' AND id<>?",Integer.class,userId,id)>=3)
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Vous avez déjà trois projets en attente. Attendez une décision avant d’en soumettre un autre.");
         String stage=referents.isEmpty()?"ADMINISTRATEUR":"REFERENT";
         jdbc.update("UPDATE projet SET statut='SOUMIS',etape_validation=?,date_soumission=now(),date_modification=now(),version=version+1 WHERE id=?",stage,id);
         jdbc.update("INSERT INTO soumission_projet(projet_id,auteur_id,version_brouillon,destination) VALUES (?,?,?,?)",id,userId,body.version(),stage);
-        return new Submission(id,(String)row.get("titre"),spaceId,spaceName,"SOUMIS",stage,false);
+        return new Submission(id,(String)row.get("titre"),spaceName,"SOUMIS",stage);
     }
 
 }

@@ -11,7 +11,7 @@ type Props = {
   spaces: { id: number; name: string }[];
   groups: { id: number; spaceId: number; name: string }[];
   onSaved: (draft: Draft) => void;
-  onSubmitted: (project: { id: number; title: string; spaceId: number; spaceName: string; status: string; reviewStage: string | null; published: boolean }) => void;
+  onSubmitted: (project: { id: number; title: string; spaceName: string; status: string; reviewStage: string | null }) => void;
   onClose: () => void;
 };
 export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose }: Props) {
@@ -92,7 +92,7 @@ export function DraftEditor({ id, spaces, groups, onSaved, onSubmitted, onClose 
         </fieldset>
         {draft && editable && <div className="draft-submission">
           <h4>Prêt à partager votre projet ?</h4>
-          <p>La description et l’objectif doivent être complétés et enregistrés. Si vous êtes le seul administrateur de l’espace, le projet est approuvé directement ; sinon, il passe en validation. La publication reste une étape distincte.</p>
+          <p>La description et l’objectif doivent être complétés et enregistrés. Le projet sera transmis aux référents actifs du groupe, ou directement à l’administrateur de l’espace. Il ne sera pas publié à cette étape. Vous pouvez avoir trois projets soumis en attente à la fois.</p>
           {dirty && <p>Enregistrez vos dernières modifications avant de soumettre.</p>}
           {!confirmSubmit ? <button type="button" className="button outline" disabled={busy || dirty || !draft.description.trim() || !draft.objective.trim()} onClick={() => setConfirmSubmit(true)}>{draft.status === 'A_CORRIGER' ? 'Soumettre à nouveau' : 'Soumettre pour validation'}</button> : <div className="account-cancel-confirm">
             <p>Confirmer la soumission de « {draft.title} » ? Si vous êtes le seul administrateur de cet espace, le projet sera approuvé directement ; sinon, il sera examiné. Vous ne pourrez plus modifier cette version.</p>
