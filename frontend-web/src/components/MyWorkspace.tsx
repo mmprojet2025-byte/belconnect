@@ -51,7 +51,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const requestedSection = selectedRubrique === 'adhesions' ? 'memberships' : selectedRubrique === 'projets-a-examiner' ? 'project-reviews' : selectedRubrique;
   const managementSection: ManagementSection = managementSections.find(item => item === requestedSection) ?? 'groups';
   const [spacesTab, setSpacesTab] = useState<'spaces' | 'groups'>('spaces');
-  const [requestsTab, setRequestsTab] = useState<'memberships' | 'spaces' | 'new'>('memberships');
+  const [requestsTab, setRequestsTab] = useState<'memberships' | 'spaces'>('memberships');
   useEffect(() => {
     if (view === 'management' && !selectedSpaceId) navigate('/mon-espace#espaces', true);
   }, [view, selectedSpaceId]);
@@ -138,10 +138,9 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       {!data.owner ? <div className="requests-layout">
         <nav className="requests-side-nav" aria-label="Type de demande">
           <button aria-current={requestsTab === 'memberships' ? 'page' : undefined} onClick={() => setRequestsTab('memberships')}>Adhésions aux groupes</button>
-          <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Ouverture d’espace</button>
-          <button aria-current={requestsTab === 'new' ? 'page' : undefined} onClick={() => setRequestsTab('new')}>Fiche de demande</button>
+          <button aria-current={requestsTab === 'spaces' ? 'page' : undefined} onClick={() => setRequestsTab('spaces')}>Demander un espace</button>
         </nav>
-        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode={requestsTab === 'new' ? 'create' : 'list'} onChanged={() => setAttempt(n => n + 1)} onCreated={() => setRequestsTab('spaces')} onCancelCreate={() => setRequestsTab('spaces')} />}</div>
+        <div className="requests-content">{requestsTab === 'memberships' ? <GroupMemberships onChanged={() => setAttempt(n => n + 1)} /> : <SpaceRequests owner={false} mode="combined" onChanged={() => setAttempt(n => n + 1)} />}</div>
       </div> : <SpaceRequests owner mode="all" onChanged={() => setAttempt(n => n + 1)} />}
     </div>}
     {view === 'projects' && <div className="workspace-panel">
