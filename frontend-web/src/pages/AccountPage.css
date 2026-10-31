@@ -367,9 +367,11 @@
 .workspace-subnav button { padding:8px 12px; border:1px solid #dce7ec; border-radius:8px; background:#fff; color:var(--navy); font-size:13px; font-weight:600; }
 .workspace-subnav button[aria-pressed=true] { background:#e9f3f2; border-color:#b9dcd7; color:#146d69; }
 .workspace-subnav button:disabled { opacity:.55; cursor:not-allowed; }
-.account-participation-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
-.account-participation-nav a { padding:10px 14px; border:1px solid #dce7ec; border-radius:8px; background:white; color:var(--navy); font-size:13px; font-weight:650; }
-.account-participation-nav a[aria-current=page] { background:var(--navy); border-color:var(--navy); color:white; }
+#mes-inscriptions > .workspace-context-header { margin-bottom:24px; }
+.account-participation-nav { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:12px; border-bottom:1px solid #dce7ec; margin-bottom:24px; }
+.account-participation-nav a { padding:10px 14px; border-radius:8px; color:#345266; font-size:13px; font-weight:650; }
+.account-participation-nav a:hover { background:#f1f6f7; }
+.account-participation-nav a[aria-current=page] { background:#e9f3f2; color:#146d69; }
 .workspace-card h3 { font-size:19px; margin:14px 0 10px; }
 .workspace-card p,.workspace-description { font-size:13px; color:#617583; line-height:1.8; }
 .workspace-card ul { list-style:none; padding:0; margin:20px 0 0; }
