@@ -232,15 +232,14 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   expect(screen.getByText('Vous administrez cet espace.')).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Espace Beta' })).toBeNull();
   const management = within(screen.getByRole('navigation', { name: 'Gérer Espace Alpha' }));
-  expect(document.querySelector('#workspace-sidebar-slot .workspace-context-nav')).not.toBeNull();
-  expect(document.querySelector('.workspace-management-layout .workspace-context-nav')).toBeNull();
+  expect(document.querySelector('.workspace-management-layout > .workspace-context-nav')).not.toBeNull();
   expect(management.getAllByRole('button')).toHaveLength(7);
   expect(management.queryByRole('button', { name: 'Activités' })).toBeNull();
   expect(management.getByRole('button', { name: 'Groupes' }).getAttribute('aria-current')).toBe('page');
   const workspaceLoads = fetcher.mock.calls.filter(([url]) => url === '/api/workspace').length;
-  fireEvent.click(management.getByRole('button', { name: 'À examiner' }));
+  fireEvent.click(management.getByRole('button', { name: 'Projets à examiner' }));
   const projectManagement = within(await screen.findByRole('navigation', { name: 'Gérer Espace Alpha' }));
-  expect(projectManagement.getByRole('button', { name: 'À examiner' }).getAttribute('aria-current')).toBe('page');
+  expect(projectManagement.getByRole('button', { name: 'Projets à examiner' }).getAttribute('aria-current')).toBe('page');
   expect(within(screen.getByLabelText('Rubrique actuelle')).getByText('Projets à examiner')).toBeTruthy();
   expect(window.location.search).toBe('?espace=1&rubrique=projets-a-examiner');
   expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace')).toHaveLength(workspaceLoads);
