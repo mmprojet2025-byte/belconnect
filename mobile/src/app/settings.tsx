@@ -46,7 +46,7 @@ export default function SettingsScreen() {
       {text:t('Supprimer mon compte'),style:'destructive',onPress:()=>void finishDeletion()},
     ]);
   }
-  return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.content} edges={['left', 'right', 'bottom']}>
+  return <ThemedView style={styles.screen}><ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}><SafeAreaView style={styles.content} edges={['left', 'right', 'bottom']}>
     <ThemedText type="subtitle">{t('Préférences')}</ThemedText>
     <View style={styles.section}><LanguagePicker /></View>
     {auth.profile && <View style={styles.section}><ThemedText type="smallBold">{t('Avatar')}</ThemedText><ThemedText type="small" themeColor="textSecondary">{t('Choisissez un personnage pour votre profil et vos messages.')}</ThemedText><AvatarChoices name={name} selected={auth.profile.avatarCode} disabled={savingAvatar} onSelect={code => void chooseAvatar(code)} label={t('Avatar')} /></View>}

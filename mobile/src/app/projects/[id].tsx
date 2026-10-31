@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialIcon } from '@/components/social-icon';
@@ -22,6 +22,7 @@ export default function ProjectDetailScreen() {
 }
 
 function ProjectContent({ id, token }: { id: string | undefined; token: string | null }) {
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const {locale}=useLocale();
   const date=new Intl.DateTimeFormat(`${locale}-BE`,{dateStyle:'long'});
@@ -38,14 +39,14 @@ function ProjectContent({ id, token }: { id: string | undefined; token: string |
   }, [id, token]);
   const invalid = !Number.isSafeInteger(Number(id)) || Number(id) < 1;
 
-  return <ThemedView style={styles.screen}><ScrollView><SafeAreaView style={styles.content} edges={['left', 'right', 'bottom']}>{!project ? <ThemedText accessibilityLiveRegion="polite">{invalid || error ? 'Projet indisponible.' : 'Chargement du projet…'}</ThemedText> : <View style={styles.body}>
+  return <ThemedView style={styles.screen}><ScrollView ref={scrollRef} automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled"><SafeAreaView style={styles.content} edges={['left', 'right', 'bottom']}>{!project ? <ThemedText accessibilityLiveRegion="polite">{invalid || error ? 'Projet indisponible.' : 'Chargement du projet…'}</ThemedText> : <View style={styles.body}>
     {project.imageUrl && projectImages[project.imageUrl] ? <Image source={projectImages[project.imageUrl]} style={styles.image} resizeMode="cover" accessibilityLabel={`Image du projet ${project.title}`} /> : <View style={styles.imageFallback}><SocialIcon name="project" color={theme.accent} size={54} /></View>}
     <View style={styles.intro}><View style={styles.organizer}><SocialIcon name="group" color={Colors.brand} size={20} /><ThemedText type="smallBold" style={styles.brand}>{project.spaceName}</ThemedText></View><ThemedText type="title" style={styles.projectTitle}>{project.title}</ThemedText></View>
     <ThemedView type="surface" style={styles.section}><ThemedText type="subtitle" style={styles.sectionTitle}>Pourquoi ce projet</ThemedText><ThemedText style={styles.objectiveText}>{project.objective}</ThemedText></ThemedView>
     <View style={styles.section}><ThemedText type="subtitle" style={styles.sectionTitle}>Le projet</ThemedText><ThemedText>{project.description}</ThemedText></View>
     {project.helpTypes.length > 0 && <View style={styles.section}><ThemedText type="subtitle" style={styles.sectionTitle}>Comment aider</ThemedText><View style={styles.helpList}>{project.helpTypes.map(value => <View key={value} style={styles.helpChip}><ThemedText type="smallBold" style={{ color: Colors.brand }}>{translate(locale,helpLabels[value] ?? value)}</ThemedText></View>)}</View></View>}
     {(project.startsOn || project.meetingPlace || project.participationPriceCents !== null) && <View style={styles.section}><ThemedText type="subtitle" style={styles.sectionTitle}>Informations pratiques</ThemedText>{project.startsOn && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Début prévu</ThemedText><ThemedText style={styles.infoValue}>{date.format(new Date(`${project.startsOn}T12:00:00`))}</ThemedText></View>}{project.meetingPlace && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Lieu</ThemedText><ThemedText style={styles.infoValue}>{project.meetingPlace}</ThemedText></View>}{project.participationPriceCents !== null && <View style={styles.infoRow}><ThemedText type="smallBold" style={styles.infoLabel}>Participation</ThemedText><ThemedText style={styles.infoValue}>{project.participationPriceCents === 0 ? 'Gratuite' : money.format(project.participationPriceCents / 100)}</ThemedText></View>}</View>}
-    <ProjectParticipation projectId={project.id} helpTypes={project.helpTypes} token={token} />
+    <ProjectParticipation projectId={project.id} helpTypes={project.helpTypes} token={token} onMessageFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)} />
   </View>}</SafeAreaView></ScrollView></ThemedView>;
 }
 

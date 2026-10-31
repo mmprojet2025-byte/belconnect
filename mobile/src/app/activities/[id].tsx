@@ -48,7 +48,7 @@ export default function ActivityDetailScreen() {
     catch(value){setBookingError(value instanceof Error?value.message:'Réservation impossible.');}
     finally{setBusy(false);}
   }
-  return <ThemedView style={styles.screen}><ScrollView contentContainerStyle={styles.scroll}><SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+  return <ThemedView style={styles.screen}><ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}><SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
     {!activity && !error && <ThemedText accessibilityLiveRegion="polite">Chargement de l’activité…</ThemedText>}
     {error && <View style={styles.block}><ThemedText type="smallBold">Cette activité est indisponible.</ThemedText><Pressable onPress={() => { setActivity(undefined); setError(false); setRevision(value => value + 1); }}><ThemedText type="linkPrimary">Réessayer</ThemedText></Pressable></View>}
     {activity && activityImages[activity.image] && <Image source={activityImages[activity.image]} style={styles.cover} resizeMode="cover" accessibilityLabel={`Photo de ${activity.title}`} />}

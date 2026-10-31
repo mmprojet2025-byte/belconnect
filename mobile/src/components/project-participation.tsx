@@ -12,7 +12,7 @@ import { FreeProjectEnrollment, getFreeProjectEnrollments, getProjectHelp, getPr
 const helpLabels: Record<string, string> = { BENEVOLAT: 'Donner du temps', COMPETENCES: 'Partager une compétence', PARTAGE: 'Faire connaître', SOUTIEN_MORAL: 'Soutien moral' };
 const activeHelp = (status: string) => status === 'PROPOSEE' || status === 'ACCEPTEE';
 
-export function ProjectParticipation({ projectId, helpTypes, token }: { projectId: number; helpTypes: string[]; token: string | null }) {
+export function ProjectParticipation({ projectId, helpTypes, token, onMessageFocus }: { projectId: number; helpTypes: string[]; token: string | null; onMessageFocus?: () => void }) {
   const { locale } = useLocale();
   const t = (text: string) => translate(locale, text);
   const types = helpTypes.filter(type => type in helpLabels);
@@ -64,7 +64,7 @@ export function ProjectParticipation({ projectId, helpTypes, token }: { projectI
         </View>}
         {types.length > 0 && <View style={styles.block}><ThemedText type="smallBold" style={styles.orange}>{t('PROPOSER MON AIDE')}</ThemedText><ThemedText themeColor="textSecondary">{t('Choisissez comment vous souhaitez aider ce projet.')}</ThemedText><View style={styles.choices}>{types.map(type => <Pressable key={type} accessibilityRole="button" accessibilityState={{ selected: selected === type }} onPress={() => setSelected(type)} style={[styles.choice, selected === type && styles.choiceSelected]}><ThemedText type="smallBold" style={selected === type ? styles.choiceSelectedText : styles.choiceText}>{t(helpLabels[type])}</ThemedText></Pressable>)}</View>
           {selected && help.some(item => item.type === selected && activeHelp(item.status)) ? <ThemedText type="smallBold" style={styles.confirmed}>{t('Votre proposition d’aide a été envoyée.')}</ThemedText>
-            : <><TextInput accessibilityLabel={t('Message pour l’organisateur')} placeholder={t('Un message facultatif pour l’organisateur…')} placeholderTextColor={Colors.light.textSecondary} multiline maxLength={1000} value={message} onChangeText={setMessage} style={styles.input} /><Pressable accessibilityRole="button" disabled={busy || !selected} onPress={() => void propose()} style={[styles.button, (busy || !selected) && styles.disabled]}><ThemedText type="smallBold" style={styles.buttonText}>{busy ? t('Patientez…') : t('Envoyer ma proposition')}</ThemedText></Pressable></>}
+            : <><TextInput accessibilityLabel={t('Message pour l’organisateur')} placeholder={t('Un message facultatif pour l’organisateur…')} placeholderTextColor={Colors.light.textSecondary} multiline maxLength={1000} value={message} onChangeText={setMessage} onFocus={onMessageFocus} style={styles.input} /><Pressable accessibilityRole="button" disabled={busy || !selected} onPress={() => void propose()} style={[styles.button, (busy || !selected) && styles.disabled]}><ThemedText type="smallBold" style={styles.buttonText}>{busy ? t('Patientez…') : t('Envoyer ma proposition')}</ThemedText></Pressable></>}
         </View>}
         {!offer && types.length === 0 && <ThemedText themeColor="textSecondary">{t('Ce projet ne propose pas encore de participation.')}</ThemedText>}
       </>}
