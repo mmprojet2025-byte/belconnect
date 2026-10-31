@@ -346,7 +346,7 @@
 .workspace-context-header-actions { display:flex; align-items:flex-start; gap:12px; }
 .workspace-context-header-actions .button { min-height:40px; padding:9px 13px; white-space:nowrap; font-size:12px; }
 .workspace-context-role { display:inline-flex; align-items:center; min-height:40px; padding:0 12px; border-radius:20px; background:#eff6f4; color:#176f6b; font-size:12px; font-weight:700; white-space:nowrap; }
-.workspace-context-location { display:flex; align-items:center; gap:6px; grid-column:1/-1; padding-top:14px; border-top:1px solid #e7eff1; color:#617583; font-size:12px; }
+.workspace-context-location { display:flex; flex-wrap:wrap; align-items:center; gap:6px; grid-column:1/-1; padding-top:14px; border-top:1px solid #e7eff1; color:#617583; font-size:12px; }
 .workspace-context-location .icon { width:14px; height:14px; }
 .workspace-context-location strong { color:var(--navy); font-weight:700; }
 @media(max-width:760px) { .workspace-context-header { padding:20px; grid-template-columns:1fr; }.workspace-context-header-actions { flex-wrap:wrap; }.workspace-context-location { grid-column:1; }.workspace-context-symbol { width:44px; height:44px; } }

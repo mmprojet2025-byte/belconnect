@@ -84,8 +84,10 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const canReviewProjects = isSpaceAdmin || selectedGroups.some(group => group.role === 'REFERENT');
   const activeManagementSection = managementSection === 'memberships' && !canManageMembers || managementSection === 'announcements' && !selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT') || managementSection === 'project-reviews' && !canReviewProjects || (['project-publications', 'project-helps', 'payments', 'settings'].includes(managementSection) && !isSpaceAdmin) ? 'groups' : managementSection;
   const managementGroup = ['groups', 'memberships', 'announcements'].includes(activeManagementSection) ? 'groups' : ['project-reviews', 'project-publications', 'project-helps'].includes(activeManagementSection) ? 'projects' : activeManagementSection;
+  const managementGroupLabel = managementGroup === 'groups' ? 'Groupes' : managementGroup === 'projects' ? 'Projets' : managementGroup === 'payments' ? 'Paiements' : 'Réglages';
   const canManageAnnouncements = selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT');
   const managementLabels: Record<ManagementSection, string> = { groups: 'Groupes', memberships: 'Demandes d’adhésion', announcements: 'Annonces', 'project-reviews': 'Projets à examiner', 'project-publications': 'Publications', 'project-helps': 'Aides reçues', payments: 'Paiements', settings: 'Réglages' };
+  const managementDetailLabel = activeManagementSection === 'groups' ? 'Mes groupes' : activeManagementSection === 'project-reviews' ? 'À examiner' : managementLabels[activeManagementSection];
   const canLeaveActivityCreation = confirmLeavingEditor;
   const chooseSpace = (id: number) => { if (!canLeaveActivityCreation()) return; setMembersGroup(null); navigate(`/mon-espace?espace=${id}#organisation`); };
   const changeManagementSection = (section: ManagementSection) => { if (section === managementSection || !canLeaveActivityCreation() || !selectedSpace) return; window.dispatchEvent(new Event('belconnect:close-account-menu')); navigate(`/mon-espace?espace=${selectedSpace.id}&rubrique=${section === 'memberships' ? 'adhesions' : section === 'project-reviews' ? 'projets-a-examiner' : section}#organisation`); };
@@ -140,7 +142,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       <header className="workspace-context-header">
         <div className="workspace-context-heading"><span className="workspace-context-symbol"><Icon name="users" /></span><div><span className="workspace-context-kicker">Espace organisateur</span><h2>{selectedSpace.name}</h2><p>{isSpaceAdmin ? 'Vous administrez cet espace.' : 'Vous gérez les rubriques autorisées de vos groupes.'}</p></div></div>
         <div className="workspace-context-header-actions"><span className="workspace-context-role">{isSpaceAdmin ? 'Administrateur' : 'Référent'}</span><button className="button outline" onClick={() => { if (canLeaveActivityCreation()) navigate('/mon-espace?liste=1#espaces'); }}>Voir tous mes espaces</button></div>
-        <div className="workspace-context-location" aria-label="Rubrique actuelle"><span>Gestion de l’espace</span><Icon name="chevron" /><strong>{managementLabels[activeManagementSection]}</strong></div>
+        <nav className="workspace-context-location" aria-label="Rubrique actuelle"><span>Gestion de l’espace</span><Icon name="chevron" />{managementGroup === 'groups' || managementGroup === 'projects' ? <><span>{managementGroupLabel}</span><Icon name="chevron" /><strong aria-current="page">{managementDetailLabel}</strong></> : <strong aria-current="page">{managementGroupLabel}</strong>}</nav>
       </header>
       <div className="workspace-management-layout">
         {contextNavigation}

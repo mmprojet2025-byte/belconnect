@@ -239,7 +239,7 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   const projectManagement = within(await screen.findByRole('navigation', { name: 'Gérer Espace Alpha' }));
   expect(projectManagement.getByRole('button', { name: 'Projets' }).getAttribute('aria-current')).toBe('page');
   expect(within(screen.getByRole('navigation', { name: 'Gestion des projets' })).getByRole('button', { name: 'À examiner' }).getAttribute('aria-current')).toBe('page');
-  expect(within(screen.getByLabelText('Rubrique actuelle')).getByText('Projets à examiner')).toBeTruthy();
+  expect(within(screen.getByRole('navigation', { name: 'Rubrique actuelle' })).getByText('À examiner')).toBeTruthy();
   expect(window.location.search).toBe('?espace=1&rubrique=projets-a-examiner');
   expect(fetcher.mock.calls.filter(([url]) => url === '/api/workspace')).toHaveLength(workspaceLoads);
   expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
