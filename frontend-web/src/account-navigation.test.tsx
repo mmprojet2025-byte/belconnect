@@ -97,6 +97,8 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   expect(await screen.findByRole('heading', { name: 'Mes demandes d’espace' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Fiche de demande' }));
   expect(await screen.findByRole('button', { name: 'Envoyer la demande' })).toBeTruthy();
+  expect(screen.getByRole('checkbox', { name: /pris connaissance des informations de confidentialité/ })).toBeTruthy();
+  expect(screen.getByRole('combobox', { name: 'Formule souhaitée' })).toBeTruthy();
 });
 
 it('sépare les demandes, les espaces et le suivi du propriétaire', async () => {

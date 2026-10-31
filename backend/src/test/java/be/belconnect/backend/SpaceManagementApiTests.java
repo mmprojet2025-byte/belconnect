@@ -2,6 +2,7 @@ package be.belconnect.backend;
 
 import java.net.*;
 import java.net.http.*;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,7 @@ class SpaceManagementApiTests {
  }
  JsonNode ok(HttpResponse<String> r,int status) throws Exception { assertEquals(status,r.statusCode(),r.body()); return json.readTree(r.body()); }
  Map<String,Object> sc(String name) { return Map.of("name",name,"type","ORGANISATEUR","description","Une communauté locale"); }
+ Map<String,Object> opening(String name) { return Map.of("requestId",UUID.randomUUID(),"content",sc(name),"privacyNoticeRead",true,"desiredPlan","STARTER"); }
  Map<String,Object> gc(String name) { return Map.of("name",name,"description","Rencontres et projets","coverUrl","","openMembership",false,"visibility","PRIVEE"); }
  @Test void starterAndProLimitGroupsPerSpaceWithoutRemovingExistingGroups() throws Exception {
   try {
@@ -70,24 +72,24 @@ class SpaceManagementApiTests {
    assertEquals(3,ok(admin.get(path+"/management"),200).get("groupQuota").get("used").asInt());
   } finally { cleanup(); }
  }
- JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc(name)),true),201); }
+ JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",opening(name),true),201); }
  @Test void starterAndProLimitOrganiserSpaceRequests() throws Exception {
   try {
    var applicant=actor(); var proprietor=actor(); owner(proprietor);
    String quotaPath="/api/workspace/requests/quota";
    assertEquals(1,ok(applicant.get(quotaPath),200).get("max").asInt());
-   var firstBody=Map.of("requestId",UUID.randomUUID(),"content",sc("Premier espace"));
+   var firstBody=opening("Premier espace");
    long first=ok(applicant.post("/api/workspace/requests",firstBody,true),201).get("id").asLong();
    assertEquals(first,ok(applicant.post("/api/workspace/requests",firstBody,true),201).get("id").asLong());
-   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Deuxième espace")),true).statusCode());
+   assertEquals(409,applicant.post("/api/workspace/requests",opening("Deuxième espace"),true).statusCode());
    long firstSpace=ok(proprietor.post("/api/workspace/opening-requests/"+first+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true),200).get("spaceId").asLong();
    assertEquals(1,ok(applicant.get(quotaPath),200).get("used").asInt());
-   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Deuxième espace")),true).statusCode());
+   assertEquals(409,applicant.post("/api/workspace/requests",opening("Deuxième espace"),true).statusCode());
    jdbc.update("INSERT INTO abonnement_espace(espace_id,administrateur_id,formule,statut) VALUES (?,?,'PRO','ACTIF')",firstSpace,applicant.id);
    assertEquals(2,ok(applicant.get(quotaPath),200).get("max").asInt());
    long second=request(applicant,"Deuxième espace").get("id").asLong();
    assertEquals(2,ok(applicant.get(quotaPath),200).get("used").asInt());
-   assertEquals(409,applicant.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Troisième espace")),true).statusCode());
+   assertEquals(409,applicant.post("/api/workspace/requests",opening("Troisième espace"),true).statusCode());
    jdbc.update("UPDATE abonnement_espace SET formule='STARTER',statut='ANNULE' WHERE espace_id=?",firstSpace);
    assertEquals(409,proprietor.post("/api/workspace/opening-requests/"+second+"/decision",Map.of("version",0,"status","APPROUVEE","reason",""),true).statusCode());
    jdbc.update("UPDATE abonnement_espace SET formule='PRO',statut='ACTIF' WHERE espace_id=?",firstSpace);
@@ -230,19 +232,23 @@ class SpaceManagementApiTests {
   try {
    var admin=actor(); var outsider=actor(); var platform=actor(); owner(platform);
    assertEquals(401,new Actor().get("/api/workspace/requests").statusCode());
-   var body=Map.of("requestId",UUID.randomUUID(),"content",sc("Espace du quartier"),"details",Map.of(
+   var body=Map.of("requestId",UUID.randomUUID(),"content",sc("Espace du quartier"),"privacyNoticeRead",true,"desiredPlan","PRO","details",Map.of(
        "organizerName","Collectif du quartier","city","Bruxelles","targetAudience","Habitants du quartier",
        "plannedContent","Rencontres et ateliers"));
    assertEquals(403,admin.post("/api/workspace/requests",body,false).statusCode());
+   assertEquals(400,admin.post("/api/workspace/requests",Map.of("requestId",UUID.randomUUID(),"content",sc("Sans lecture")),true).statusCode());
    long request=ok(admin.post("/api/workspace/requests",body,true),201).get("id").asLong();
+   assertNotNull(jdbc.queryForObject("SELECT confidentialite_lue_le FROM demande_espace WHERE id=?",OffsetDateTime.class,request));
    assertEquals(request,ok(admin.post("/api/workspace/requests",body,true),201).get("id").asLong());
    var submitted=ok(admin.get("/api/workspace/requests"),200).get(0);
    assertEquals("Collectif du quartier",submitted.get("organizerName").asText());
    assertEquals("Rencontres et ateliers",submitted.get("plannedContent").asText());
+   assertEquals("PRO",submitted.get("desiredPlan").asText());
    assertEquals(0,ok(admin.get("/api/workspace"),200).get("spaces").size());
    assertEquals(0,ok(outsider.get("/api/workspace/requests"),200).size());
    assertEquals(403,admin.get("/api/workspace/opening-requests").statusCode());
    assertEquals("Bruxelles",ok(platform.get("/api/workspace/opening-requests"),200).get(0).get("city").asText());
+   assertEquals("PRO",ok(platform.get("/api/workspace/opening-requests"),200).get(0).get("desiredPlan").asText());
    var approval=Map.of("version",0,"status","APPROUVEE","reason","");
    assertEquals(403,admin.post("/api/workspace/opening-requests/"+request+"/decision",approval,true).statusCode());
    long space=ok(platform.post("/api/workspace/opening-requests/"+request+"/decision",approval,true),200).get("spaceId").asLong();

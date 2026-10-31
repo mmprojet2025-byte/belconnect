@@ -335,6 +335,9 @@
 .draft-editor > p { font-size:13px; line-height:1.8; color:#617583; margin-bottom:20px; }
 .draft-editor fieldset { border:0; padding:0; margin:0; display:grid; gap:20px; min-width:0; }
 .draft-editor label { display:grid; gap:8px; min-width:0; font-size:13px; font-weight:600; }
+.draft-editor .space-privacy-ack { display:flex; align-items:flex-start; gap:10px; line-height:1.5; font-weight:500; }
+.draft-editor .space-privacy-ack input { width:18px; height:18px; flex:none; padding:0; margin-top:1px; }
+.draft-editor .space-privacy-ack a { color:#146d69; text-decoration:underline; }
 .draft-editor input,.draft-editor select,.draft-editor textarea { width:100%; min-width:0; padding:12px; border:1px solid #cbd9e1; border-radius:8px; background:#f9fbfd; color:var(--navy); font:inherit; font-weight:400; }
 .draft-editor textarea { resize:vertical; }
 .draft-cover-preview { display:block; width:min(100%,420px); max-height:230px; object-fit:cover; border-radius:12px; }
