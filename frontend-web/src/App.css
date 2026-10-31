@@ -34,6 +34,9 @@
 }
 .account-header .header-inner { width:min(1720px,calc(100% - 48px)); }
 .account-header #account-header-tools { display:flex; align-items:center; }
+.account-header .header-actions { gap:12px; }
+.account-header .locale-picker { display:inline-flex; align-items:center; height:42px; padding:0 8px; border:1px solid #d7e5e2; border-radius:10px; background:#fff; }
+.account-header .locale-picker select { min-width:105px; border:0; padding:0 14px 0 0; background:transparent; font-size:12px; font-weight:650; cursor:pointer; }
 @media (min-width:761px) {
   .account-header { position:fixed; right:0; left:0; }
   .account-header + main#contenu { padding-top:82px; }

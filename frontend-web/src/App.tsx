@@ -231,7 +231,7 @@ function App() {
             </button>}
             {!user && pathname !== '/mon-espace' && <a className="login" href="/connexion">{tr(locale, 'Connexion', 'Sign in', 'Aanmelden')}</a>}
             {pathname === '/mon-espace' && <div id="account-header-tools" />}
-            <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">FR</option><option value="en">EN</option><option value="nl">NL</option></select></label>
+            <label className="locale-picker"><span className="sr-only">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')}</span><select aria-label={tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="nl">🇳🇱 Nederlands</option></select></label>
           </div>
           <button
             className="menu-button"
@@ -262,7 +262,7 @@ function App() {
             <a href="/mon-espace#espaces" onClick={() => setMenuOpen(false)}>
               {tr(locale, 'Organiser une activité', 'Organise an activity', 'Organiseer een activiteit')}
             </a>
-            <label className="locale-picker">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} <select value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">Français</option><option value="en">English</option><option value="nl">Nederlands</option></select></label>
+            <label className="locale-picker">{tr(locale, 'Langue des menus', 'Menu language', 'Menutaal')} <select value={locale} onChange={event => setLocale(event.target.value as 'fr' | 'en' | 'nl')}><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="nl">🇳🇱 Nederlands</option></select></label>
           </nav>
         )}
       </header>
