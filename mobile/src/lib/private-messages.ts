@@ -28,6 +28,7 @@ async function call<T>(path: string, token: string, options: RequestInit = {}): 
 
 export const getConversations = (token: string, signal?: AbortSignal) => call<Conversation[]>('/conversations', token, { signal });
 export const getConversation = (id: number, token: string, signal?: AbortSignal) => call<Conversation>(`/conversations/${id}`, token, { signal });
+export const leaveConversation = (id: number, token: string) => call<void>(`/conversations/${id}`, token, { method: 'DELETE' });
 export const getContactProfile = (id: number, token: string) => call<ContactProfile>(`/conversations/${id}/profile`, token);
 export const getMessageMembers = (groupId: number, token: string, signal?: AbortSignal) => call<MessageMember[]>(`/groups/${groupId}/members`, token, { signal });
 export const startConversation = (groupId: number, recipientId: number, token: string) => call<Conversation>('/conversations', token, { method: 'POST', body: JSON.stringify({ groupId, recipientId }) });

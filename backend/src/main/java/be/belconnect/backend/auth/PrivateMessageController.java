@@ -130,8 +130,12 @@ public class PrivateMessageController {
     @Transactional(readOnly = true)
     public ResponseEntity<List<Conversation>> conversations(Authentication auth) {
         long actor = user(auth);
-        var items = jdbc.query(SUMMARY + " WHERE c.participant_a_id=? OR c.participant_b_id=? ORDER BY COALESCE((SELECT max(m.id) FROM message_prive m WHERE m.conversation_id=c.id),0) DESC,c.id DESC LIMIT 100",
-            this::summary, actor, actor, actor, actor, actor, actor, actor, actor);
+        var items = jdbc.query(SUMMARY + """
+            WHERE (c.participant_a_id=? OR c.participant_b_id=?)
+              AND NOT EXISTS (SELECT 1 FROM conversation_privee_masquee h WHERE h.conversation_id=c.id
+                AND h.utilisateur_id=? AND COALESCE((SELECT max(m.id) FROM message_prive m WHERE m.conversation_id=c.id),0)<=h.dernier_message_id)
+            ORDER BY COALESCE((SELECT max(m.id) FROM message_prive m WHERE m.conversation_id=c.id),0) DESC,c.id DESC LIMIT 100
+            """, this::summary, actor, actor, actor, actor, actor, actor, actor, actor, actor);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(items);
     }
 
@@ -191,7 +195,23 @@ public class PrivateMessageController {
             INSERT INTO conversation_privee(groupe_id,participant_a_id,participant_b_id) VALUES (?,?,?)
             ON CONFLICT (groupe_id,participant_a_id,participant_b_id) DO UPDATE SET groupe_id=excluded.groupe_id RETURNING id
             """, Long.class, body.groupId(), first, second);
+        jdbc.update("DELETE FROM conversation_privee_masquee WHERE conversation_id=? AND utilisateur_id=?", id, actor);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(conversation(id, actor));
+    }
+
+    @DeleteMapping("/conversations/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void leaveConversation(@PathVariable long id, Authentication auth) {
+        long actor = user(auth);
+        pair(id, actor);
+        long latest = jdbc.queryForObject("SELECT COALESCE(max(id),0) FROM message_prive WHERE conversation_id=?", Long.class, id);
+        jdbc.update("""
+            INSERT INTO conversation_privee_masquee(conversation_id,utilisateur_id,dernier_message_id)
+            VALUES (?,?,?) ON CONFLICT (conversation_id,utilisateur_id)
+            DO UPDATE SET dernier_message_id=excluded.dernier_message_id,date_masquage=now()
+            """, id, actor, latest);
+        jdbc.update("UPDATE message_prive SET date_lecture=now() WHERE conversation_id=? AND expediteur_id<>? AND date_lecture IS NULL", id, actor);
     }
 
     private Message mapMessage(java.sql.ResultSet row, int index) throws java.sql.SQLException {

@@ -92,6 +92,12 @@ class PrivateMessageApiTests {
             assertEquals("Salut, on se voit samedi ?", json.readTree(call("GET", path + "/items", admin.token(), null).body()).get(0).get("content").asText());
             assertEquals(204, call("POST", path + "/read", admin.token(), null).statusCode());
             assertEquals(0, json.readTree(call("GET", path, admin.token(), null).body()).get("unreadCount").asInt());
+            assertEquals(404, call("DELETE", path, outsider.token(), null).statusCode());
+            assertEquals(204, call("DELETE", path, member.token(), null).statusCode());
+            assertEquals(0, json.readTree(call("GET", base + "/conversations", member.token(), null).body()).size());
+            assertEquals(1, json.readTree(call("GET", base + "/conversations", admin.token(), null).body()).size());
+            assertEquals(201, call("POST", path + "/items", admin.token(), Map.of("requestId", UUID.randomUUID(), "content", "Nouvelle réponse")).statusCode());
+            assertEquals(1, json.readTree(call("GET", base + "/conversations", member.token(), null).body()).size());
             assertEquals(404, call("POST", base + "/items/" + message + "/reports", outsider.token(), Map.of("reason", "Spam")).statusCode());
             assertEquals(204, call("POST", base + "/items/" + message + "/reports", admin.token(), Map.of("reason", "Message gênant")).statusCode());
             assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM signalement_message_prive WHERE message_id=?", Integer.class, message));

@@ -39,7 +39,7 @@ public class GroupDirectInvitationController {
     if(Boolean.TRUE.equals(member))throw fail(HttpStatus.CONFLICT,"Cette personne est déjà membre.");
     Boolean blocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=? AND statut<>'ACTIF')",Boolean.class,invited,space);
     if(Boolean.TRUE.equals(blocked))throw fail(HttpStatus.CONFLICT,"Cette personne ne peut pas rejoindre cet espace.");
-    Boolean groupBlocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND statut<>'ACTIF')",Boolean.class,invited,groupId);
+    Boolean groupBlocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND statut<>'ACTIF' AND date_depart_volontaire IS NULL)",Boolean.class,invited,groupId);
     if(Boolean.TRUE.equals(groupBlocked))throw fail(HttpStatus.CONFLICT,"Cette personne ne peut pas rejoindre ce groupe.");
     jdbc.update("""
       INSERT INTO invitation_groupe(groupe_id,invite_id,inviter_id) VALUES (?,?,?)
@@ -68,11 +68,15 @@ public class GroupDirectInvitationController {
     if(decision.equals("accept")){
       Boolean blocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=? AND statut<>'ACTIF')",Boolean.class,user,space);
       if(Boolean.TRUE.equals(blocked))throw fail(HttpStatus.FORBIDDEN,"Votre accès à cet espace est suspendu.");
-      Boolean groupBlocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND statut<>'ACTIF')",Boolean.class,user,group);
+      Boolean groupBlocked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND statut<>'ACTIF' AND date_depart_volontaire IS NULL)",Boolean.class,user,group);
       if(Boolean.TRUE.equals(groupBlocked))throw fail(HttpStatus.FORBIDDEN,"Votre accès à ce groupe est suspendu.");
       limit.check(user,group);
       jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE') ON CONFLICT DO NOTHING",user,space);
-      jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE') ON CONFLICT DO NOTHING",user,space,group);
+      jdbc.update("""
+        INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE')
+        ON CONFLICT(utilisateur_id,groupe_id) DO UPDATE SET statut='ACTIF',date_depart_volontaire=NULL
+        WHERE appartenance_groupe.date_depart_volontaire IS NOT NULL
+        """,user,space,group);
       jdbc.update("UPDATE demande_adhesion_groupe SET statut='ACCEPTEE',date_decision=now(),version=version+1 WHERE utilisateur_id=? AND groupe_id=? AND statut='EN_ATTENTE'",user,group);
     }
     jdbc.update("UPDATE invitation_groupe SET statut=?,date_decision=now(),date_lecture=now() WHERE id=?",decision.equals("accept")?"ACCEPTEE":"REFUSEE",id);

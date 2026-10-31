@@ -37,15 +37,17 @@ public class GroupMembershipController {
         var a=jdbc.queryForList("SELECT role,statut FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=?",user,space);
         if(!a.isEmpty() && !"ACTIF".equals(a.getFirst().get("statut"))) return "INDISPONIBLE";
         if(!a.isEmpty() && "ADMINISTRATEUR".equals(a.getFirst().get("role"))) return "ADMINISTRATEUR";
-        var g=jdbc.queryForList("SELECT statut FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",user,group);
-        if(!g.isEmpty()) return "ACTIF".equals(g.getFirst().get("statut")) && !a.isEmpty()?"MEMBRE":"INDISPONIBLE";
+        var g=jdbc.queryForList("SELECT statut,date_depart_volontaire FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=?",user,group);
+        if(!g.isEmpty()) return "ACTIF".equals(g.getFirst().get("statut")) && !a.isEmpty()?"MEMBRE":g.getFirst().get("date_depart_volontaire")!=null?"AUCUNE":"INDISPONIBLE";
         return "AUCUNE";
     }
     private String state(long user,long space,long group) {
         String m=membership(user,space,group);
         if(!m.equals("AUCUNE")) return m;
-        return jdbc.query("SELECT statut FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getString(1),user,group)
+        String request=jdbc.query("SELECT statut FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getString(1),user,group)
             .stream().findFirst().orElse("AUCUNE");
+        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND date_depart_volontaire IS NOT NULL)",Boolean.class,user,group)) && !request.equals("EN_ATTENTE")) return "AUCUNE";
+        return request;
     }
     @GetMapping("/groups") @Transactional
     public List<Group> catalogue(Authentication auth) {
@@ -94,8 +96,8 @@ public class GroupMembershipController {
     }
     private void activeMemberships(long user,long space,long group) {
         var spaces=jdbc.query("SELECT statut FROM appartenance_espace WHERE utilisateur_id=? AND espace_id=? FOR SHARE",(r,n)->r.getString(1),user,space);
-        var groups=jdbc.query("SELECT statut FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? FOR SHARE",(r,n)->r.getString(1),user,group);
-        if(spaces.stream().anyMatch(v->!v.equals("ACTIF")) || groups.stream().anyMatch(v->!v.equals("ACTIF")))
+        var groups=jdbc.queryForList("SELECT statut,date_depart_volontaire FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? FOR SHARE",user,group);
+        if(spaces.stream().anyMatch(v->!v.equals("ACTIF")) || groups.stream().anyMatch(v->!"ACTIF".equals(v.get("statut")) && v.get("date_depart_volontaire")==null))
             throw error(HttpStatus.FORBIDDEN,"Votre accès a été suspendu ou retiré. Contactez l’administrateur de l’espace.");
     }
 
@@ -108,7 +110,11 @@ public class GroupMembershipController {
         limit.check(user,group);
         jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE') ON CONFLICT(utilisateur_id,espace_id) DO NOTHING",user,space);
         activeMemberships(user,space,group);
-        jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE') ON CONFLICT(utilisateur_id,groupe_id) DO NOTHING",user,space,group);
+        jdbc.update("""
+            INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE')
+            ON CONFLICT(utilisateur_id,groupe_id) DO UPDATE SET statut='ACTIF',date_depart_volontaire=NULL
+            WHERE appartenance_groupe.date_depart_volontaire IS NOT NULL
+            """,user,space,group);
         activeMemberships(user,space,group);
     }
     private Request request(long id) { return requests("WHERE d.id=?",id).getFirst(); }
@@ -134,6 +140,18 @@ public class GroupMembershipController {
     }
     @PostMapping("/groups/{id}/join") @Transactional
     public Request join(Authentication auth,@PathVariable long id) { return join(user(auth),id,false); }
+
+    @DeleteMapping("/groups/{id}/membership") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
+    public void leave(Authentication auth,@PathVariable long id) {
+        long actor=user(auth),space=lockSpaceForGroup(id);
+        var rows=jdbc.queryForList("SELECT role,statut FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? FOR UPDATE",actor,id);
+        if(rows.isEmpty() || !"ACTIF".equals(rows.getFirst().get("statut")))
+            throw error(HttpStatus.CONFLICT,"Vous ne faites pas partie de ce groupe.");
+        if(!"MEMBRE".equals(rows.getFirst().get("role")))
+            throw error(HttpStatus.CONFLICT,"Transférez votre rôle de référent avant de quitter le groupe.");
+        jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE',date_depart_volontaire=now() WHERE utilisateur_id=? AND groupe_id=?",actor,id);
+        audit(actor,space,id,"DEPART_VOLONTAIRE",0);
+    }
     private Request join(long user,long id,boolean invited) {
         long space=lockSpaceForGroup(id);
         var g=jdbc.queryForMap("SELECT * FROM groupe WHERE id=? FOR SHARE",id);
@@ -142,7 +160,20 @@ public class GroupMembershipController {
             throw error(HttpStatus.NOT_FOUND,"Ce groupe n’est pas accessible.");
         activeMemberships(user,space,id);
         var prior=jdbc.query("SELECT id FROM demande_adhesion_groupe WHERE utilisateur_id=? AND groupe_id=?",(r,n)->r.getLong(1),user,id);
-        if(!prior.isEmpty()) return request(prior.getFirst());
+        if(!prior.isEmpty()) {
+            if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM appartenance_groupe WHERE utilisateur_id=? AND groupe_id=? AND date_depart_volontaire IS NOT NULL)",Boolean.class,user,id)) && !request(prior.getFirst()).status().equals("EN_ATTENTE")) {
+                jdbc.update("UPDATE demande_adhesion_groupe SET statut='EN_ATTENTE',motif='',examinateur_id=NULL,date_decision=NULL,date_creation=now(),version=version+1 WHERE id=?",prior.getFirst());
+                jdbc.update("""
+                    INSERT INTO notification_adhesion_groupe(utilisateur_id,demande_id,evenement)
+                    SELECT a.utilisateur_id,?,'DEMANDE_RECUE' FROM appartenance_espace a
+                    JOIN utilisateur u ON u.id=a.utilisateur_id AND u.statut='ACTIF'
+                    WHERE a.espace_id=? AND a.role='ADMINISTRATEUR' AND a.statut='ACTIF' AND a.utilisateur_id<>?
+                    ON CONFLICT (utilisateur_id,demande_id,evenement) DO UPDATE SET date_creation=now(),date_lecture=NULL
+                    """,prior.getFirst(),space,user);
+                audit(user,space,id,"ADHESION_DEMANDEE",0);
+            }
+            return request(prior.getFirst());
+        }
         if(membership(user,space,id).equals("AUCUNE")) limit.check(user,id);
         boolean admitted=!membership(user,space,id).equals("AUCUNE");
         // Every new group membership requires a decision from the space administrator.

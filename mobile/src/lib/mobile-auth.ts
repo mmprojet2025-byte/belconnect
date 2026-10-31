@@ -21,3 +21,15 @@ export const register=(body:Registration)=>call<Session>('register',{method:'POS
 export const currentProfile=(token:string)=>call<Profile>('me',{headers:{Authorization:`Bearer ${token}`}});
 export const updateAvatar=(token:string,avatarCode:string)=>call<Profile>('avatar',{method:'PUT',body:JSON.stringify({avatarCode}),headers:{Authorization:`Bearer ${token}`}});
 export const logout=(token:string)=>call<void>('logout',{method:'POST',body:'{}',headers:{Authorization:`Bearer ${token}`}});
+
+export async function deleteAccount(token:string,password:string):Promise<void> {
+  const response=await fetch(`${apiUrl}/api/mobile/auth/me`,{method:'DELETE',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({password})});
+  if(response.ok)return;
+  if(response.status===403)throw new Error('Mot de passe incorrect.');
+  if(response.status===409) {
+    const problem=await response.json().catch(()=>({}));
+    throw new Error(typeof problem.detail==='string'?problem.detail:'Terminez vos réservations payantes ou transférez vos responsabilités avant de supprimer ce compte.');
+  }
+  if(response.status===401)throw new Error('Votre session a expiré. Reconnectez-vous.');
+  throw new Error('Suppression impossible pour le moment. Réessayez.');
+}

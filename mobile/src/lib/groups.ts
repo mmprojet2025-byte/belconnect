@@ -40,3 +40,9 @@ export async function joinGroup(id: number, token: string): Promise<void> {
     throw new Error('La demande d’adhésion n’a pas pu être envoyée.');
   }
 }
+
+export async function leaveGroup(id: number, token: string): Promise<void> {
+  const response = await fetch(`${apiUrl}/api/groups/${id}/membership`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 409) throw new Error('Transférez votre rôle de référent avant de quitter ce groupe.');
+  if (!response.ok) throw new Error('Impossible de quitter ce groupe pour le moment.');
+}

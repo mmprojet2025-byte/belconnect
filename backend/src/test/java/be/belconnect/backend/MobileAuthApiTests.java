@@ -64,6 +64,56 @@ class MobileAuthApiTests {
     } finally { jdbc.update("DELETE FROM utilisateur WHERE email=?",email); }
   }
 
+  @Test void accountDeletionRequiresPasswordAndRevokesEverySession() throws Exception {
+    String marker=UUID.randomUUID().toString(),email="delete-"+marker+"@example.com",password="Delete-test-password-123",slug="delete-"+marker;
+    long id=0;
+    try {
+      var created=request("POST","register",Map.of("email",email,"password",password,"firstName","Nora","lastName","Mobile"),null);
+      assertEquals(201,created.statusCode(),created.body());
+      String token=json.readTree(created.body()).get("token").asText();
+      id=json.readTree(created.body()).get("profile").get("id").asLong();
+      String second=json.readTree(request("POST","login",Map.of("email",email,"password",password),null).body()).get("token").asText();
+      jdbc.update("""
+        INSERT INTO activite(slug,titre,categorie,ville,lieu,organisateur_nom,prix,image,debut,description,duree,capacite,places_disponibles,public_cible,rendez_vous,preparation,publiee,demonstration)
+        SELECT ?, 'Activité suppression',categorie,ville,lieu,organisateur_nom,0,image,now()+interval '7 days',description,duree,3,2,public_cible,rendez_vous,preparation,true,true
+        FROM activite WHERE slug='chocolat'
+        """,slug);
+      long activityId=jdbc.queryForObject("SELECT id FROM activite WHERE slug=?",Long.class,slug);
+      jdbc.update("INSERT INTO inscription_activite(utilisateur_id,activite_id,quantite,prenom,nom,email) VALUES (?,?,1,'Nora','Mobile',?)",id,activityId,email);
+      assertEquals(403,request("DELETE","me",Map.of("password","wrong"),token).statusCode());
+      assertEquals(200,request("GET","me",null,token).statusCode());
+      assertEquals(204,request("DELETE","me",Map.of("password",password),token).statusCode());
+      assertEquals(401,request("GET","me",null,token).statusCode());
+      assertEquals(401,request("GET","me",null,second).statusCode());
+      assertEquals(401,request("POST","login",Map.of("email",email,"password",password),null).statusCode());
+      assertEquals("DESACTIVE",jdbc.queryForObject("SELECT statut FROM utilisateur WHERE id=?",String.class,id));
+      assertEquals("supprime-"+id+"@accounts.invalid",jdbc.queryForObject("SELECT email FROM utilisateur WHERE id=?",String.class,id));
+      assertEquals("ANNULEE",jdbc.queryForObject("SELECT statut FROM inscription_activite WHERE utilisateur_id=? AND activite_id=?",String.class,id,activityId));
+      assertEquals(3,jdbc.queryForObject("SELECT places_disponibles FROM activite WHERE id=?",Integer.class,activityId));
+      assertEquals(201,request("POST","register",Map.of("email",email,"password",password,"firstName","Nouvelle","lastName","Personne"),null).statusCode());
+    } finally {
+      jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+      jdbc.update("DELETE FROM activite WHERE slug=?",slug);
+      jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
+      if(id>0) jdbc.update("DELETE FROM utilisateur WHERE id=?",id);
+    }
+  }
+
+  @Test void platformOwnerCannotDeleteAccountThroughMobileApi() throws Exception {
+    String email="owner-delete-"+UUID.randomUUID()+"@example.com",password="Owner-delete-password-123";
+    long id=0;
+    try {
+      var created=request("POST","register",Map.of("email",email,"password",password,"firstName","Owner","lastName","Test"),null);
+      id=json.readTree(created.body()).get("profile").get("id").asLong();
+      String token=json.readTree(created.body()).get("token").asText();
+      jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",id);
+      assertEquals(403,request("DELETE","me",Map.of("password",password),token).statusCode());
+      assertEquals("ACTIF",jdbc.queryForObject("SELECT statut FROM utilisateur WHERE id=?",String.class,id));
+    } finally {
+      if(id>0) {jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",id);jdbc.update("DELETE FROM utilisateur WHERE id=?",id);}
+    }
+  }
+
   @Test void mobileTokenCanCreateListAndCancelBooking() throws Exception {
     String marker=UUID.randomUUID().toString(),email="mobile-booking-"+marker+"@example.com",slug="mobile-booking-"+marker;
     jdbc.update("""
