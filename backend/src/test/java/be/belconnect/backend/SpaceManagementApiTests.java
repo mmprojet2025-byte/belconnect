@@ -49,6 +49,22 @@ class SpaceManagementApiTests {
  Map<String,Object> sc(String name) { return Map.of("name",name,"type","ORGANISATEUR","description","Une communauté locale"); }
  Map<String,Object> opening(String name) { return Map.of("requestId",UUID.randomUUID(),"content",sc(name),"privacyNoticeRead",true,"desiredPlan","STARTER"); }
  Map<String,Object> gc(String name) { return Map.of("name",name,"description","Rencontres et projets","coverUrl","","openMembership",false,"visibility","PRIVEE"); }
+ @Test void groupMemberTargetCanBeCreatedEditedAndCleared() throws Exception {
+  try {
+   var admin=actor(); long space=setupSpace(admin); String path="/api/workspace/spaces/"+space;
+   var content=new HashMap<>(gc("Voyages")); content.put("memberTarget",12);
+   var created=ok(admin.post(path+"/groups",Map.of("requestId",UUID.randomUUID(),"content",content),true),201);
+   long group=created.get("id").asLong();
+   assertEquals(12,created.get("memberTarget").asInt());
+   assertEquals(12,ok(admin.get(path+"/management"),200).get("groups").get(0).get("memberTarget").asInt());
+   content.put("memberTarget",20);
+   assertEquals(20,ok(admin.post(path+"/groups/"+group,Map.of("version",0,"content",content),true),200).get("memberTarget").asInt());
+   content.put("memberTarget",0);
+   assertEquals(400,admin.post(path+"/groups/"+group,Map.of("version",1,"content",content),true).statusCode());
+   content.put("memberTarget",null);
+   assertTrue(ok(admin.post(path+"/groups/"+group,Map.of("version",1,"content",content),true),200).get("memberTarget").isNull());
+  } finally { cleanup(); }
+ }
  @Test void starterAndProLimitGroupsPerSpaceWithoutRemovingExistingGroups() throws Exception {
   try {
    var admin=actor(); long space=setupSpace(admin);

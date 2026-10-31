@@ -44,14 +44,14 @@ public class SpaceManagementController {
     public record SpaceUpdate(@NotNull @Min(0) Long version,@NotNull @Valid SpaceContent content) {}
     public record GroupContent(@NotBlank @Size(min=3,max=150) String name,@NotNull @Size(max=3000) String description,
         @NotNull @Size(max=2048) String coverUrl,@NotNull Boolean openMembership,
-        @NotNull @Pattern(regexp="PUBLIQUE|PRIVEE") String visibility) {
+        @NotNull @Pattern(regexp="PUBLIQUE|PRIVEE") String visibility,@Min(1) @Max(100000) Integer memberTarget) {
         public GroupContent { name=clean(name); description=clean(description); coverUrl=clean(coverUrl); }
     }
     public record GroupCreation(@NotNull UUID requestId,@NotNull @Valid GroupContent content) {}
     public record GroupUpdate(@NotNull @Min(0) Long version,@NotNull @Valid GroupContent content) {}
     public record Space(long id,String name,String type,String description,long version) {}
     public record Group(long id,long spaceId,String name,String description,String coverUrl,boolean openMembership,
-                        String visibility,String status,long version,UUID invitationCode) {}
+                        String visibility,String status,long version,UUID invitationCode,Integer memberTarget) {}
     public record Management(Space space,List<Group> groups,GroupQuota groupQuota) {}
     public record Request(long id,String name,String type,String description,String status,long version,
                           Long spaceId,String reason,String applicant,OffsetDateTime createdAt,
@@ -244,7 +244,7 @@ public class SpaceManagementController {
     private List<Group> groups(long space) {
         return jdbc.query("SELECT * FROM groupe WHERE espace_id=? ORDER BY nom,id",(r,n)->new Group(r.getLong("id"),r.getLong("espace_id"),
             r.getString("nom"),Objects.requireNonNullElse(r.getString("description"),""),r.getString("couverture_url"),r.getBoolean("adhesion_ouverte"),
-            r.getString("visibilite"),r.getString("statut"),r.getLong("version"),r.getObject("invitation_code",UUID.class)),space);
+            r.getString("visibilite"),r.getString("statut"),r.getLong("version"),r.getObject("invitation_code",UUID.class),r.getObject("membres_souhaites",Integer.class)),space);
     }
     private Group group(long space,long id) {
         return groups(space).stream().filter(g->g.id()==id).findFirst().orElseThrow(()->error(HttpStatus.NOT_FOUND,"Groupe introuvable dans cet espace."));
@@ -288,7 +288,7 @@ public class SpaceManagementController {
         if(!prior.isEmpty()) {
             var g=group(spaceId,((Number)prior.getFirst().get("id")).longValue());
             if(Objects.equals(prior.getFirst().get("createur_id"),user) && g.version()==0 && g.name().equals(c.name()) && g.description().equals(c.description())
-                && g.coverUrl().equals(c.coverUrl()) && !g.openMembership() && g.visibility().equals(c.visibility())) return g;
+                && g.coverUrl().equals(c.coverUrl()) && !g.openMembership() && g.visibility().equals(c.visibility()) && Objects.equals(g.memberTarget(),c.memberTarget())) return g;
             throw error(HttpStatus.CONFLICT,"Cette création a déjà été traitée. Rechargez les groupes.");
         }
         var quota=groupQuota(spaceId);
@@ -296,9 +296,9 @@ public class SpaceManagementController {
             throw error(HttpStatus.CONFLICT,"Limite de groupes atteinte : 2 en Starter ou 4 avec un abonnement Pro actif sur cet espace.");
         uniqueName(spaceId,null,c.name());
         long id=jdbc.queryForObject("""
-            INSERT INTO groupe(espace_id,nom,description,couverture_url,adhesion_ouverte,visibilite,creation_request,createur_id)
-            VALUES (?,?,?,?,?,?,?,?) RETURNING id
-            """,Long.class,spaceId,c.name(),c.description(),c.coverUrl(),false,c.visibility(),body.requestId(),user);
+            INSERT INTO groupe(espace_id,nom,description,couverture_url,adhesion_ouverte,visibilite,membres_souhaites,creation_request,createur_id)
+            VALUES (?,?,?,?,?,?,?,?,?) RETURNING id
+            """,Long.class,spaceId,c.name(),c.description(),c.coverUrl(),false,c.visibility(),c.memberTarget(),body.requestId(),user);
         audit(spaceId,id,user,"GROUPE_CREE",0); return group(spaceId,id);
     }
     @PostMapping("/spaces/{spaceId}/groups/{id}") @Transactional
@@ -307,9 +307,9 @@ public class SpaceManagementController {
         if(!old.status().equals("ACTIF")) throw error(HttpStatus.CONFLICT,"Seuls les groupes actifs peuvent être modifiés ici.");
         uniqueName(spaceId,id,c.name());
         if(jdbc.update("""
-            UPDATE groupe SET nom=?,description=?,couverture_url=?,adhesion_ouverte=?,visibilite=?,version=version+1
+            UPDATE groupe SET nom=?,description=?,couverture_url=?,adhesion_ouverte=?,visibilite=?,membres_souhaites=?,version=version+1
             WHERE id=? AND espace_id=? AND version=?
-            """,c.name(),c.description(),c.coverUrl(),false,c.visibility(),id,spaceId,body.version())!=1)
+            """,c.name(),c.description(),c.coverUrl(),false,c.visibility(),c.memberTarget(),id,spaceId,body.version())!=1)
             throw error(HttpStatus.CONFLICT,"Ce groupe a changé. Rechargez les données avant de modifier.");
         audit(spaceId,id,user,"GROUPE_MODIFIE",body.version()+1); return group(spaceId,id);
     }

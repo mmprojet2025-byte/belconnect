@@ -12,7 +12,7 @@ type OpeningDetails = { organizerName: string; city: string; targetAudience: str
 type Space = SpaceContent & { id: number; version: number };
 type Opening = SpaceContent & OpeningDetails & { id: number; status: string; version: number; spaceId: number | null; reason: string; applicant: string; createdAt: string; desiredPlan: 'STARTER' | 'PRO' };
 type SpaceQuota = { used: number; max: number; pro: boolean };
-type GroupContent = { name: string; description: string; coverUrl: string; openMembership: boolean; visibility: string };
+type GroupContent = { name: string; description: string; coverUrl: string; openMembership: boolean; visibility: string; memberTarget: number | null };
 type Group = GroupContent & { id: number; spaceId: number; status: string; version: number; invitationCode: string };
 type Management = { space: Space; groups: Group[]; groupQuota?: { used: number; max: number; pro: boolean } };
 const spaceTypes = { ASSOCIATION: 'Association', PARTICULIER: 'Particulier', ORGANISATEUR: 'Organisateur' };
@@ -255,7 +255,7 @@ function SpaceEditor({ space, onSaved, onCancel }: { space: Space; onSaved: (spa
 }
 
 function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | null; spaceId: number; onSaved: (group: Group) => void; onCancel: () => void }) {
-  const [content, setContent] = useState<GroupContent>(group ? { name: group.name, description: group.description, coverUrl: group.coverUrl, openMembership: false, visibility: group.visibility } : { name: '', description: '', coverUrl: '', openMembership: false, visibility: 'PRIVEE' });
+  const [content, setContent] = useState<GroupContent>(group ? { name: group.name, description: group.description, coverUrl: group.coverUrl, openMembership: false, visibility: group.visibility, memberTarget: group.memberTarget ?? null } : { name: '', description: '', coverUrl: '', openMembership: false, visibility: 'PRIVEE', memberTarget: null });
   const [requestId] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -269,6 +269,8 @@ function GroupEditor({ group, spaceId, onSaved, onCancel }: { group: Group | nul
   return <form className="draft-editor" onSubmit={submit} onChange={() => setDirty(true)}><h3>{group ? 'Modifier le groupe' : 'Créer un groupe'}</h3><fieldset disabled={busy}>
     <label>Nom du groupe<input required minLength={3} maxLength={150} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
     <label>Description<textarea rows={4} maxLength={3000} value={content.description} onChange={e => setContent({ ...content, description: e.target.value })} /></label>
+    <label>Nombre de membres souhaité (facultatif)<input type="number" min="1" max="100000" step="1" value={content.memberTarget ?? ''} onChange={e => setContent({ ...content, memberTarget: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+    <p className="management-hint">Ce nombre est indicatif : les demandes d’adhésion restent possibles si le groupe le dépasse.</p>
     <details className="group-extra-options" open={Boolean(content.coverUrl)}><summary>Ajouter une image (facultatif)</summary><label>Adresse de l’image de couverture<input type="url" pattern="https://.*" maxLength={2048} placeholder="https://…" value={content.coverUrl} onChange={e => setContent({ ...content, coverUrl: e.target.value })} /><span className="management-hint">Lien HTTPS vers une image.</span></label></details>
     <div className="draft-columns"><label>Visibilité<select value={content.visibility} onChange={e => setContent({ ...content, visibility: e.target.value })}><option value="PRIVEE">Privée</option><option value="PUBLIQUE">Publique</option></select></label></div>
     <p className="management-hint">Public : visible dans le catalogue. Privé : accessible sur invitation. Dans les deux cas, l’adhésion doit être approuvée.</p>
@@ -329,7 +331,7 @@ export function SpaceManagement({ spaceId, section, onChanged }: { spaceId: numb
       {membersGroup !== null && <GroupMembers key={membersGroup} groupId={membersGroup} onChanged={() => { setAttempt(n => n + 1); onChanged(); }} onClose={() => { setMembersGroup(null); reload(); }} invitationUrl={data.groups.some(group => group.id === membersGroup && group.status === 'ACTIF' && group.visibility === 'PRIVEE') ? invitationLink(data.groups.find(group => group.id === membersGroup)!.invitationCode) : undefined} />}
       {!data.groups.some(group => groupView === 'archived' ? group.status === 'ARCHIVE' : group.status !== 'ARCHIVE') ? <div className="account-empty"><h3>{groupView === 'archived' ? 'Aucun groupe archivé' : 'Votre premier groupe'}</h3>{groupView === 'current' && <p>Créez un groupe pour rassembler votre communauté autour d’un thème ou d’un projet.</p>}</div> : <div className="workspace-grid">{data.groups.filter(group => groupView === 'archived' ? group.status === 'ARCHIVE' : group.status !== 'ARCHIVE').map(group => <article className="workspace-card" key={group.id}>
         {group.coverUrl && <img key={group.coverUrl} className="management-cover" src={group.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { e.currentTarget.style.display = 'none'; }} />}
-        <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · Adhésion sur demande</p>
+        <span className="account-status">{group.status === 'ACTIF' ? 'Actif' : group.status === 'ARCHIVE' ? 'Archivé' : 'Suspendu'}</span><h3>{group.name}</h3><p className="management-copy">{group.description || 'Aucune description renseignée.'}</p><p>{group.visibility === 'PUBLIQUE' ? 'Visibilité publique' : 'Visibilité privée'} · Adhésion sur demande{group.memberTarget ? ` · Objectif indicatif : ${group.memberTarget} membres` : ''}</p>
         {group.status === 'ACTIF' && group.visibility === 'PRIVEE' && <><button className="button coral workspace-resume" aria-expanded={inviteGroup === group.id} onClick={() => setInviteGroup(value => value === group.id ? null : group.id)}>Inviter une personne</button>{inviteGroup === group.id && <label className="group-invite-link">Lien d’invitation<input readOnly value={invitationLink(group.invitationCode)} onFocus={event => event.currentTarget.select()} onClick={event => event.currentTarget.select()} /></label>}</>}
         {group.status === 'ACTIF' && <button className="button outline workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => setMembersGroup(group.id)}>Membres du groupe</button>}
         {group.status === 'ACTIF' && <button className="text-link workspace-resume" disabled={editingSpace || editingGroup !== null || membersGroup !== null} onClick={() => { setNotice(''); setEditingGroup(group); }}>Modifier le groupe</button>}
