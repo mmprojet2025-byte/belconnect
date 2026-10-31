@@ -157,16 +157,6 @@ public class DraftController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Complétez et enregistrez la description et l’objectif avant de soumettre le projet.");
         if(jdbc.queryForObject("SELECT count(*) FROM projet WHERE auteur_id=? AND statut='SOUMIS' AND id<>?",Integer.class,userId,id)>=3)
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Vous avez déjà trois projets en attente. Attendez une décision avant d’en soumettre un autre.");
-        boolean authorAdmin=Boolean.TRUE.equals(jdbc.queryForObject("""
-            SELECT EXISTS(SELECT 1 FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?
-              AND role='ADMINISTRATEUR' AND statut='ACTIF')
-            """,Boolean.class,spaceId,userId));
-        if(authorAdmin && jdbc.query("""
-            SELECT u.id FROM appartenance_espace a JOIN utilisateur u ON u.id=a.utilisateur_id
-            WHERE a.espace_id=? AND a.utilisateur_id<>? AND a.role='ADMINISTRATEUR'
-              AND a.statut='ACTIF' AND u.statut='ACTIF' FOR SHARE OF a,u
-            """,(r,n)->r.getLong(1),spaceId,userId).isEmpty())
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Désignez un autre administrateur actif avant de soumettre votre propre projet : vous ne pouvez pas l’approuver vous-même.");
         var referents=groupId==null?java.util.List.<Long>of():jdbc.query("""
             SELECT u.id FROM appartenance_groupe ag
             JOIN appartenance_espace ae ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id
@@ -175,6 +165,19 @@ public class DraftController {
               AND ae.statut='ACTIF' AND u.statut='ACTIF' AND u.id<>?
             FOR SHARE OF ag,ae,u
             """,(r,n)->r.getLong(1),groupId,spaceId,userId);
+        boolean soleAdministrator=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM appartenance_espace ae WHERE ae.espace_id=? AND ae.utilisateur_id=?
+              AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF')
+              AND NOT EXISTS(SELECT 1 FROM appartenance_espace ae JOIN utilisateur u ON u.id=ae.utilisateur_id
+                WHERE ae.espace_id=? AND ae.utilisateur_id<>? AND ae.role='ADMINISTRATEUR'
+                  AND ae.statut='ACTIF' AND u.statut='ACTIF')
+            """,Boolean.class,spaceId,userId,spaceId,userId));
+        if(soleAdministrator) {
+            jdbc.update("UPDATE projet SET statut='APPROUVE',etape_validation=NULL,date_soumission=now(),date_modification=now(),version=version+1 WHERE id=?",id);
+            jdbc.update("INSERT INTO soumission_projet(projet_id,auteur_id,version_brouillon,destination) VALUES (?,?,?,'ADMINISTRATEUR')",id,userId,body.version());
+            jdbc.update("INSERT INTO validation_projet(projet_id,examinateur_id,decision,commentaire,version_projet) VALUES (?,?,'APPROUVE','Approbation automatique : administrateur unique de l’espace.',?)",id,userId,body.version()+1);
+            return new Submission(id,(String)row.get("titre"),spaceName,"APPROUVE",null);
+        }
         String stage=referents.isEmpty()?"ADMINISTRATEUR":"REFERENT";
         jdbc.update("UPDATE projet SET statut='SOUMIS',etape_validation=?,date_soumission=now(),date_modification=now(),version=version+1 WHERE id=?",stage,id);
         jdbc.update("INSERT INTO soumission_projet(projet_id,auteur_id,version_brouillon,destination) VALUES (?,?,?,?)",id,userId,body.version(),stage);

@@ -154,7 +154,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       {editing === null && data.spaces.length > 0 && <button className="button coral workspace-create" onClick={() => setEditing('new')}>Créer un projet <Icon name="arrow" /></button>}
       {editing !== null && <DraftEditor key={editing} id={editing} spaces={data.spaces} groups={data.groups} onClose={() => setEditing(null)} onSubmitted={project => {
         setData(current => current && ({ ...current, projects: [project, ...current.projects.filter(p => p.id !== project.id)] }));
-        setEditing(null); setFilter('ALL'); setHighlightProjectId(project.id); setSubmittedNotice(`Projet soumis. ${stageLabel(project.reviewStage)}. Il n’est pas publié. Retrouvez-le ci-dessous dans « Mes projets ».`);
+        setEditing(null); setFilter('ALL'); setHighlightProjectId(project.id); setSubmittedNotice(project.status === 'APPROUVE' ? 'Projet approuvé. Il reste à le publier dans votre espace pour le rendre visible à tous.' : `Projet soumis. ${stageLabel(project.reviewStage)}. Il n’est pas publié. Retrouvez-le ci-dessous dans « Mes projets ».`);
       }} onSaved={draft => {
         setFilter('ALL'); setHighlightProjectId(draft.id);
         setData(current => current && ({ ...current, projects: [{ id: draft.id, title: draft.title, status: draft.status, spaceName: draft.spaceName }, ...current.projects.filter(p => p.id !== draft.id)] }));

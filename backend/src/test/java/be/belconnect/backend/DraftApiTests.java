@@ -41,6 +41,30 @@ class DraftApiTests {
  Map<String,Object> creation(long space,Long group) {
   var body=new HashMap<String,Object>();body.put("spaceId",space);body.put("groupId",group);body.put("requestId",UUID.randomUUID());body.put("content",content("Une idée de projet"));return body;
  }
+ @Test void soleAdministratorCanSubmitAndApproveOwnProject() throws Exception {
+  var admin=new Session();long uid=admin.register();Long space=null;Long project=null;
+  try {
+   space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Espace seul admin','ORGANISATEUR',?) RETURNING id",Long.class,uid);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",uid,space);
+   var body=creation(space,null);
+   body.put("content",Map.of("title","Voyage au Sénégal","description","Découverte du Sénégal.","objective","Organiser un voyage collectif.","visibility","PUBLIQUE"));
+   var created=admin.post("/api/project-drafts",body,true);assertEquals(201,created.statusCode(),created.body());
+   project=json.readTree(created.body()).get("id").asLong();
+   var submitted=admin.post("/api/project-drafts/"+project+"/submit",Map.of("version",0),true);
+   assertEquals(200,submitted.statusCode(),submitted.body());
+   assertEquals("APPROUVE",json.readTree(submitted.body()).get("status").asText());
+   assertEquals("APPROUVE",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,project));
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM validation_projet WHERE projet_id=?",Integer.class,project));
+  } finally {
+   if(project!=null) {
+    jdbc.update("DELETE FROM validation_projet WHERE projet_id=?",project);
+    jdbc.update("DELETE FROM soumission_projet WHERE projet_id=?",project);
+    jdbc.update("DELETE FROM projet WHERE id=?",project);
+   }
+   if(space!=null) { jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space); }
+   jdbc.update("DELETE FROM utilisateur WHERE id=?",uid);
+  }
+ }
  @Test void privateDraftLifecycleAndPermissions() throws Exception {
   var author=new Session();var other=new Session();var anonymous=new Session();
   List<Long> users=new ArrayList<>(),spaces=new ArrayList<>();

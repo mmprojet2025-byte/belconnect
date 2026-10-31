@@ -40,7 +40,11 @@ public class ProjectReviewController {
              ON ae.utilisateur_id=ag.utilisateur_id AND ae.espace_id=ag.espace_id
              WHERE ag.utilisateur_id=? AND ag.groupe_id=p.groupe_id AND ag.espace_id=p.espace_id
                AND ag.role='REFERENT' AND ag.statut='ACTIF' AND ae.statut='ACTIF')) AS can_review,
-          (p.auteur_id<>? AND p.statut='SOUMIS' AND e.statut='ACTIF'
+          ((p.auteur_id<>? OR NOT EXISTS (
+             SELECT 1 FROM appartenance_espace other_admin JOIN utilisateur other_user ON other_user.id=other_admin.utilisateur_id
+             WHERE other_admin.espace_id=p.espace_id AND other_admin.utilisateur_id<>p.auteur_id
+               AND other_admin.role='ADMINISTRATEUR' AND other_admin.statut='ACTIF' AND other_user.statut='ACTIF'))
+           AND p.statut='SOUMIS' AND e.statut='ACTIF'
            AND (p.groupe_id IS NULL OR g.statut='ACTIF')
            AND EXISTS (SELECT 1 FROM appartenance_espace ae WHERE ae.utilisateur_id=?
              AND ae.espace_id=p.espace_id AND ae.role='ADMINISTRATEUR' AND ae.statut='ACTIF')) AS can_decide
@@ -60,7 +64,7 @@ public class ProjectReviewController {
     @GetMapping @Transactional(readOnly=true)
     public List<Project> inbox(Authentication auth) {
         long uid=user(auth);
-        return jdbc.query(SELECT+" AND p.statut='SOUMIS' AND p.auteur_id<>? AND "+VISIBLE+" ORDER BY p.date_soumission,p.id",mapper,uid,uid,uid,uid,uid,uid);
+        return jdbc.query(SELECT+" AND p.statut='SOUMIS' AND (p.auteur_id<>? OR NOT EXISTS (SELECT 1 FROM appartenance_espace other_admin JOIN utilisateur other_user ON other_user.id=other_admin.utilisateur_id WHERE other_admin.espace_id=p.espace_id AND other_admin.utilisateur_id<>p.auteur_id AND other_admin.role='ADMINISTRATEUR' AND other_admin.statut='ACTIF' AND other_user.statut='ACTIF')) AND "+VISIBLE+" ORDER BY p.date_soumission,p.id",mapper,uid,uid,uid,uid,uid,uid);
     }
     @GetMapping("/{id}") @Transactional(readOnly=true)
     public Project detail(Authentication auth,@PathVariable long id) {
@@ -128,8 +132,6 @@ public class ProjectReviewController {
         var rows=jdbc.queryForList("SELECT * FROM projet WHERE id=?",id);
         if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Projet introuvable.");
         var p=rows.getFirst();
-        if(((Number)p.get("auteur_id")).longValue()==uid)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Vous ne pouvez pas examiner votre propre projet.");
         if(jdbc.query("""
             SELECT ae.utilisateur_id FROM appartenance_espace ae
             JOIN espace_organisateur e ON e.id=ae.espace_id
@@ -139,6 +141,12 @@ public class ProjectReviewController {
             FOR SHARE OF ae,e,u
             """,(r,n)->r.getLong(1),uid,p.get("espace_id")).isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Projet introuvable dans vos espaces administrés.");
+        if(((Number)p.get("auteur_id")).longValue()==uid && Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM appartenance_espace ae JOIN utilisateur u ON u.id=ae.utilisateur_id
+              WHERE ae.espace_id=? AND ae.utilisateur_id<>? AND ae.role='ADMINISTRATEUR'
+                AND ae.statut='ACTIF' AND u.statut='ACTIF')
+            """,Boolean.class,p.get("espace_id"),uid)))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Un autre administrateur actif peut examiner ce projet.");
         if(p.get("groupe_id")!=null && jdbc.query("SELECT id FROM groupe WHERE id=? AND statut='ACTIF' FOR SHARE",
             (r,n)->r.getLong(1),p.get("groupe_id")).isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Groupe indisponible.");
