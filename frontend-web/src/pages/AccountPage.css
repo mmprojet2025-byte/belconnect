@@ -322,6 +322,12 @@
 .workspace-access-card h3,.workspace-access-card h4 { margin:0; color:var(--navy); font-size:19px; line-height:1.35; }
 .workspace-access-card p { margin:0; }
 .workspace-access-card .workspace-resume { margin-top:auto; padding-top:12px; }
+.workspace-space-card { gap:0; }
+.workspace-space-card-header { display:grid; justify-items:start; gap:9px; width:100%; padding-bottom:16px; }
+.workspace-space-card-label { color:#52736e; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.workspace-space-card-groups { width:100%; border-top:1px solid #d8e9e6; padding:15px 0; }
+.workspace-space-card-groups strong { display:block; color:var(--navy); font-size:13px; margin-bottom:5px; }
+.workspace-space-card-groups p { color:#617583; font-size:13px; line-height:1.5; }
 .workspace-group-sections { display:grid; gap:28px; }
 .workspace-group-heading { margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #dce7ec; color:var(--navy); font-size:15px; }
 .workspace-select-card { text-align:left; font-size:16px; font-weight:700; color:var(--navy); cursor:pointer; }
