@@ -117,7 +117,7 @@ function OpeningReviewCard({ request, onDone }: { request: Opening; onDone: () =
   </article>;
 }
 
-function OpeningCorrectionForm({ request, onDone, onCancel }: { request: Opening; onDone: () => void; onCancel: () => void }) {
+function OpeningCorrectionForm({ request, onDone, onCancel, applicant = false }: { request: Opening; onDone: () => void; onCancel: () => void; applicant?: boolean }) {
   const [content, setContent] = useState<SpaceContent>({ name: request.name, type: request.type, description: request.description });
   const [details, setDetails] = useState<OpeningDetails>({ organizerName: request.organizerName || '', city: request.city || '', targetAudience: request.targetAudience || '', plannedContent: request.plannedContent || '' });
   const [desiredPlan, setDesiredPlan] = useState(request.desiredPlan);
@@ -126,11 +126,11 @@ function OpeningCorrectionForm({ request, onDone, onCancel }: { request: Opening
   const [error, setError] = useState('');
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await postJson(`/api/workspace/opening-requests/${request.id}/edit`, { version: request.version, content, details, desiredPlan, reason: reason.trim() }); onDone(); }
+    try { await postJson(applicant ? `/api/workspace/requests/${request.id}/edit` : `/api/workspace/opening-requests/${request.id}/edit`, applicant ? { version: request.version, content, details, desiredPlan } : { version: request.version, content, details, desiredPlan, reason: reason.trim() }); onDone(); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   return <form className="draft-editor opening-correction-form" onSubmit={submit}>
-    <h4>Corriger la demande « {request.name} »</h4>
+    <h4>{applicant ? 'Modifier' : 'Corriger'} la demande « {request.name} »</h4>
     {request.status === 'APPROUVEE' && <p className="workspace-description">Le nom, le type et la présentation seront aussi corrigés sur l’espace déjà ouvert. Cette correction ne change pas la formule active ni la décision.</p>}
     <fieldset disabled={busy}>
       <label>Nom de l’espace<input required minLength={3} maxLength={180} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
@@ -141,8 +141,8 @@ function OpeningCorrectionForm({ request, onDone, onCancel }: { request: Opening
       <label>Activités ou projets envisagés<textarea maxLength={1500} value={details.plannedContent} onChange={e => setDetails({ ...details, plannedContent: e.target.value })} /></label>
       <label>Présentation<textarea required maxLength={3000} value={content.description} onChange={e => setContent({ ...content, description: e.target.value })} /></label>
       <label>Formule souhaitée<select value={desiredPlan} onChange={e => setDesiredPlan(e.target.value as 'STARTER' | 'PRO')}><option value="STARTER">Starter gratuit</option><option value="PRO">Pro</option></select></label>
-      <label>Motif de la correction<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="Pourquoi corriger ce dossier ?" /></label>
-      <div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : 'Enregistrer la correction'}</button><button type="button" className="button outline" onClick={onCancel}>Annuler</button></div>
+      {!applicant && <label>Motif de la correction<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="Pourquoi corriger ce dossier ?" /></label>}
+      <div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : applicant ? 'Enregistrer les modifications' : 'Enregistrer la correction'}</button><button type="button" className="button outline" onClick={onCancel}>Annuler</button></div>
     </fieldset>
     {error && <p role="alert" className="draft-error">{error}</p>}
   </form>;
@@ -207,7 +207,7 @@ export function SpaceRequests({ owner, onChanged, onTabChange, mode = 'all' }: {
     {!owner && requestTab === 'tracking' && <h3>Suivi de mes demandes</h3>}
     {!owner && requestTab === 'tracking' && (mine.length > 0 ? <>
       <div className="account-filters" aria-label="Filtrer mes demandes d’espace">{Object.entries({ ALL: 'Toutes', EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvées', REFUSEE: 'Refusées' }).map(([status, label]) => <button key={status} aria-pressed={requestFilter === status} onClick={() => { setRequestFilter(status); setRequestLimit(5); }}>{label} ({status === 'ALL' ? mine.length : mine.filter(request => request.status === status).length})</button>)}</div>
-      {filteredMine.length > 0 ? <><div className="workspace-grid">{filteredMine.slice(0, requestLimit).map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>{filteredMine.length > requestLimit && <button className="button outline workspace-create" onClick={() => setRequestLimit(value => value + 5)}>Voir 5 demandes de plus</button>}</> : <p className="workspace-description">Aucune demande avec ce statut.</p>}
+      {filteredMine.length > 0 ? <><div className="workspace-grid">{filteredMine.slice(0, requestLimit).map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces ».</p>}{request.status === 'EN_ATTENTE' && <><p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p><button className="text-link" onClick={() => setEditingRequestId(request.id)}>Modifier la demande</button></>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}{editingRequestId === request.id && request.status === 'EN_ATTENTE' && <OpeningCorrectionForm applicant request={request} onCancel={() => setEditingRequestId(null)} onDone={() => { setEditingRequestId(null); setNotice('Votre demande a été modifiée.'); refresh(); }} />}</article>)}</div>{filteredMine.length > requestLimit && <button className="button outline workspace-create" onClick={() => setRequestLimit(value => value + 5)}>Voir 5 demandes de plus</button>}</> : <p className="workspace-description">Aucune demande avec ce statut.</p>}
     </> : loaded && <p className="workspace-description">Aucune demande d’espace pour le moment.</p>)}
     {owner && <div className="management-review">
       <nav className="opening-review-tabs" aria-label="Demandes d’ouverture">

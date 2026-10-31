@@ -38,6 +38,8 @@ public class SpaceManagementController {
         @NotBlank @Size(max=1000) String reason) {
         public OpeningCorrection { reason=clean(reason); }
     }
+    public record ApplicantCorrection(@NotNull @Min(0) Long version,@NotNull @Valid SpaceContent content,
+        @NotNull @Valid OpeningDetails details,@NotNull @Pattern(regexp="STARTER|PRO") String desiredPlan) {}
     public record Reexamination(@NotNull @Min(0) Long version,@NotBlank @Size(max=1000) String reason) {
         public Reexamination { reason=clean(reason); }
     }
@@ -108,6 +110,28 @@ public class SpaceManagementController {
     public List<Request> mine(Authentication auth) { return requests("WHERE d.demandeur_id=?",user(auth)); }
     @GetMapping("/requests/quota") @Transactional
     public SpaceQuota myQuota(Authentication auth) { return quota(user(auth)); }
+    @PostMapping("/requests/{id}/edit") @Transactional
+    public Request correctMyOpening(Authentication auth,@PathVariable long id,@Valid @RequestBody ApplicantCorrection body) {
+        long actor=user(auth);
+        var rows=jdbc.query("SELECT demandeur_id,statut,version FROM demande_espace WHERE id=? FOR UPDATE",
+            (r,n)->Map.of("applicant",r.getLong("demandeur_id"),"status",r.getString("statut"),"version",r.getLong("version")),id);
+        if(rows.isEmpty() || !rows.getFirst().get("applicant").equals(actor)) throw error(HttpStatus.NOT_FOUND,"Demande introuvable.");
+        var row=rows.getFirst();
+        if(!row.get("status").equals("EN_ATTENTE")) throw error(HttpStatus.CONFLICT,"Cette demande a déjà été examinée. Modifiez l’espace ouvert dans Mes espaces ou créez une nouvelle demande.");
+        if(!row.get("version").equals(body.version())) throw error(HttpStatus.CONFLICT,"La demande a changé. Actualisez la liste avant de la modifier.");
+        var content=body.content(); var details=body.details();
+        long revision=jdbc.queryForObject("""
+            INSERT INTO historique_revision_demande_espace(demande_id,acteur_id,action,motif,avant)
+            SELECT ?,?,'CORRECTION','Modification par le demandeur',to_jsonb(d) FROM demande_espace d WHERE d.id=? RETURNING id
+            """,Long.class,id,actor,id);
+        jdbc.update("""
+            UPDATE demande_espace SET nom=?,type=?,description=?,organisateur_nom=?,ville=?,public_vise=?,
+            programme_prevu=?,formule_souhaitee=?,version=version+1 WHERE id=?
+            """,content.name(),content.type(),content.description(),details.organizerName(),details.city(),
+            details.targetAudience(),details.plannedContent(),body.desiredPlan(),id);
+        jdbc.update("UPDATE historique_revision_demande_espace SET apres=(SELECT to_jsonb(d) FROM demande_espace d WHERE d.id=?) WHERE id=?",id,revision);
+        return request(id);
+    }
     @PostMapping("/requests") @Transactional @ResponseStatus(HttpStatus.CREATED)
     public Request requestOpening(Authentication auth,@Valid @RequestBody Opening body) {
         long user=user(auth); var c=body.content();

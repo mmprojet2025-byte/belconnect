@@ -108,6 +108,27 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
  JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",opening(name),true),201); }
+ @Test void applicantCanEditOnlyOwnPendingRequestWithoutCreatingAnother() throws Exception {
+  try {
+   var applicant=actor(); var outsider=actor(); var proprietor=actor(); owner(proprietor);
+   long id=request(applicant,"Espace initial").get("id").asLong();
+   String path="/api/workspace/requests/"+id+"/edit";
+   var correction=Map.of("version",0,"content",sc("Espace modifié"),
+     "details",Map.of("organizerName","Collectif local","city","Bruxelles","targetAudience","Habitants","plannedContent","Rencontres"),
+     "desiredPlan","PRO");
+   assertEquals(404,outsider.post(path,correction,true).statusCode());
+   var edited=ok(applicant.post(path,correction,true),200);
+   assertEquals("Espace modifié",edited.get("name").asText());
+   assertEquals("PRO",edited.get("desiredPlan").asText());
+   assertEquals(1,edited.get("version").asLong());
+   assertEquals(409,applicant.post(path,correction,true).statusCode());
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM demande_espace WHERE demandeur_id=?",Integer.class,applicant.id));
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM historique_revision_demande_espace WHERE demande_id=?",Integer.class,id));
+   var approved=ok(proprietor.post("/api/workspace/opening-requests/"+id+"/decision",Map.of("version",1,"status","APPROUVEE","reason","Demande complète"),true),200);
+   assertEquals("APPROUVEE",approved.get("status").asText());
+   assertEquals(409,applicant.post(path,Map.of("version",2,"content",sc("Autre nom"),"details",correction.get("details"),"desiredPlan","STARTER"),true).statusCode());
+  } finally { cleanup(); }
+ }
  @Test void ownerCanCorrectAndReexamineRequestsWithoutDuplicatingSpaces() throws Exception {
   try {
    var applicant=actor(); var proprietor=actor(); var outsider=actor(); owner(proprietor);
