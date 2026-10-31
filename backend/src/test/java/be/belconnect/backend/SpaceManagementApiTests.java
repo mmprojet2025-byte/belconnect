@@ -92,6 +92,38 @@ class SpaceManagementApiTests {
   } finally { cleanup(); }
  }
  JsonNode request(Actor a,String name) throws Exception { return ok(a.post("/api/workspace/requests",opening(name),true),201); }
+ @Test void ownerCanCorrectAndReexamineRequestsWithoutDuplicatingSpaces() throws Exception {
+  try {
+   var applicant=actor(); var proprietor=actor(); var outsider=actor(); owner(proprietor);
+   long id=request(applicant,"Espace initial").get("id").asLong();
+   String base="/api/workspace/opening-requests/"+id;
+   var correction=Map.of("version",0,"content",sc("Espace corrigé"),
+     "details",Map.of("organizerName","Collectif local","city","Bruxelles","targetAudience","Habitants","plannedContent","Rencontres"),
+     "desiredPlan","PRO","reason","Rectification après examen du dossier");
+   assertEquals(403,outsider.post(base+"/edit",correction,true).statusCode());
+   var edited=ok(proprietor.post(base+"/edit",correction,true),200);
+   assertEquals("Espace corrigé",edited.get("name").asText());
+   assertEquals("PRO",edited.get("desiredPlan").asText());
+   assertEquals(409,proprietor.post(base+"/edit",correction,true).statusCode());
+   var rejected=ok(proprietor.post(base+"/decision",Map.of("version",1,"status","REFUSEE","reason","Informations à préciser"),true),200);
+   assertEquals("REFUSEE",rejected.get("status").asText());
+   assertEquals(409,proprietor.post(base+"/reopen",Map.of("version",1,"reason","Nouvel examen"),true).statusCode());
+   var reopened=ok(proprietor.post(base+"/reopen",Map.of("version",2,"reason","Nouvel examen"),true),200);
+   assertEquals("EN_ATTENTE",reopened.get("status").asText());
+   assertEquals(409,proprietor.post(base+"/reopen",Map.of("version",3,"reason","Encore"),true).statusCode());
+   var accepted=ok(proprietor.post(base+"/decision",Map.of("version",3,"status","APPROUVEE","reason","Réexaminée"),true),200);
+   long space=accepted.get("spaceId").asLong();
+   var correctionAfter=Map.of("version",4,"content",sc("Espace final"),
+     "details",Map.of("organizerName","Collectif local","city","Bruxelles","targetAudience","Habitants","plannedContent","Rencontres"),
+     "desiredPlan","PRO","reason","Correction de nom après ouverture");
+   ok(proprietor.post(base+"/edit",correctionAfter,true),200);
+   assertEquals("Espace final",jdbc.queryForObject("SELECT nom FROM espace_organisateur WHERE id=?",String.class,space));
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE id=?",Integer.class,space));
+   assertEquals(3,jdbc.queryForObject("SELECT count(*) FROM historique_revision_demande_espace WHERE demande_id=?",Integer.class,id));
+   assertEquals("REFUSEE",jdbc.queryForObject("SELECT avant->>'statut' FROM historique_revision_demande_espace WHERE demande_id=? AND action='REEXAMEN'",String.class,id));
+   assertEquals("EN_ATTENTE",jdbc.queryForObject("SELECT apres->>'statut' FROM historique_revision_demande_espace WHERE demande_id=? AND action='REEXAMEN'",String.class,id));
+  } finally { cleanup(); }
+ }
  @Test void starterAndProLimitOrganiserSpaceRequests() throws Exception {
   try {
    var applicant=actor(); var proprietor=actor(); owner(proprietor);

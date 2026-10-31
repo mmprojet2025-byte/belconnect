@@ -117,6 +117,50 @@ function OpeningReviewCard({ request, onDone }: { request: Opening; onDone: () =
   </article>;
 }
 
+function OpeningCorrectionForm({ request, onDone, onCancel }: { request: Opening; onDone: () => void; onCancel: () => void }) {
+  const [content, setContent] = useState<SpaceContent>({ name: request.name, type: request.type, description: request.description });
+  const [details, setDetails] = useState<OpeningDetails>({ organizerName: request.organizerName || '', city: request.city || '', targetAudience: request.targetAudience || '', plannedContent: request.plannedContent || '' });
+  const [desiredPlan, setDesiredPlan] = useState(request.desiredPlan);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await postJson(`/api/workspace/opening-requests/${request.id}/edit`, { version: request.version, content, details, desiredPlan, reason: reason.trim() }); onDone(); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  return <form className="draft-editor opening-correction-form" onSubmit={submit}>
+    <h4>Corriger la demande « {request.name} »</h4>
+    {request.status === 'APPROUVEE' && <p className="workspace-description">Le nom, le type et la présentation seront aussi corrigés sur l’espace déjà ouvert. Cette correction ne change pas la formule active ni la décision.</p>}
+    <fieldset disabled={busy}>
+      <label>Nom de l’espace<input required minLength={3} maxLength={180} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
+      <label>Type d’organisateur<select value={content.type} onChange={e => setContent({ ...content, type: e.target.value })}>{Object.entries(spaceTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <label>Responsable déclaré<input maxLength={180} value={details.organizerName} onChange={e => setDetails({ ...details, organizerName: e.target.value })} /></label>
+      <label>Ville<input maxLength={120} value={details.city} onChange={e => setDetails({ ...details, city: e.target.value })} /></label>
+      <label>Public concerné<input maxLength={500} value={details.targetAudience} onChange={e => setDetails({ ...details, targetAudience: e.target.value })} /></label>
+      <label>Activités ou projets envisagés<textarea maxLength={1500} value={details.plannedContent} onChange={e => setDetails({ ...details, plannedContent: e.target.value })} /></label>
+      <label>Présentation<textarea required maxLength={3000} value={content.description} onChange={e => setContent({ ...content, description: e.target.value })} /></label>
+      <label>Formule souhaitée<select value={desiredPlan} onChange={e => setDesiredPlan(e.target.value as 'STARTER' | 'PRO')}><option value="STARTER">Starter gratuit</option><option value="PRO">Pro</option></select></label>
+      <label>Motif de la correction<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="Pourquoi corriger ce dossier ?" /></label>
+      <div className="management-actions"><button className="button coral">{busy ? 'Enregistrement…' : 'Enregistrer la correction'}</button><button type="button" className="button outline" onClick={onCancel}>Annuler</button></div>
+    </fieldset>
+    {error && <p role="alert" className="draft-error">{error}</p>}
+  </form>;
+}
+
+function ReopenRequestButton({ request, onDone }: { request: Opening; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!open) return <button className="text-link" onClick={() => setOpen(true)}>Réexaminer</button>;
+  return <form className="opening-reopen-form" onSubmit={async event => {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await postJson(`/api/workspace/opening-requests/${request.id}/reopen`, { version: request.version, reason: reason.trim() }); onDone(); }
+    catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }}><fieldset disabled={busy}><label>Motif du réexamen<input required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label><div className="management-actions"><button className="button coral">Remettre en examen</button><button type="button" className="button outline" onClick={() => setOpen(false)}>Annuler</button></div></fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
+}
+
 export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boolean; onChanged: () => void; mode?: 'all' | 'combined' | 'inbox' }) {
   const [mine, setMine] = useState<Opening[]>([]);
   const [queue, setQueue] = useState<Opening[]>([]);
@@ -128,6 +172,8 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   const [requestTab, setRequestTab] = useState<'form' | 'tracking'>('form');
   const [historyLimit, setHistoryLimit] = useState(10);
   const [historyQuery, setHistoryQuery] = useState('');
+  const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+  const [ownerTab, setOwnerTab] = useState<'pending' | 'reviewed'>('pending');
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [requestLimit, setRequestLimit] = useState(5);
   const [attempt, setAttempt] = useState(0);
@@ -147,8 +193,10 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
     .filter(request => `${request.name} ${request.applicant} ${request.organizerName} ${request.city}`.toLocaleLowerCase('fr').includes(historyQuery.trim().toLocaleLowerCase('fr')))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return <section id={mode === 'combined' ? 'demander-espace' : undefined} aria-labelledby="space-requests-title">
-    <div className="account-section-heading"><h2 id="space-requests-title">{owner ? mode === 'inbox' ? 'Demandes d’ouverture à examiner' : 'Demandes d’ouverture d’espace' : 'Demander un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
-    <p className="workspace-description">{owner ? 'L’approbation crée l’espace et nomme son premier administrateur.' : 'Remplissez la fiche, puis consultez sa réponse dans « Suivi demande ».'}</p>
+    <div className={owner ? 'opening-review-intro' : undefined}>
+      <div className="account-section-heading"><h2 id="space-requests-title">{owner ? 'Demandes d’ouverture d’espace' : 'Demander un espace'}</h2><button className="text-link" onClick={refresh}>Actualiser</button></div>
+      <p className="workspace-description">{owner ? 'Examinez le dossier avant de décider. L’approbation ouvre l’espace et nomme son premier administrateur.' : 'Remplissez la fiche, puis consultez sa réponse dans « Suivi demande ».'}</p>
+    </div>
     {!owner && <nav className="requests-side-nav" aria-label="Fiche et suivi de demande"><button aria-current={requestTab === 'form' ? 'page' : undefined} onClick={() => setRequestTab('form')}>Mes demandes</button><button aria-current={requestTab === 'tracking' ? 'page' : undefined} onClick={() => { if (confirmLeavingEditor()) setRequestTab('tracking'); }}>Suivi demande</button></nav>}
     {!owner && requestTab === 'form' && quota && <p className="workspace-description">{quota.pro ? 'Pro : jusqu’à 2 espaces organisateurs.' : 'Starter : 1 espace organisateur. Un abonnement Pro actif sur votre espace permet d’en ouvrir jusqu’à 2.'} {quota.used}/{quota.max} place{quota.max > 1 ? 's' : ''} utilisée{quota.used > 1 ? 's' : ''}, demandes en attente comprises.</p>}
     {notice && <p className="account-notice" role="status">{notice}</p>}
@@ -160,7 +208,35 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
       <div className="account-filters" aria-label="Filtrer mes demandes d’espace">{Object.entries({ ALL: 'Toutes', EN_ATTENTE: 'En attente', APPROUVEE: 'Approuvées', REFUSEE: 'Refusées' }).map(([status, label]) => <button key={status} aria-pressed={requestFilter === status} onClick={() => { setRequestFilter(status); setRequestLimit(5); }}>{label} ({status === 'ALL' ? mine.length : mine.filter(request => request.status === status).length})</button>)}</div>
       {filteredMine.length > 0 ? <><div className="workspace-grid">{filteredMine.slice(0, requestLimit).map(request => <article className="workspace-card" key={request.id}><span className="account-status">{requestStatuses[request.status]}</span><h3>{request.name}</h3><p>{spaceTypes[request.type as keyof typeof spaceTypes]} · Formule souhaitée : {request.desiredPlan === 'PRO' ? 'Pro' : 'Starter gratuit'}</p>{request.status === 'APPROUVEE' && <p>Votre espace est ouvert. Retrouvez-le dans « Mes espaces ».</p>}{request.status === 'EN_ATTENTE' && <p>La demande est en cours d’examen. Elle ne donne pas encore de droits d’administration.</p>}{request.reason && <p className="management-copy">Motif : {request.reason}</p>}</article>)}</div>{filteredMine.length > requestLimit && <button className="button outline workspace-create" onClick={() => setRequestLimit(value => value + 5)}>Voir 5 demandes de plus</button>}</> : <p className="workspace-description">Aucune demande avec ce statut.</p>}
     </> : loaded && <p className="workspace-description">Aucune demande d’espace pour le moment.</p>)}
-    {owner && <div className="management-review"><h3>Demandes à examiner</h3><p className="workspace-description">L’approbation attribue des droits dans le nouvel espace uniquement.</p>{loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}{queue.filter(r => r.status === 'EN_ATTENTE').map(request => <OpeningReviewCard key={request.id} request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} />)}{queue.some(r => r.status !== 'EN_ATTENTE') && <section className="opening-review-history" aria-labelledby="opening-history-title"><div className="account-section-heading"><h3 id="opening-history-title">Demandes examinées</h3><span>{queue.filter(r => r.status !== 'EN_ATTENTE').length} dossier{queue.filter(r => r.status !== 'EN_ATTENTE').length > 1 ? 's' : ''}</span></div><label className="opening-review-search">Rechercher une demande<input type="search" value={historyQuery} onChange={event => { setHistoryQuery(event.target.value); setHistoryLimit(10); }} placeholder="Nom de l’espace, demandeur ou ville" /></label>{reviewedRequests.length ? <div className="opening-review-history-list">{reviewedRequests.slice(0, historyLimit).map(request => <article key={request.id} className="opening-review-history-item"><div className="opening-review-history-top"><strong>{request.name}</strong><span className="account-status">{requestStatuses[request.status]}</span></div><span>{request.applicant} · {new Date(request.createdAt).toLocaleDateString('fr-BE')}</span>{request.city && <span>{request.city}</span>}{request.reason && <p>Motif : {request.reason}</p>}</article>)}</div> : <p className="workspace-description">Aucune demande ne correspond à cette recherche.</p>}{reviewedRequests.length > historyLimit && <button className="button outline" onClick={() => setHistoryLimit(value => value + 10)}>Voir 10 demandes de plus</button>}</section>}</div>}
+    {owner && <div className="management-review">
+      <nav className="opening-review-tabs" aria-label="Demandes d’ouverture">
+        <button aria-pressed={ownerTab === 'pending'} onClick={() => { setOwnerTab('pending'); setEditingRequestId(null); }}>À examiner ({queue.filter(r => r.status === 'EN_ATTENTE').length})</button>
+        <button aria-pressed={ownerTab === 'reviewed'} onClick={() => { setOwnerTab('reviewed'); setEditingRequestId(null); }}>Examinées ({queue.filter(r => r.status !== 'EN_ATTENTE').length})</button>
+      </nav>
+      {ownerTab === 'pending' && <>
+      {loaded && !queue.some(r => r.status === 'EN_ATTENTE') && <p>Aucune demande en attente.</p>}
+      {queue.filter(r => r.status === 'EN_ATTENTE').map(request => <div key={request.id}>
+        <OpeningReviewCard request={request} onDone={() => { setNotice('Décision enregistrée. Le demandeur peut la consulter dans son espace.'); refresh(); }} />
+        <button className="text-link opening-review-edit" onClick={() => setEditingRequestId(request.id)}>Corriger cette demande</button>
+        {editingRequestId === request.id && <OpeningCorrectionForm request={request} onCancel={() => setEditingRequestId(null)} onDone={() => { setEditingRequestId(null); setNotice('Correction enregistrée.'); refresh(); }} />}
+      </div>)}</>}
+      {ownerTab === 'reviewed' && <section className="opening-review-history" aria-label="Demandes examinées">
+        <label className="opening-review-search">Rechercher une demande<input type="search" value={historyQuery} onChange={event => { setHistoryQuery(event.target.value); setHistoryLimit(10); }} placeholder="Nom de l’espace, demandeur ou ville" /></label>
+        {reviewedRequests.length ? <div className="opening-review-history-list">{reviewedRequests.slice(0, historyLimit).map(request => <article key={request.id} className="opening-review-history-item">
+          <div className="opening-review-history-top"><strong>{request.name}</strong><span className="account-status">{requestStatuses[request.status]}</span></div>
+          <span>{request.applicant} · {new Date(request.createdAt).toLocaleDateString('fr-BE')}</span>
+          {request.city && <span>{request.city}</span>}
+          {request.reason && <p>Motif : {request.reason}</p>}
+          <div className="opening-review-history-actions">
+            <button className="text-link" onClick={() => setEditingRequestId(request.id)}>Corriger la demande</button>
+            {request.status === 'REFUSEE' && <ReopenRequestButton request={request} onDone={() => { setNotice('Demande remise en examen.'); refresh(); }} />}
+            {request.status === 'APPROUVEE' && <a className="text-link" href="/mon-espace#espaces">Gérer l’espace ouvert</a>}
+          </div>
+          {editingRequestId === request.id && <OpeningCorrectionForm request={request} onCancel={() => setEditingRequestId(null)} onDone={() => { setEditingRequestId(null); setNotice('Correction enregistrée.'); refresh(); }} />}
+        </article>)}</div> : <p className="workspace-description">Aucune demande ne correspond à cette recherche.</p>}
+        {reviewedRequests.length > historyLimit && <button className="button outline" onClick={() => setHistoryLimit(value => value + 10)}>Voir 10 demandes de plus</button>}
+      </section>}
+    </div>}
   </section>;
 }
 

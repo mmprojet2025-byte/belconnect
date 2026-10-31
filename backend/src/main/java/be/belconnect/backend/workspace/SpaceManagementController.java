@@ -33,6 +33,14 @@ public class SpaceManagementController {
         @NotNull @Pattern(regexp="APPROUVEE|REFUSEE") String status,@NotNull @Size(max=1000) String reason) {
         public Decision { reason=clean(reason); }
     }
+    public record OpeningCorrection(@NotNull @Min(0) Long version,@NotNull @Valid SpaceContent content,
+        @NotNull @Valid OpeningDetails details,@NotNull @Pattern(regexp="STARTER|PRO") String desiredPlan,
+        @NotBlank @Size(max=1000) String reason) {
+        public OpeningCorrection { reason=clean(reason); }
+    }
+    public record Reexamination(@NotNull @Min(0) Long version,@NotBlank @Size(max=1000) String reason) {
+        public Reexamination { reason=clean(reason); }
+    }
     public record SpaceUpdate(@NotNull @Min(0) Long version,@NotNull @Valid SpaceContent content) {}
     public record GroupContent(@NotBlank @Size(min=3,max=150) String name,@NotNull @Size(max=3000) String description,
         @NotNull @Size(max=2048) String coverUrl,@NotNull Boolean openMembership,
@@ -134,6 +142,57 @@ public class SpaceManagementController {
     }
     @GetMapping("/opening-requests") @Transactional
     public List<Request> queue(Authentication auth) { owner(user(auth)); return requests(""); }
+    @PostMapping("/opening-requests/{id}/edit") @Transactional
+    public Request correctOpening(Authentication auth,@PathVariable long id,@Valid @RequestBody OpeningCorrection body) {
+        long actor=user(auth); owner(actor);
+        var ids=jdbc.query("SELECT id FROM demande_espace WHERE id=? FOR UPDATE",(r,n)->r.getLong(1),id);
+        if(ids.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Demande introuvable.");
+        var old=request(id);
+        if(old.version()!=body.version()) throw error(HttpStatus.CONFLICT,"La demande a changé. Actualisez la liste.");
+        var c=body.content(); var d=body.details();
+        long revision=jdbc.queryForObject("""
+            INSERT INTO historique_revision_demande_espace(demande_id,acteur_id,action,motif,avant)
+            SELECT ?,?,'CORRECTION',?,to_jsonb(d) FROM demande_espace d WHERE d.id=? RETURNING id
+            """,Long.class,id,actor,body.reason(),id);
+        if(old.spaceId()!=null) {
+            var spaces=jdbc.query("SELECT version FROM espace_organisateur WHERE id=? FOR UPDATE",(r,n)->r.getLong(1),old.spaceId());
+            if(spaces.isEmpty()) throw error(HttpStatus.CONFLICT,"L’espace lié à cette demande est introuvable.");
+            jdbc.update("UPDATE espace_organisateur SET nom=?,type=?,description=?,version=version+1 WHERE id=?",
+                c.name(),c.type(),c.description(),old.spaceId());
+            audit(old.spaceId(),null,actor,"ESPACE_CORRIGE",spaces.getFirst()+1);
+        }
+        jdbc.update("""
+            UPDATE demande_espace SET nom=?,type=?,description=?,organisateur_nom=?,ville=?,public_vise=?,
+            programme_prevu=?,formule_souhaitee=?,version=version+1 WHERE id=?
+            """,c.name(),c.type(),c.description(),d.organizerName(),d.city(),d.targetAudience(),
+            d.plannedContent(),body.desiredPlan(),id);
+        jdbc.update("UPDATE historique_revision_demande_espace SET apres=(SELECT to_jsonb(d) FROM demande_espace d WHERE d.id=?) WHERE id=?",id,revision);
+        return request(id);
+    }
+    @PostMapping("/opening-requests/{id}/reopen") @Transactional
+    public Request reopenOpening(Authentication auth,@PathVariable long id,@Valid @RequestBody Reexamination body) {
+        long actor=user(auth); owner(actor);
+        var ids=jdbc.query("SELECT demandeur_id FROM demande_espace WHERE id=?",(r,n)->r.getLong(1),id);
+        if(ids.isEmpty()) throw error(HttpStatus.NOT_FOUND,"Demande introuvable.");
+        lockApplicant(ids.getFirst());
+        jdbc.query("SELECT id FROM demande_espace WHERE id=? FOR UPDATE",(r,n)->r.getLong(1),id);
+        var old=request(id);
+        if(old.version()!=body.version()) throw error(HttpStatus.CONFLICT,"La demande a changé. Actualisez la liste.");
+        if(!old.status().equals("REFUSEE")) throw error(HttpStatus.CONFLICT,"Seule une demande refusée peut être réexaminée.");
+        var currentQuota=quota(ids.getFirst());
+        if(currentQuota.used()>=currentQuota.max())
+            throw error(HttpStatus.CONFLICT,"La limite d’espaces du demandeur est atteinte.");
+        long revision=jdbc.queryForObject("""
+            INSERT INTO historique_revision_demande_espace(demande_id,acteur_id,action,motif,avant)
+            SELECT ?,?,'REEXAMEN',?,to_jsonb(d) FROM demande_espace d WHERE d.id=? RETURNING id
+            """,Long.class,id,actor,body.reason(),id);
+        jdbc.update("""
+            UPDATE demande_espace SET statut='EN_ATTENTE',espace_id=NULL,examinateur_id=NULL,motif='',
+            date_decision=NULL,version=version+1 WHERE id=?
+            """,id);
+        jdbc.update("UPDATE historique_revision_demande_espace SET apres=(SELECT to_jsonb(d) FROM demande_espace d WHERE d.id=?) WHERE id=?",id,revision);
+        return request(id);
+    }
     @PostMapping("/opening-requests/{id}/decision") @Transactional
     public Request decide(Authentication auth,@PathVariable long id,@Valid @RequestBody Decision body) {
         long user=user(auth); owner(user);
