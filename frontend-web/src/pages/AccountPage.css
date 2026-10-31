@@ -516,6 +516,22 @@
 .account-side-nav a[aria-current=page] { background:#355755; color:#fff; font-weight:700; }
 .account-side-nav .account-nav-label { color:#9bafb9; }
 .account-main { padding:30px clamp(24px,3vw,52px) 48px; }
+.account-profile-main,.account-settings-main { display:block; width:min(100%,780px); margin:0 auto; padding:0; border:1px solid #dce6e6; border-radius:18px; background:#fff; box-shadow:0 8px 28px #1837460a; overflow:hidden; }
+.account-profile-heading,.account-settings-main > div:first-child { padding:28px 32px; border-bottom:1px solid #e5edeb; background:#edf6f3; }
+.account-profile-heading { justify-content:flex-start; }
+.account-profile-heading h2,.account-settings-main h2 { font-size:24px; line-height:1.25; }
+.account-profile-heading .workspace-context-kicker,.account-settings-main .workspace-context-kicker { color:#276e63; }
+.account-profile-avatar { width:60px; height:60px; border:1px solid #c7e1d7; border-radius:16px; background:#fff; color:#176b52; font-size:17px; }
+.account-profile-section,.account-settings-section { padding:27px 32px; }
+.account-profile-section h3,.account-settings-section h3 { color:var(--navy); }
+.account-profile-section .account-profile-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; width:100%; max-width:520px; margin:8px 0 0; }
+.account-profile-section .account-profile-form .button,.account-profile-section .account-profile-form [role] { grid-column:1 / -1; width:max-content; max-width:100%; }
+.account-settings-link { display:block; margin:0 32px 28px; padding:14px 16px; border:1px solid #dbe9e5; border-radius:10px; background:#f5faf8; text-decoration:none; }
+.account-settings-link:hover,.account-settings-section a:hover { background:#eaf5f0; }
+.account-settings-section a { display:block; width:fit-content; padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
+.account-settings-danger { background:#fffaf7; }
+.account-settings-danger > .text-link { justify-self:start; width:fit-content; }
+@media(max-width:600px) { .account-profile-heading,.account-settings-main > div:first-child,.account-profile-section,.account-settings-section { padding:20px; } .account-profile-section .account-profile-form { grid-template-columns:1fr; } .account-settings-link { margin:0 20px 20px; } }
 .account-page[data-sidebar-open=false] .account-layout { grid-template-columns:minmax(0,1fr); }
 .account-sidebar-backdrop { display:none; }
 .account-sidebar-top { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:52px; padding:2px 6px 12px; margin-bottom:12px; border-bottom:1px solid #40525e; color:#fff; font-size:14px; font-weight:750; }
