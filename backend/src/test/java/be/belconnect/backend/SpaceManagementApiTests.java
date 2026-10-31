@@ -230,13 +230,19 @@ class SpaceManagementApiTests {
   try {
    var admin=actor(); var outsider=actor(); var platform=actor(); owner(platform);
    assertEquals(401,new Actor().get("/api/workspace/requests").statusCode());
-   var body=Map.of("requestId",UUID.randomUUID(),"content",sc("Espace du quartier"));
+   var body=Map.of("requestId",UUID.randomUUID(),"content",sc("Espace du quartier"),"details",Map.of(
+       "organizerName","Collectif du quartier","city","Bruxelles","targetAudience","Habitants du quartier",
+       "plannedContent","Rencontres et ateliers"));
    assertEquals(403,admin.post("/api/workspace/requests",body,false).statusCode());
    long request=ok(admin.post("/api/workspace/requests",body,true),201).get("id").asLong();
    assertEquals(request,ok(admin.post("/api/workspace/requests",body,true),201).get("id").asLong());
+   var submitted=ok(admin.get("/api/workspace/requests"),200).get(0);
+   assertEquals("Collectif du quartier",submitted.get("organizerName").asText());
+   assertEquals("Rencontres et ateliers",submitted.get("plannedContent").asText());
    assertEquals(0,ok(admin.get("/api/workspace"),200).get("spaces").size());
    assertEquals(0,ok(outsider.get("/api/workspace/requests"),200).size());
    assertEquals(403,admin.get("/api/workspace/opening-requests").statusCode());
+   assertEquals("Bruxelles",ok(platform.get("/api/workspace/opening-requests"),200).get(0).get("city").asText());
    var approval=Map.of("version",0,"status","APPROUVEE","reason","");
    assertEquals(403,admin.post("/api/workspace/opening-requests/"+request+"/decision",approval,true).statusCode());
    long space=ok(platform.post("/api/workspace/opening-requests/"+request+"/decision",approval,true),200).get("spaceId").asLong();

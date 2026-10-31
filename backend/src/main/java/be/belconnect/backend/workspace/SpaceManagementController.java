@@ -22,7 +22,12 @@ public class SpaceManagementController {
         @NotNull @Size(max=3000) String description) {
         public SpaceContent { name=clean(name); description=clean(description); }
     }
-    public record Opening(@NotNull UUID requestId,@NotNull @Valid SpaceContent content) {}
+    public record OpeningDetails(@Size(max=180) String organizerName,@Size(max=120) String city,
+                                 @Size(max=500) String targetAudience,@Size(max=1500) String plannedContent) {
+        public OpeningDetails { organizerName=Objects.requireNonNullElse(clean(organizerName),""); city=Objects.requireNonNullElse(clean(city),"");
+            targetAudience=Objects.requireNonNullElse(clean(targetAudience),""); plannedContent=Objects.requireNonNullElse(clean(plannedContent),""); }
+    }
+    public record Opening(@NotNull UUID requestId,@NotNull @Valid SpaceContent content,@Valid OpeningDetails details) {}
     public record Decision(@NotNull @Min(0) Long version,
         @NotNull @Pattern(regexp="APPROUVEE|REFUSEE") String status,@NotNull @Size(max=1000) String reason) {
         public Decision { reason=clean(reason); }
@@ -40,7 +45,8 @@ public class SpaceManagementController {
                         String visibility,String status,long version,UUID invitationCode) {}
     public record Management(Space space,List<Group> groups,GroupQuota groupQuota) {}
     public record Request(long id,String name,String type,String description,String status,long version,
-                          Long spaceId,String reason,String applicant,OffsetDateTime createdAt) {}
+                          Long spaceId,String reason,String applicant,OffsetDateTime createdAt,
+                          String organizerName,String city,String targetAudience,String plannedContent) {}
     public record SpaceQuota(int used,int max,boolean pro) {}
     public record GroupQuota(int used,int max,boolean pro) {}
     static String clean(String value) { return value==null?null:value.strip(); }
@@ -70,7 +76,8 @@ public class SpaceManagementController {
             JOIN utilisateur u ON u.id=d.demandeur_id
             """+where+" ORDER BY d.date_creation DESC,d.id DESC",(r,n)->new Request(r.getLong("id"),r.getString("nom"),
             r.getString("type"),r.getString("description"),r.getString("statut"),r.getLong("version"),r.getObject("espace_id",Long.class),
-            r.getString("motif"),r.getString("prenom")+" "+r.getString("demandeur_nom"),r.getObject("date_creation",OffsetDateTime.class)),args);
+            r.getString("motif"),r.getString("prenom")+" "+r.getString("demandeur_nom"),r.getObject("date_creation",OffsetDateTime.class),
+            r.getString("organisateur_nom"),r.getString("ville"),r.getString("public_vise"),r.getString("programme_prevu")),args);
     }
     private Request request(long id) { return requests("WHERE d.id=?",id).getFirst(); }
     private SpaceQuota quota(long applicant) {
@@ -99,14 +106,18 @@ public class SpaceManagementController {
         var prior=jdbc.query("SELECT id FROM demande_espace WHERE demandeur_id=? AND creation_request=?",(r,n)->r.getLong(1),user,body.requestId());
         var currentQuota=quota(user);
         if(prior.isEmpty() && currentQuota.used()>=currentQuota.max())
-            throw error(HttpStatus.CONFLICT,"Limite d’espaces atteinte : 1 en Starter ou 3 avec un abonnement Pro actif sur votre espace.");
+            throw error(HttpStatus.CONFLICT,"Limite d’espaces atteinte : 1 en Starter ou 2 avec un abonnement Pro actif sur votre espace.");
+        var details=body.details()==null?new OpeningDetails("","","",""):body.details();
         var ids=jdbc.query("""
-            INSERT INTO demande_espace(demandeur_id,creation_request,nom,type,description) VALUES (?,?,?,?,?)
+            INSERT INTO demande_espace(demandeur_id,creation_request,nom,type,description,organisateur_nom,ville,public_vise,programme_prevu)
+            VALUES (?,?,?,?,?,?,?,?,?)
             ON CONFLICT(demandeur_id,creation_request) DO NOTHING RETURNING id
-            """,(r,n)->r.getLong(1),user,body.requestId(),c.name(),c.type(),c.description());
+            """,(r,n)->r.getLong(1),user,body.requestId(),c.name(),c.type(),c.description(),details.organizerName(),details.city(),details.targetAudience(),details.plannedContent());
         long id=ids.isEmpty()?jdbc.queryForObject("SELECT id FROM demande_espace WHERE demandeur_id=? AND creation_request=?",Long.class,user,body.requestId()):ids.getFirst();
         var result=request(id);
-        if(!result.name().equals(c.name()) || !result.type().equals(c.type()) || !result.description().equals(c.description()))
+        if(!result.name().equals(c.name()) || !result.type().equals(c.type()) || !result.description().equals(c.description())
+            || !result.organizerName().equals(details.organizerName()) || !result.city().equals(details.city())
+            || !result.targetAudience().equals(details.targetAudience()) || !result.plannedContent().equals(details.plannedContent()))
             throw error(HttpStatus.CONFLICT,"Cette demande a déjà été envoyée avec un autre contenu. Actualisez vos demandes.");
         if(!ids.isEmpty()) jdbc.update("""
             INSERT INTO notification_demande_espace(utilisateur_id,demande_id,evenement)
