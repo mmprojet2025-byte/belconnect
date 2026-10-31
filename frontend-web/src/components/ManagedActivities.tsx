@@ -106,8 +106,12 @@ export function ManagedActivities({ spaces, groups, startCreating = false, onCre
   }
   const isHistory = (a: Managed) => a.cancelled || new Date(a.content.endsAt).getTime() < now;
   const visible = activities.filter(a => spaces.some(space => space.id === a.spaceId));
+  const editingActivity = editing && editing !== 'new' ? editing : null;
+  const currentActivity = registrationsId === null ? null : activities.find(activity => activity.id === registrationsId);
+  const activitySection = editing === 'new' ? 'Créer une activité' : editing ? 'Modifier le brouillon' : currentActivity ? 'Inscriptions' : { ALL: 'En cours et à venir', DRAFT: 'Brouillons', PUBLISHED: 'Publiées', HISTORY: 'Historique' }[filter] ?? 'En cours et à venir';
   return <section aria-labelledby="managed-activities-title">
     <div className="account-section-heading"><h2 id="managed-activities-title">Mes activités</h2><button className="text-link" disabled={busy || editing !== null} onClick={refresh}>Actualiser</button></div>
+    <nav className="workspace-context-location" aria-label="Chemin des activités"><span>Mes activités</span><span aria-hidden="true">›</span>{editingActivity || currentActivity && !editing ? <><span>{editingActivity?.content.title ?? currentActivity?.content.title}</span><span aria-hidden="true">›</span></> : null}<strong aria-current="page">{activitySection}</strong></nav>
     <p className="workspace-description">{settlementOnly ? 'L’espace est suspendu. Consultez les inscriptions et traitez les annulations ou remboursements nécessaires. Aucune nouvelle activité ne peut être créée ou publiée.' : 'Préparez une activité, publiez-la et retrouvez vos inscrits ici.'}</p>
     {!settlementOnly && editing === null && <button className="button coral workspace-create" disabled={busy} onClick={() => setEditing('new')}>Créer une activité</button>}
     {(notice || highlightId) && <p className="account-notice" role="status">{notice || 'Votre activité a été enregistrée. Retrouvez-la ci-dessous dans « Mes activités » ; elle reste un brouillon tant que vous ne la publiez pas.'}</p>}
