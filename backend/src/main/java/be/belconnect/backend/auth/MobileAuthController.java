@@ -27,6 +27,7 @@ public class MobileAuthController {
     private final JdbcTemplate jdbc;
     private final String dummyHash;
     private final ConcurrentHashMap<String,Window> attempts=new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String,Window> deletionAttempts=new ConcurrentHashMap<>();
     private record Window(long start,int count) {}
     public record Registration(@NotBlank @Size(max=80) String firstName,@NotBlank @Size(max=80) String lastName,
         @NotBlank @Email @Size(max=254) String email,@NotBlank @Size(min=12,max=72) String password) {
@@ -78,6 +79,10 @@ public class MobileAuthController {
     @DeleteMapping("/me") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
     public void deleteAccount(Authentication authentication,@Valid @RequestBody DeleteAccount body) {
         if(authentication==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        long now=System.currentTimeMillis();
+        deletionAttempts.entrySet().removeIf(entry -> now-entry.getValue().start()>=900_000);
+        var deletionWindow=deletionAttempts.compute(authentication.getName(),(key,old)->old==null||now-old.start()>=900_000?new Window(now,1):new Window(old.start(),old.count()+1));
+        if(deletionWindow.count()>5) throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Trop de tentatives de suppression. Réessayez dans quinze minutes.");
         var rows=jdbc.queryForList("SELECT id,mot_de_passe_hash FROM utilisateur WHERE email=? AND statut='ACTIF' FOR UPDATE",authentication.getName());
         if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         long id=((Number)rows.getFirst().get("id")).longValue();
@@ -91,6 +96,9 @@ public class MobileAuthController {
         if(responsible) throw new ResponseStatusException(HttpStatus.CONFLICT,"Transférez ou fermez vos responsabilités de gestion sur le web avant de supprimer ce compte.");
         if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM reservation_payante_activite WHERE utilisateur_id=? AND statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS'))",Boolean.class,id)))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Terminez vos réservations payantes ou contactez le support avant de supprimer le compte.");
+        if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM inscription_payante_projet WHERE participant_id=? AND statut IN ('EN_ATTENTE','PAYE','REMBOURSEMENT_EN_COURS'))",Boolean.class,id)))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Réglez vos participations payantes aux projets avant de supprimer le compte.");
+        jdbc.update("UPDATE inscription_gratuite_projet SET statut='ANNULEE',date_annulation=now() WHERE participant_id=? AND statut='CONFIRMEE'",id);
         var freeBookings=jdbc.queryForList("""
             SELECT i.id,i.activite_id,i.quantite FROM inscription_activite i JOIN activite a ON a.id=i.activite_id
             WHERE i.utilisateur_id=? AND i.statut='CONFIRMEE' AND a.debut>now() FOR UPDATE OF a,i
