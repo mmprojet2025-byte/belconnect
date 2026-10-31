@@ -96,6 +96,10 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   </nav>;
   return <div className="workspace-sections">
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
+    {(['activities', 'spaces', 'groups', 'projects', 'requests'] as const).includes(view as 'activities' | 'spaces' | 'groups' | 'projects' | 'requests') && <div className="account-welcome workspace-section-banner">
+      <span className="account-welcome-icon"><Icon name={view === 'activities' ? 'calendar' : view === 'projects' ? 'folder' : view === 'requests' ? 'document' : 'users'} /></span>
+      <div><h2>{view === 'activities' ? 'Mes activités' : view === 'spaces' ? 'Mes espaces' : view === 'groups' ? 'Mes groupes' : view === 'projects' ? 'Mes projets' : 'Mes demandes'}</h2><p>{view === 'activities' ? 'Créez et suivez les activités que vous organisez.' : view === 'spaces' ? 'Retrouvez les espaces que vous gérez ou auxquels vous participez.' : view === 'groups' ? 'Retrouvez vos groupes et accédez à leurs échanges.' : view === 'projects' ? 'Créez vos projets et suivez leur publication.' : 'Demandez un espace organisateur et suivez la réponse de Belconnect.'}</p></div>
+    </div>}
     {view === 'dashboard' && <WorkspaceDashboard data={data} firstName={firstName} refreshToken={attempt} onRefresh={() => setAttempt(value => value + 1)} />}
     {view === 'inbox' && (data.owner ? <SpaceRequests owner onChanged={() => setAttempt(n => n + 1)} mode="inbox" /> : manageableSpaces.length ? <WorkQueue /> : <div className="account-empty"><h3>Aucune tâche de gestion</h3><p>Les décisions confiées à un administrateur ou à un référent apparaîtront ici.</p></div>)}
     {['owner', 'owner-spaces'].includes(view) && <div className="workspace-intro"><h2>{view === 'owner-spaces' ? 'Espaces organisateurs' : 'Pilotage de la plateforme'}</h2><p>{view === 'owner' ? 'Indicateurs de la plateforme en mode test.' : 'Consultez les espaces et intervenez en cas de signalement.'}</p></div>}
@@ -103,7 +107,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
     {view === 'spaces' && data.suspendedSpaces?.map(space => <div className="account-notice" role="status" key={space.id}><strong>{space.name} : espace suspendu par Belconnect.</strong> Les nouveaux accès publics, inscriptions et paiements sont arrêtés. {space.reason && <>Motif : {space.reason}</>} Contactez l’assistance pour demander un réexamen. Les réservations déjà payées restent à traiter. <button className="text-link" onClick={() => navigate(`/mon-espace?espace=${space.id}#organisation`)}>Traiter les réservations et remboursements</button></div>)}
     {view === 'spaces' && data.moderationNotices?.map((notice, index) => <div className="account-notice" role="status" key={`${notice.spaceName}-${notice.contentName}-${index}`}><strong>{notice.contentName} est masqué par Belconnect.</strong> Espace : {notice.spaceName}. Motif : {notice.reason}. Les réservations déjà payées restent à traiter ; contactez l’assistance pour demander un réexamen.</div>)}
     <section aria-labelledby="workspace-title">
-      <div className="account-section-heading"><h2 id="workspace-title">{view === 'spaces' ? 'Mes espaces' : 'Mes groupes'}</h2><span>{view === 'spaces' ? data.spaces.length : data.groups.length} {view === 'spaces' ? `espace${data.spaces.length > 1 ? 's' : ''}` : `groupe${data.groups.length > 1 ? 's' : ''}`}</span></div>
+      <div className="account-section-heading"><h2 className="sr-only" id="workspace-title">{view === 'spaces' ? 'Mes espaces' : 'Mes groupes'}</h2><span>{view === 'spaces' ? data.spaces.length : data.groups.length} {view === 'spaces' ? `espace${data.spaces.length > 1 ? 's' : ''}` : `groupe${data.groups.length > 1 ? 's' : ''}`}</span></div>
       <p className="workspace-description">{view === 'spaces' ? 'Un espace vous permet d’organiser vos groupes et leurs activités. Ouvrez un espace pour le gérer, ou faites une demande pour en créer un.' : 'Un groupe rassemble ses membres dans un espace. Retrouvez ici les groupes auxquels vous avez accès.'}</p>
       {view === 'spaces' && (!data.spaces.length ? <div className="account-empty"><span><Icon name="users" /></span><h3>Aucun espace pour le moment</h3><p>{data.suspendedSpaces?.length ? 'Un espace suspendu figure ci-dessus. Contactez l’assistance pour demander un réexamen.' : 'Vous pouvez rejoindre un groupe ou demander l’ouverture d’un espace organisateur.'}</p>{!data.suspendedSpaces?.length && <div className="booking-actions"><a className="button outline" href="/groupes">Découvrir les groupes <Icon name="arrow" /></a><a className="button outline" href="/mon-espace#demandes">Demander un espace <Icon name="arrow" /></a></div>}</div> :
         <div className="workspace-grid">{sortedSpaces.map(space => <article className="workspace-card workspace-access-card" key={space.id}>
@@ -140,12 +144,12 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       </>}
     </div>}
     {view === 'requests' && <div className="workspace-panel">
-      {!data.owner && <div className="workspace-intro"><h2>Mes demandes</h2><p>Demandez un espace organisateur et suivez la réponse de Belconnect. Starter permet 1 espace et jusqu’à 2 groupes ; Pro permet jusqu’à 2 espaces et 4 groupes par espace.</p></div>}
+      {!data.owner && <p className="workspace-description">Starter permet 1 espace et jusqu’à 2 groupes ; Pro permet jusqu’à 2 espaces et 4 groupes par espace.</p>}
       <SpaceRequests owner={data.owner} mode={data.owner ? 'all' : 'combined'} onChanged={() => setAttempt(n => n + 1)} />
     </div>}
     {view === 'projects' && <div className="workspace-panel">
     <section aria-labelledby="my-projects-title">
-      <div className="account-section-heading"><h2 id="my-projects-title">Mes projets</h2><span>{data.projects.length} projet{data.projects.length > 1 ? 's' : ''}</span></div>
+      <div className="account-section-heading"><h2 className="sr-only" id="my-projects-title">Mes projets</h2><span>{data.projects.length} projet{data.projects.length > 1 ? 's' : ''}</span></div>
       {submittedNotice && <p className="account-notice" role="status">{submittedNotice}</p>}
       {editing === null && data.spaces.length > 0 && <button className="button coral workspace-create" onClick={() => setEditing('new')}>Créer un projet <Icon name="arrow" /></button>}
       {editing !== null && <DraftEditor key={editing} id={editing} spaces={data.spaces} groups={data.groups} onClose={() => setEditing(null)} onSubmitted={project => {
