@@ -43,12 +43,14 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const [openedSubmission, setOpenedSubmission] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [membersGroup, setMembersGroup] = useState<number | null>(null);
+  const [settingsDetailTab, setSettingsDetailTab] = useState<'information' | 'admins' | 'members'>('information');
   const [filter, setFilter] = useState('ALL');
   const [projectPage, setProjectPage] = useState(0);
   const managementSections = ['groups', 'memberships', 'announcements', 'project-reviews', 'project-publications', 'project-helps', 'payments', 'settings'] as const;
   type ManagementSection = typeof managementSections[number];
   const requestedSection = selectedRubrique === 'adhesions' ? 'memberships' : selectedRubrique === 'projets-a-examiner' ? 'project-reviews' : selectedRubrique;
   const managementSection: ManagementSection = managementSections.find(item => item === requestedSection) ?? 'groups';
+  useEffect(() => setSettingsDetailTab('information'), [selectedSpaceId, managementSection]);
   useEffect(() => {
     if (view === 'management' && !selectedSpaceId) navigate('/mon-espace#espaces', true);
   }, [view, selectedSpaceId]);
@@ -90,7 +92,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const managementDetailLabel = activeManagementSection === 'groups' ? 'Mes groupes' : activeManagementSection === 'project-reviews' ? 'À examiner' : managementLabels[activeManagementSection];
   const canLeaveActivityCreation = confirmLeavingEditor;
   const chooseSpace = (id: number) => { if (!canLeaveActivityCreation()) return; setMembersGroup(null); navigate(`/mon-espace?espace=${id}#organisation`); };
-  const changeManagementSection = (section: ManagementSection) => { if (section === managementSection || !canLeaveActivityCreation() || !selectedSpace) return; window.dispatchEvent(new Event('belconnect:close-account-menu')); navigate(`/mon-espace?espace=${selectedSpace.id}&rubrique=${section === 'memberships' ? 'adhesions' : section === 'project-reviews' ? 'projets-a-examiner' : section}#organisation`); };
+  const changeManagementSection = (section: ManagementSection) => { if (section === managementSection || !canLeaveActivityCreation() || !selectedSpace) return; setSettingsDetailTab('information'); window.dispatchEvent(new Event('belconnect:close-account-menu')); navigate(`/mon-espace?espace=${selectedSpace.id}&rubrique=${section === 'memberships' ? 'adhesions' : section === 'project-reviews' ? 'projets-a-examiner' : section}#organisation`); };
   const contextNavigation = selectedSpace && <div className="workspace-context-navigation">
     <nav className="workspace-context-nav" aria-label={`Gérer ${selectedSpace.name}`}>
       {(isSpaceAdmin || selectedGroups.length > 0) && <button aria-current={managementGroup === 'groups' ? 'page' : undefined} onClick={() => changeManagementSection('groups')}>Groupes</button>}
@@ -142,7 +144,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       <header className="workspace-context-header">
         <div className="workspace-context-heading"><span className="workspace-context-symbol"><Icon name="users" /></span><div><span className="workspace-context-kicker">Espace organisateur</span><h2>{selectedSpace.name}</h2><p>{isSpaceAdmin ? 'Vous administrez cet espace.' : 'Vous gérez les rubriques autorisées de vos groupes.'}</p></div></div>
         <div className="workspace-context-header-actions"><span className="workspace-context-role">{isSpaceAdmin ? 'Administrateur' : 'Référent'}</span><button className="button outline" onClick={() => { if (canLeaveActivityCreation()) navigate('/mon-espace?liste=1#espaces'); }}>Voir tous mes espaces</button></div>
-        <nav className="workspace-context-location" aria-label="Rubrique actuelle"><span>Gestion de l’espace</span><Icon name="chevron" />{managementGroup === 'groups' || managementGroup === 'projects' ? <><span>{managementGroupLabel}</span><Icon name="chevron" /><strong aria-current="page">{managementDetailLabel}</strong></> : <strong aria-current="page">{managementGroupLabel}</strong>}</nav>
+        <nav className="workspace-context-location" aria-label="Rubrique actuelle"><span>Gestion de l’espace</span><Icon name="chevron" />{managementGroup === 'groups' || managementGroup === 'projects' || managementGroup === 'settings' ? <><span>{managementGroupLabel}</span><Icon name="chevron" /><strong aria-current="page">{managementGroup === 'settings' ? settingsDetailTab === 'admins' ? 'Équipe de l’espace' : settingsDetailTab === 'members' ? 'Membres de l’espace' : 'Informations' : managementDetailLabel}</strong></> : <strong aria-current="page">{managementGroupLabel}</strong>}</nav>
       </header>
       <div className="workspace-management-layout">
         {contextNavigation}
@@ -154,7 +156,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
           {activeManagementSection === 'project-publications' && <ProjectPublications key={`publications-${selectedSpace.id}`} spaceId={selectedSpace.id} />}
           {activeManagementSection === 'project-helps' && <ProjectParticipations key={`participations-${selectedSpace.id}`} received spaceId={selectedSpace.id} />}
           {activeManagementSection === 'payments' && <section className="workspace-settings" aria-labelledby="workspace-settings-title"><div className="account-section-heading"><h2 id="workspace-settings-title">Paiements et abonnement</h2></div><div className="workspace-settings-content"><SpaceDashboardCharts key={`payments-${selectedSpace.id}`} spaceId={selectedSpace.id} view="payments" /><SpaceSubscriptions key={selectedSpace.id} spaces={[selectedSpace]} /><SpaceInvoices key={`invoices-${selectedSpace.id}`} spaceId={selectedSpace.id} /><StripeConnectSetup key={selectedSpace.id} spaces={[selectedSpace]} /></div></section>}
-          {activeManagementSection === 'settings' && <SpaceManagement key={`settings-${selectedSpace.id}`} section="settings" spaceId={selectedSpace.id} onChanged={() => setAttempt(n => n + 1)} />}
+          {activeManagementSection === 'settings' && <SpaceManagement key={`settings-${selectedSpace.id}`} section="settings" spaceId={selectedSpace.id} onChanged={() => setAttempt(n => n + 1)} onSettingsTabChange={setSettingsDetailTab} />}
         </div>
       </div>
       </>}
