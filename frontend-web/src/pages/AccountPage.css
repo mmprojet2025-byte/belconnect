@@ -329,6 +329,9 @@
 .workspace-sections > section { min-width:0; }
 .workspace-create { margin:0 0 24px; }
 .workspace-resume { margin-top:18px; display:flex; align-items:center; gap:8px; }
+.space-upgrade-teaser { margin-top:14px; padding-top:14px; border-top:1px solid #e7ede9; }
+.space-upgrade-teaser p { margin:0 0 10px; }
+.space-upgrade-teaser .button { display:inline-flex; }
 .workspace-resume:disabled { opacity:.5; cursor:default; }
 .draft-editor { padding:26px; border:1px solid #b9d9d5; border-radius:16px; background:white; margin-bottom:26px; }
 .draft-editor h3 { font-size:23px; margin-bottom:10px; }

@@ -4,7 +4,7 @@ import { GroupMemberships } from './GroupMemberships';
 import { GroupAnnouncements } from './GroupAnnouncements';
 import { StripeConnectSetup } from './StripeConnectSetup';
 import { SpaceInvoices } from './SpaceInvoices';
-import { SpaceSubscriptions } from './SpaceSubscriptions';
+import { SpaceSubscriptions, SpaceUpgradeTeaser } from './SpaceSubscriptions';
 import { SpaceManagement, SpaceRequests } from './SpaceManagement';
 import { ProjectParticipations } from './ProjectParticipations';
 import { ProjectPublications } from './ProjectPublications';
@@ -104,6 +104,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
         <div className="workspace-grid">{data.spaces.map(space => <article className="workspace-card" key={space.id}>
           <span className="account-status">{space.role === 'ADMINISTRATEUR' ? 'Administrateur d’espace' : 'Membre de l’espace'}</span><h3>{space.name}</h3>
           <p className="workspace-muted">{data.groups.filter(group => group.spaceId === space.id).length} groupe{data.groups.filter(group => group.spaceId === space.id).length > 1 ? 's' : ''} lié{data.groups.filter(group => group.spaceId === space.id).length > 1 ? 's' : ''} à votre compte</p>
+          {space.role === 'ADMINISTRATEUR' && <SpaceUpgradeTeaser space={space} />}
           {manageableSpaces.some(item => item.id === space.id) && <button className="button outline workspace-resume" onClick={() => chooseSpace(space.id)}>{space.role === 'ADMINISTRATEUR' ? 'Gérer cet espace' : 'Voir mes tâches de référent'}</button>}
         </article>)}</div>)}
       {spacesTab === 'groups' && (data.groups.length ? <div className="workspace-grid">{data.groups.map(group => <article className="workspace-card" key={group.id}><span className="account-status">{group.role === 'GESTION_ESPACE' ? 'Géré via l’espace' : group.role === 'ADMINISTRATEUR' ? 'Administrateur du groupe' : group.role === 'REFERENT' ? 'Référent du groupe' : 'Membre du groupe'}</span><h3>{group.name}</h3><p>{data.spaces.find(space => space.id === group.spaceId)?.name ?? 'Espace organisateur'}</p>{group.role === 'REFERENT' && <p className="workspace-muted">Projets et annonces{group.canManageMemberships ? ' · Adhésions' : ''}{group.canManageActivities ? ' · Activités' : ''}</p>}<a className="text-link workspace-resume" href={`/groupes?groupe=${group.id}`}>Voir le groupe →</a></article>)}</div> : <div className="account-empty"><h3>Aucun groupe pour le moment</h3><p>Découvrez les groupes et demandez à rejoindre celui qui vous intéresse.</p><a className="button outline" href="/groupes">Découvrir les groupes <Icon name="arrow" /></a></div>)}

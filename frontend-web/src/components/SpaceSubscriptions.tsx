@@ -5,6 +5,22 @@ type Space = { id: number; name: string };
 type Subscription = { plan: 'STARTER' | 'PRO'; status: string; monthlyPriceCents: number; periodEnd: string | null; testCheckoutReady: boolean };
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : 'Le statut de l’abonnement est indisponible.';
 
+export function SpaceUpgradeTeaser({ space }: { space: Space }) {
+  const [status, setStatus] = useState<Subscription | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/workspace/spaces/${space.id}/subscription`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(result).then(value => { if (!controller.signal.aborted) setStatus(value); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [space.id]);
+  if (!status) return null;
+  return <div className="space-upgrade-teaser">
+    <p>{status.plan === 'PRO' ? 'Formule Pro active' : 'Formule Starter gratuite · Pro donne accès à plus d’espaces et de groupes.'}</p>
+    {status.plan === 'STARTER' && <a className="button outline" href={`/mon-espace?espace=${space.id}&rubrique=payments#organisation`}>Passer à Pro</a>}
+  </div>;
+}
+
 export function SpaceSubscriptions({ spaces }: { spaces: Space[] }) {
   const [statuses, setStatuses] = useState<Record<number, Subscription>>({});
   const [error, setError] = useState('');
@@ -40,7 +56,7 @@ export function SpaceSubscriptions({ spaces }: { spaces: Space[] }) {
         {status?.testCheckoutReady ? status.plan === 'PRO' || status.status === 'PAIEMENT_ECHOUE'
           ? <button className="button outline" disabled={busy !== null} onClick={() => open(space.id, 'portal')}>{busy === space.id ? 'Ouverture…' : 'Gérer sur Stripe'}</button>
           : <button className="button outline" disabled={busy !== null} onClick={() => open(space.id, 'checkout')}>{busy === space.id ? 'Ouverture…' : 'Essayer Pro à 10 € HT/mois'}</button>
-          : <p>La souscription Stripe test sera disponible après configuration du tarif et du webhook.</p>}
+          : status?.plan === 'STARTER' ? <p>Passage à Pro indisponible pour le moment : le paiement de test doit d’abord être configuré. Vous restez en Starter, sans frais.</p> : <p>La gestion de cet accès Pro de test n’est pas reliée à Stripe.</p>}
       </article>;
     })}</div>
   </section>;
