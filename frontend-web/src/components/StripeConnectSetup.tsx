@@ -25,7 +25,8 @@ export function StripeConnectSetup({ spaces }: { spaces: Space[] }) {
     setBusy(spaceId); setError('');
     try {
       const response: { url: string } = await postJson(`/api/workspace/spaces/${spaceId}/stripe-connect/onboarding`);
-      if (!response.url.startsWith('https://connect.stripe.com/')) throw new Error('Le lien Stripe est invalide.');
+      const destination = new URL(response.url);
+      if (destination.protocol !== 'https:' || !['connect.stripe.com', 'accounts.stripe.com'].includes(destination.hostname) || destination.username || destination.password) throw new Error('Le lien Stripe est invalide.');
       window.location.assign(response.url);
     } catch (cause) { setError(message(cause)); setBusy(null); }
   }

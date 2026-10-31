@@ -2,10 +2,12 @@ package be.belconnect.backend.workspace;
 
 import com.stripe.exception.StripeException;
 import com.stripe.model.Account;
-import com.stripe.model.AccountLink;
+import com.stripe.StripeClient;
+import java.util.Map;
 import com.stripe.net.RequestOptions;
-import com.stripe.param.AccountCreateParams;
+import com.stripe.param.v2.core.AccountCreateParams;
 import com.stripe.param.AccountLinkCreateParams;
+import com.stripe.model.AccountLink;
 import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
@@ -80,18 +82,28 @@ public class StripeConnectController {
       if(id==null) {
         // A stable idempotency key also covers a retry after a database rollback.
         var createOptions=RequestOptions.builder().setApiKey(secretKey)
-          .setIdempotencyKey("belconnect-space-"+spaceId+"-connect-v1").build();
-        Account account=Account.create(AccountCreateParams.builder().setType(AccountCreateParams.Type.EXPRESS).build(),createOptions);
+          .setIdempotencyKey("belconnect-space-"+spaceId+"-connect-v2").build();
+        var account=new StripeClient(secretKey).v2().core().accounts().create(AccountCreateParams.builder()
+          .setDashboard(AccountCreateParams.Dashboard.EXPRESS)
+          .setContactEmail(auth.getName())
+          .putExtraParam("identity", Map.of("country", "BE"))
+          .putExtraParam("configuration", Map.of(
+            "merchant", Map.of("capabilities", Map.of("card_payments", Map.of("requested", true))),
+            "recipient", Map.of("capabilities", Map.of("stripe_balance", Map.of("stripe_transfers", Map.of("requested", true))))))
+          .putExtraParam("defaults", Map.of("responsibilities", Map.of("fees_collector", "application", "losses_collector", "application")))
+          .putMetadata("belconnect_space_id", Long.toString(spaceId))
+          .build(),createOptions);
         id=account.getId();
         jdbc.update("UPDATE espace_organisateur SET stripe_account_id=? WHERE id=?",id,spaceId);
       }
       String returnUrl=publicUrl+"/mon-espace?stripe=return";
       String refreshUrl=publicUrl+"/mon-espace?stripe=refresh&space="+spaceId;
-      AccountLink link=AccountLink.create(AccountLinkCreateParams.builder()
+      // Accounts v2 are interoperable with v1 hosted onboarding in classic test mode.
+      var link=AccountLink.create(AccountLinkCreateParams.builder()
         .setAccount(id).setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
         .setReturnUrl(returnUrl).setRefreshUrl(refreshUrl).build(),requestOptions);
       URI target=URI.create(link.getUrl());
-      if(!"https".equals(target.getScheme()) || !"connect.stripe.com".equals(target.getHost()))
+      if(!"https".equals(target.getScheme()) || !("connect.stripe.com".equals(target.getHost()) || "accounts.stripe.com".equals(target.getHost())))
         throw error(HttpStatus.BAD_GATEWAY,"Le lien Stripe reçu est invalide.");
       return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Onboarding(link.getUrl()));
     } catch(StripeException ex) {
