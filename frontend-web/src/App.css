@@ -35,6 +35,8 @@
 .account-header .header-inner { width:min(1720px,calc(100% - 48px)); }
 .account-header #account-header-tools { display:flex; align-items:center; }
 @media (min-width:761px) {
+  .account-header { position:fixed; right:0; left:0; }
+  .account-header + main#contenu { padding-top:82px; }
   .account-header .header-inner { width:100%; max-width:none; gap:0; }
   .account-header .brand { width:260px; height:82px; flex:none; padding:0 20px; border-right:1px solid #34434e; background:#1d2a35; color:#fff; }
   .account-header .brand-symbol { background:#fff; color:#1d2a35; }
