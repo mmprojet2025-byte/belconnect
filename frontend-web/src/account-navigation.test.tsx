@@ -244,8 +244,8 @@ it('garde un seul espace comme contexte de gestion après navigation', async () 
   expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
   fireEvent.click(projectManagement.getByRole('button', { name: 'Réglages' }));
   expect(within(await screen.findByRole('navigation', { name: 'Réglages de l’espace' })).getAllByRole('button')).toHaveLength(3);
-  fireEvent.click(screen.getByRole('button', { name: 'Retour à mes espaces' }));
-  expect(window.location.search).toBe('');
+  fireEvent.click(screen.getByRole('button', { name: 'Voir tous mes espaces' }));
+  expect(window.location.search).toBe('?liste=1');
   expect(await screen.findByRole('heading', { name: 'Mes espaces' })).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Choisir un espace à gérer' })).toBeNull();
 });
@@ -281,7 +281,7 @@ it('gère et crée les activités dans une rubrique distincte des espaces et gro
 });
 
 it('montre au référent uniquement les tâches de son groupe, sans réglages d’administrateur', async () => {
-  window.history.replaceState(null, '', '/mon-espace#espaces');
+  window.history.replaceState(null, '', '/mon-espace#groupes');
   vi.stubGlobal('scrollTo', vi.fn());
   vi.stubGlobal('fetch', vi.fn((input: string) => Promise.resolve(new Response(JSON.stringify(
     input === '/api/workspace' ? { owner: false, spaces: [{ id: 7, name: 'Espace voisin', role: 'MEMBRE' }],
@@ -296,7 +296,6 @@ it('montre au référent uniquement les tâches de son groupe, sans réglages d�
   expect(screen.getByRole('link', { name: 'Voir le groupe →' }).getAttribute('href')).toBe('/groupes?groupe=17');
   expect(screen.queryByRole('button', { name: 'Gérer cet espace' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Voir mes tâches de référent' }));
   const management = within(await screen.findByRole('navigation', { name: 'Gérer Espace voisin' }));
   expect(management.queryByRole('button', { name: 'Réglages' })).toBeNull();
   expect(management.queryByRole('button', { name: 'Paiements' })).toBeNull();

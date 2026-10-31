@@ -53,6 +53,11 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
     if (view === 'management' && !selectedSpaceId) navigate('/mon-espace#espaces', true);
   }, [view, selectedSpaceId]);
   useEffect(() => {
+    if (view !== 'spaces' || !data || window.location.search.includes('liste=1')) return;
+    const manageable = data.spaces.filter(space => space.role === 'ADMINISTRATEUR' || data.groups.some(group => group.spaceId === space.id && (group.role === 'REFERENT' || group.canManageActivities || group.canManageMemberships)));
+    if (manageable.length === 1) navigate(`/mon-espace?espace=${manageable[0].id}#organisation`, true);
+  }, [view, data]);
+  useEffect(() => {
     const controller = new AbortController();
     const refresh = () => fetch('/api/workspace', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
       .then(result).then((value: Overview) => { setData(value); onOwnerChange?.(Boolean(value.owner)); onOrganizerChange?.(!value.owner && value.spaces.some(space => space.role === 'ADMINISTRATEUR')); onReferentChange?.(!value.owner && value.groups.some(group => group.role === 'REFERENT')); onActivityAccessChange?.(!value.owner && (value.spaces.some(space => space.role === 'ADMINISTRATEUR') || value.groups.some(group => group.canManageActivities))); onTaskAccessChange?.(!value.owner && (value.spaces.some(space => space.role === 'ADMINISTRATEUR') || value.groups.some(group => group.role === 'REFERENT' || group.canManageMemberships))); setError(''); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Impossible de charger votre espace.'); });
@@ -116,7 +121,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
       {selectedSuspendedSpace ? <section aria-label="Obligations d’un espace suspendu"><div className="account-section-heading"><h2>{selectedSuspendedSpace.name} · suspendu</h2></div><p className="account-notice">Seules la consultation des inscriptions et la régularisation des annulations ou remboursements restent possibles. Contactez l’assistance pour demander un réexamen.</p><ManagedActivities spaces={[{ id: selectedSuspendedSpace.id, name: selectedSuspendedSpace.name, role: 'ADMINISTRATEUR' }]} groups={[]} settlementOnly /><ProjectPublications spaceId={selectedSuspendedSpace.id} settlementOnly /></section> : !selectedSpace ? <p role="status">Retour à mes espaces…</p> : <>
       <header className="workspace-context-header">
         <div className="workspace-context-heading"><span className="workspace-context-symbol"><Icon name="users" /></span><div><span className="workspace-context-kicker">Espace organisateur</span><h2>{selectedSpace.name}</h2><p>{isSpaceAdmin ? 'Vous administrez cet espace.' : 'Vous gérez les rubriques autorisées de vos groupes.'}</p></div></div>
-        <div className="workspace-context-header-actions"><span className="workspace-context-role">{isSpaceAdmin ? 'Administrateur' : 'Référent'}</span><button className="button outline" onClick={() => { if (canLeaveActivityCreation()) navigate('/mon-espace#espaces'); }}>Retour à mes espaces</button></div>
+        <div className="workspace-context-header-actions"><span className="workspace-context-role">{isSpaceAdmin ? 'Administrateur' : 'Référent'}</span><button className="button outline" onClick={() => { if (canLeaveActivityCreation()) navigate('/mon-espace?liste=1#espaces'); }}>Voir tous mes espaces</button></div>
         <div className="workspace-context-location" aria-label="Rubrique actuelle"><span>Gestion de l’espace</span><Icon name="chevron" /><strong>{managementLabels[activeManagementSection]}</strong></div>
       </header>
       <div className="workspace-management-layout">
