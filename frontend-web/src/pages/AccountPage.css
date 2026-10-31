@@ -350,10 +350,15 @@
 .workspace-context-location .icon { width:14px; height:14px; }
 .workspace-context-location strong { color:var(--navy); font-weight:700; }
 @media(max-width:760px) { .workspace-context-header { padding:20px; grid-template-columns:1fr; }.workspace-context-header-actions { flex-wrap:wrap; }.workspace-context-location { grid-column:1; }.workspace-context-symbol { width:44px; height:44px; } }
-.workspace-context-nav { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 20px; padding:0 0 12px; border-bottom:1px solid #dce7ec; }
+.workspace-context-nav { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0 0 12px; border-bottom:1px solid #dce7ec; }
 .workspace-context-nav button { min-height:36px; padding:8px 12px; border-radius:8px; color:#345266; font-size:12px; font-weight:600; text-align:center; }
 .workspace-context-nav button:hover { background:#f1f6f7; }
 .workspace-context-nav button[aria-current=page] { background:#e9f3f2; color:#146d69; }
+.workspace-context-navigation { margin-bottom:20px; }
+.workspace-context-subnav { display:flex; flex-wrap:wrap; gap:8px; padding-top:10px; }
+.workspace-context-subnav button { min-height:32px; padding:6px 10px; border-radius:7px; color:#617583; font-size:12px; font-weight:600; }
+.workspace-context-subnav button:hover { background:#f4f7f7; }
+.workspace-context-subnav button[aria-current=page] { color:#146d69; background:#f1f7f5; }
 .workspace-context-content { min-width:0; }
 @media(max-width:1000px) { .account-page > .container { width:calc(100% - 36px); }.account-layout { grid-template-columns:210px minmax(0,1fr); gap:18px; } }
 @media(max-width:760px) { .account-layout { grid-template-columns:1fr; }.account-page > .container { width:calc(100% - 32px); }.account-sidebar { position:static; max-height:none; overflow:visible; padding:0; border:0; }.account-main { grid-column:1; grid-row:2; } }

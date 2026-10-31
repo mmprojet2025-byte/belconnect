@@ -83,17 +83,28 @@ export function MyWorkspace({ view = 'spaces', firstName = '', selectedSpaceId, 
   const canManageMembers = isSpaceAdmin || selectedGroups.some(group => group.canManageMemberships);
   const canReviewProjects = isSpaceAdmin || selectedGroups.some(group => group.role === 'REFERENT');
   const activeManagementSection = managementSection === 'memberships' && !canManageMembers || managementSection === 'announcements' && !selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT') || managementSection === 'project-reviews' && !canReviewProjects || (['project-publications', 'project-helps', 'payments', 'settings'].includes(managementSection) && !isSpaceAdmin) ? 'groups' : managementSection;
+  const managementGroup = ['groups', 'memberships', 'announcements'].includes(activeManagementSection) ? 'groups' : ['project-reviews', 'project-publications', 'project-helps'].includes(activeManagementSection) ? 'projects' : activeManagementSection;
+  const canManageAnnouncements = selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT');
   const managementLabels: Record<ManagementSection, string> = { groups: 'Groupes', memberships: 'Demandes d’adhésion', announcements: 'Annonces', 'project-reviews': 'Projets à examiner', 'project-publications': 'Publications', 'project-helps': 'Aides reçues', payments: 'Paiements', settings: 'Réglages' };
   const canLeaveActivityCreation = confirmLeavingEditor;
   const chooseSpace = (id: number) => { if (!canLeaveActivityCreation()) return; setMembersGroup(null); navigate(`/mon-espace?espace=${id}#organisation`); };
   const changeManagementSection = (section: ManagementSection) => { if (section === managementSection || !canLeaveActivityCreation() || !selectedSpace) return; window.dispatchEvent(new Event('belconnect:close-account-menu')); navigate(`/mon-espace?espace=${selectedSpace.id}&rubrique=${section === 'memberships' ? 'adhesions' : section === 'project-reviews' ? 'projets-a-examiner' : section}#organisation`); };
-  const contextNavigation = selectedSpace && <nav className="workspace-context-nav" aria-label={`Gérer ${selectedSpace.name}`}>
-    {(isSpaceAdmin || selectedGroups.length > 0) && <button aria-current={activeManagementSection === 'groups' ? 'page' : undefined} onClick={() => changeManagementSection('groups')}>Groupes</button>}
-    {canManageMembers && <button aria-current={activeManagementSection === 'memberships' ? 'page' : undefined} onClick={() => changeManagementSection('memberships')}>Demandes d’adhésion</button>}
-    {selectedGroups.some(group => group.role === 'ADMINISTRATEUR' || group.role === 'REFERENT') && <button aria-current={activeManagementSection === 'announcements' ? 'page' : undefined} onClick={() => changeManagementSection('announcements')}>Annonces</button>}
-    {canReviewProjects && <button aria-current={activeManagementSection === 'project-reviews' ? 'page' : undefined} onClick={() => changeManagementSection('project-reviews')}>Projets à examiner</button>}
-    {isSpaceAdmin && <><button aria-current={activeManagementSection === 'project-publications' ? 'page' : undefined} onClick={() => changeManagementSection('project-publications')}>Publications</button><button aria-current={activeManagementSection === 'project-helps' ? 'page' : undefined} onClick={() => changeManagementSection('project-helps')}>Aides reçues</button><button aria-current={activeManagementSection === 'payments' ? 'page' : undefined} onClick={() => changeManagementSection('payments')}>Paiements</button><button aria-current={activeManagementSection === 'settings' ? 'page' : undefined} onClick={() => changeManagementSection('settings')}>Réglages</button></>}
-  </nav>;
+  const contextNavigation = selectedSpace && <div className="workspace-context-navigation">
+    <nav className="workspace-context-nav" aria-label={`Gérer ${selectedSpace.name}`}>
+      {(isSpaceAdmin || selectedGroups.length > 0) && <button aria-current={managementGroup === 'groups' ? 'page' : undefined} onClick={() => changeManagementSection('groups')}>Groupes</button>}
+      {(canReviewProjects || isSpaceAdmin) && <button aria-current={managementGroup === 'projects' ? 'page' : undefined} onClick={() => changeManagementSection(canReviewProjects ? 'project-reviews' : 'project-publications')}>Projets</button>}
+      {isSpaceAdmin && <><button aria-current={managementGroup === 'payments' ? 'page' : undefined} onClick={() => changeManagementSection('payments')}>Paiements</button><button aria-current={managementGroup === 'settings' ? 'page' : undefined} onClick={() => changeManagementSection('settings')}>Réglages</button></>}
+    </nav>
+    {managementGroup === 'groups' && <nav className="workspace-context-subnav" aria-label="Gestion des groupes">
+      <button aria-current={activeManagementSection === 'groups' ? 'page' : undefined} onClick={() => changeManagementSection('groups')}>Mes groupes</button>
+      {canManageMembers && <button aria-current={activeManagementSection === 'memberships' ? 'page' : undefined} onClick={() => changeManagementSection('memberships')}>Demandes d’adhésion</button>}
+      {canManageAnnouncements && <button aria-current={activeManagementSection === 'announcements' ? 'page' : undefined} onClick={() => changeManagementSection('announcements')}>Annonces</button>}
+    </nav>}
+    {managementGroup === 'projects' && <nav className="workspace-context-subnav" aria-label="Gestion des projets">
+      {canReviewProjects && <button aria-current={activeManagementSection === 'project-reviews' ? 'page' : undefined} onClick={() => changeManagementSection('project-reviews')}>À examiner</button>}
+      {isSpaceAdmin && <><button aria-current={activeManagementSection === 'project-publications' ? 'page' : undefined} onClick={() => changeManagementSection('project-publications')}>Publications</button><button aria-current={activeManagementSection === 'project-helps' ? 'page' : undefined} onClick={() => changeManagementSection('project-helps')}>Aides reçues</button></>}
+    </nav>}
+  </div>;
   return <div className="workspace-sections">
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
     {(['activities', 'spaces', 'groups', 'projects', 'requests'] as const).includes(view as 'activities' | 'spaces' | 'groups' | 'projects' | 'requests') && <div className="account-welcome workspace-section-banner">
