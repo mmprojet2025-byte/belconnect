@@ -45,6 +45,11 @@ export function StripeConnectSetup({ spaces }: { spaces: Space[] }) {
   return <section aria-labelledby="stripe-connect-title">
     <div className="account-section-heading"><h2 id="stripe-connect-title">Encaissements de l’espace</h2></div>
     <p className="workspace-description">Le compte Stripe de l’espace sert aux activités payantes, aux participations payantes aux projets et aux dons. Belconnect prélève 8 % avec Starter ou 5 % avec Pro sur les transactions concernées.</p>
+    <div className="workspace-description">
+      <p><strong>Un compte de paiement par espace.</strong> Chaque administrateur connecte le compte de son espace. Les paiements de ses activités et projets sont destinés à cet organisateur, après la commission de Belconnect ; ils ne sont pas versés aux autres espaces.</p>
+      <p><strong>Comment commencer ?</strong> Cliquez sur « Connecter Stripe », complétez le formulaire sur Stripe, puis revenez ici. Si des informations manquent, « Continuer sur Stripe » permet de reprendre la configuration.</p>
+      <p><strong>Mode test uniquement.</strong> Aucun argent réel n’est encaissé. Connecter Stripe ne souscrit pas à Pro : l’abonnement et la réception des paiements sont deux démarches distinctes.</p>
+    </div>
     {error && <p className="draft-error" role="alert">{error}</p>}
     <div className="workspace-grid">{spaces.map(space => {
       const status = statuses[space.id];
