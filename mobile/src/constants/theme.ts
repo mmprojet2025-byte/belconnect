@@ -29,6 +29,7 @@ export const Colors = {
     accent: '#89D9AF',
   },
   brand: '#176B52',
+  brandDark: '#0F4F3C',
   brandSoft: '#E3F2E9',
   orange: '#B84E0B',
   orangeSoft: '#FFF0E3',

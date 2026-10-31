@@ -32,7 +32,7 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
-  button: { width: 44, height: 44, marginRight: 12, borderWidth: 1, borderColor: Colors.brand, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  button: { width: 44, height: 44, marginRight: 12, borderWidth: 1, borderColor: Colors.brandDark, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 2, right: 0, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 3, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#FFFFFF', fontSize: 10, lineHeight: 14 },
 });
