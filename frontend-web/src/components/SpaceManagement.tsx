@@ -20,12 +20,12 @@ const message = (e: unknown) => e instanceof Error ? e.message : 'Impossible de 
 const load = (path: string, signal?: AbortSignal) => fetch(`/api/workspace${path}`, { credentials: 'same-origin', cache: 'no-store', signal }).then(result);
 const invitationLink = (code: string) => `${import.meta.env.VITE_INVITATION_ORIGIN || window.location.origin}/groupes?invitation=${code}`;
 
-function SpaceFields({ value, onChange }: { value: SpaceContent; onChange: (value: SpaceContent) => void }) {
+function SpaceFields({ value, onChange, opening = false }: { value: SpaceContent; onChange: (value: SpaceContent) => void; opening?: boolean }) {
   const locale = useLocale();
   return <>
     <label>{tr(locale, 'Nom de l’espace', 'Space name', 'Naam van de ruimte')}<input required minLength={3} maxLength={180} value={value.name} onChange={e => onChange({ ...value, name: e.target.value })} /></label>
     <label>{tr(locale, 'Type d’organisateur', 'Organiser type', 'Type organisator')}<select value={value.type} onChange={e => onChange({ ...value, type: e.target.value })}>{Object.entries(spaceTypes).map(([key, text]) => <option value={key} key={key}>{key === 'ASSOCIATION' ? tr(locale, 'Association', 'Association', 'Vereniging') : key === 'PARTICULIER' ? tr(locale, 'Particulier', 'Individual', 'Particulier') : tr(locale, text, 'Organiser', 'Organisator')}</option>)}</select></label>
-    <label>{tr(locale, 'Présentation', 'Description', 'Beschrijving')}<textarea rows={4} maxLength={3000} value={value.description} onChange={e => onChange({ ...value, description: e.target.value })} /></label>
+    <label>{tr(locale, opening ? 'Présentation de votre espace' : 'Présentation', 'Description', 'Beschrijving')}<textarea rows={4} required={opening} maxLength={3000} placeholder={opening ? 'Qui êtes-vous ? À qui s’adresse cet espace ? Quels groupes, activités ou projets souhaitez-vous organiser, et dans quelle ville ?' : undefined} value={value.description} onChange={e => onChange({ ...value, description: e.target.value })} /></label>
   </>;
 }
 
@@ -44,9 +44,9 @@ function OpeningForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
   }
   return <form className="draft-editor" onSubmit={submit} onChange={() => setDirty(true)}>
     <h3>{tr(locale, 'Demander un espace organisateur', 'Request an organiser space', 'Een organisatieruimte aanvragen')}</h3>
-    <p>{tr(locale, 'Présentez votre organisation. Le propriétaire de Belconnect examine la demande. Si elle est approuvée, vous devenez administrateur de cet espace et pouvez créer vos groupes.', 'Describe your organisation. Belconnect’s owner reviews the request. If approved, you become this space’s administrator and can create groups.', 'Beschrijf uw organisatie. De eigenaar van Belconnect beoordeelt de aanvraag. Na goedkeuring wordt u beheerder van deze ruimte en kunt u groepen aanmaken.')}</p>
+    <p>{tr(locale, 'Décrivez l’espace que vous souhaitez ouvrir. Indiquez son nom, votre type d’organisateur et votre projet. Le propriétaire de Belconnect examinera la demande avant toute ouverture.', 'Describe the space you want to open. Belconnect’s owner reviews the request before it opens.', 'Beschrijf de ruimte die u wilt openen. De eigenaar van Belconnect beoordeelt de aanvraag vóór de opening.')}</p>
     <p className="workspace-description">{tr(locale, 'Cette approbation ne vérifie pas votre identité professionnelle et n’autorise pas encore les encaissements. Avant tout paiement réel, l’identité de l’organisateur et son compte Stripe devront être vérifiés séparément.', 'Approval does not verify your business identity or authorise payments. Before any live payment, the organiser’s identity and Stripe account must be checked separately.', 'Goedkeuring verifieert uw professionele identiteit niet en staat betalingen nog niet toe. Vóór echte betalingen moeten de identiteit van de organisator en diens Stripe-account afzonderlijk worden gecontroleerd.')}</p>
-    <fieldset disabled={busy}><SpaceFields value={content} onChange={setContent} /><div className="management-actions"><button className="button coral">{busy ? 'Envoi…' : 'Envoyer la demande'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Fermer cette demande et abandonner les saisies non envoyées ?')) onCancel(); }}>Annuler</button></div></fieldset>
+    <fieldset disabled={busy}><SpaceFields value={content} onChange={setContent} opening /><div className="management-actions"><button className="button coral">{busy ? 'Envoi…' : 'Envoyer la demande'}</button><button type="button" className="button outline" onClick={() => { if (window.confirm('Fermer cette demande et abandonner les saisies non envoyées ?')) onCancel(); }}>Annuler</button></div></fieldset>
     {error && <p className="draft-error" role="alert">{error} Vos saisies sont conservées.</p>}
   </form>;
 }
