@@ -114,7 +114,7 @@ function GroupChatContent({ id, token }: { id: string | undefined; token: string
 const styles = StyleSheet.create({
   screen: { flex: 1 }, safe: { flex: 1 }, chat: { flex: 1, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   back: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, paddingHorizontal: Spacing.three },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: 10, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderColor: Colors.border },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: 10, backgroundColor: Colors.orangeSoft, borderBottomWidth: 1, borderColor: Colors.orangeBorder },
   headerCopy: { flex: 1 }, refresh: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   error: { color: '#B42318', padding: Spacing.three }, errorBanner: { color: '#B42318', paddingHorizontal: Spacing.three, paddingVertical: 8 },
   messages: { flex: 1 }, messageContent: { padding: Spacing.three, gap: Spacing.two, flexGrow: 1 }, more: { alignSelf: 'center' },
