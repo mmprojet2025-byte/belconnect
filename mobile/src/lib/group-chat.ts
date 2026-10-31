@@ -13,6 +13,7 @@ export type GroupMessage = {
   id: number;
   senderId: number;
   senderName: string;
+  senderAvatarCode: string | null;
   content: string;
   createdAt: string;
   mine: boolean;

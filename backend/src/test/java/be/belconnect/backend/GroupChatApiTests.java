@@ -44,6 +44,7 @@ class GroupChatApiTests {
         Account admin = register("chat-admin-" + marker), member = register("chat-member-" + marker), outsider = register("chat-outsider-" + marker);
         Long space = null, group = null;
         try {
+            assertEquals(200, call("PUT", "/api/mobile/auth/avatar", member.token(), Map.of("avatarCode", "coral")).statusCode());
             space = jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",
                 Long.class, "Discussion test " + marker, admin.id());
             jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR'),(?,?,'MEMBRE')",
@@ -59,10 +60,12 @@ class GroupChatApiTests {
             var payload = Map.of("requestId", UUID.randomUUID(), "content", "Bonjour au groupe !");
             var sent = call("POST", base + "/items", member.token(), payload);
             assertEquals(201, sent.statusCode(), sent.body());
+            assertEquals("coral", json.readTree(sent.body()).get("senderAvatarCode").asText());
             long messageId = json.readTree(sent.body()).get("id").asLong();
             assertEquals(messageId, json.readTree(call("POST", base + "/items", member.token(), payload).body()).get("id").asLong());
             assertEquals(409, call("POST", base + "/items", member.token(), Map.of("requestId", payload.get("requestId"), "content", "Autre")).statusCode());
             assertEquals("Bonjour au groupe !", json.readTree(call("GET", base + "/items", admin.token(), null).body()).get(0).get("content").asText());
+            assertEquals("coral", json.readTree(call("GET", base + "/items", admin.token(), null).body()).get(0).get("senderAvatarCode").asText());
             var adminList = json.readTree(call("GET", "/api/mobile/group-messages/conversations", admin.token(), null).body());
             assertEquals(1, adminList.get(0).get("unreadCount").asInt());
             assertEquals(204, call("POST", base + "/read", admin.token(), Map.of("lastSeenId", messageId)).statusCode());

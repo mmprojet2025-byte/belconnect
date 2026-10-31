@@ -33,7 +33,7 @@ public class GroupChatController {
     public record Read(@NotNull Long lastSeenId) {}
     public record GroupConversation(long groupId, String groupName, String spaceName, String lastMessage,
                                     OffsetDateTime lastAt, long unreadCount) {}
-    public record Message(long id, long senderId, String senderName, String content, OffsetDateTime createdAt, boolean mine) {}
+    public record Message(long id, long senderId, String senderName, String senderAvatarCode, String content, OffsetDateTime createdAt, boolean mine) {}
 
     private long user(Authentication auth) {
         if (auth == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Veuillez vous reconnecter.");
@@ -63,7 +63,7 @@ public class GroupChatController {
 
     private Message map(java.sql.ResultSet r, int n) throws java.sql.SQLException {
         return new Message(r.getLong("id"), r.getLong("expediteur_id"),
-            r.getString("prenom") + " " + r.getString("nom"), r.getString("contenu"),
+            r.getString("prenom") + " " + r.getString("nom"), r.getString("avatar_code"), r.getString("contenu"),
             r.getObject("date_creation", OffsetDateTime.class), r.getBoolean("mine"));
     }
 
@@ -98,7 +98,7 @@ public class GroupChatController {
         long actor = user(auth);
         member(groupId, actor, false);
         var items = jdbc.query("""
-            SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,m.expediteur_id=? AS mine
+            SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,u.avatar_code,m.expediteur_id=? AS mine
             FROM message_groupe m JOIN utilisateur u ON u.id=m.expediteur_id
             WHERE m.groupe_id=? AND (CAST(? AS BIGINT) IS NULL OR m.id<?)
             ORDER BY m.id DESC LIMIT 30
@@ -121,7 +121,7 @@ public class GroupChatController {
             if (old.groupId() != groupId || !old.content().equals(content))
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Cette demande a déjà été utilisée.");
             return jdbc.queryForObject("""
-                SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,m.expediteur_id=? AS mine
+                SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,u.avatar_code,m.expediteur_id=? AS mine
                 FROM message_groupe m JOIN utilisateur u ON u.id=m.expediteur_id WHERE m.id=?
                 """, this::map, actor, old.id());
         }
@@ -131,7 +131,7 @@ public class GroupChatController {
         long id = jdbc.queryForObject("INSERT INTO message_groupe(groupe_id,expediteur_id,contenu,demande) VALUES (?,?,?,?) RETURNING id",
             Long.class, groupId, actor, content, body.requestId());
         return jdbc.queryForObject("""
-            SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,m.expediteur_id=? AS mine
+            SELECT m.id,m.expediteur_id,m.contenu,m.date_creation,u.prenom,u.nom,u.avatar_code,m.expediteur_id=? AS mine
             FROM message_groupe m JOIN utilisateur u ON u.id=m.expediteur_id WHERE m.id=?
             """, this::map, actor, id);
     }
