@@ -294,7 +294,12 @@ it('montre au référent uniquement les tâches de son groupe, sans réglages d�
   expect(screen.getByRole('link', { name: 'Demandes à examiner' })).toBeTruthy();
   expect(await screen.findByText('Référent du groupe')).toBeTruthy();
   expect(screen.getByText('Projets et annonces · Activités')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Voir le groupe →' }).getAttribute('href')).toBe('/groupes?groupe=17');
+  expect(screen.getByRole('button', { name: 'Voir les membres →' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Voir les membres →' }));
+  expect(await screen.findByRole('region', { name: 'Membres de Jardin du quartier' })).toBeTruthy();
+  expect(window.location.pathname).toBe('/mon-espace');
+  fireEvent.click(screen.getByRole('button', { name: '← Mes groupes' }));
+  expect(screen.getByRole('button', { name: 'Voir les membres →' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Gérer cet espace' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
   const management = within(await screen.findByRole('navigation', { name: 'Gérer Espace voisin' }));
