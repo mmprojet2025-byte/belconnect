@@ -9,6 +9,7 @@ type PaidAttempt = { id: number; activityId: string; title: string; startsAt: st
 export function MyBookings({ userId }: { userId: number }) {
   const activities = useActivities();
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
@@ -55,12 +56,13 @@ export function MyBookings({ userId }: { userId: number }) {
     b.paymentStatus === "REMBOURSEMENT_EN_COURS" ? "Remboursement en cours" :
     b.activityCancelled ? "Remboursement à vérifier" :
     `${new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" }).format(b.amountCents / 100)} payé`;
-  const visible = bookings?.filter(b => filter === "all" || group(b) === filter);
+  const matchesSearch = (title: string) => title.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr'));
+  const visible = bookings?.filter(b => (filter === "all" || group(b) === filter) && matchesSearch(b.title));
   const unlinkedPayments = paidAttempts?.filter(payment => payment.registrationId == null) ?? [];
   const paymentGroup = (payment: PaidAttempt) => ['ECHOUE', 'EXPIRE', 'REMBOURSE'].includes(payment.status) ? 'cancelled' : new Date(payment.startsAt).getTime() > now ? 'upcoming' : 'past';
-  const visiblePayments = unlinkedPayments.filter(payment => filter === 'all' || paymentGroup(payment) === filter);
+  const visiblePayments = unlinkedPayments.filter(payment => (filter === 'all' || paymentGroup(payment) === filter) && matchesSearch(payment.title));
   const demoGroup = (activityId: string) => { const activity = activities.find(a => a.id === activityId); return activity && new Date(activity.startsAt).getTime() > now ? 'upcoming' : 'past'; };
-  const visibleDemos = demoPayments.filter(payment => filter === 'all' || demoGroup(payment.activityId) === filter);
+  const visibleDemos = demoPayments.filter(payment => (filter === 'all' || demoGroup(payment.activityId) === filter) && matchesSearch(activities.find(activity => activity.id === payment.activityId)?.title ?? payment.activityId));
   const count = (id: string) => (bookings?.filter(b => id === 'all' || group(b) === id).length ?? 0) + unlinkedPayments.filter(payment => id === 'all' || paymentGroup(payment) === id).length + demoPayments.filter(payment => id === 'all' || demoGroup(payment.activityId) === id).length;
   const paymentStatus = (payment: PaidAttempt) => payment.status === 'EN_ATTENTE' ? 'Paiement en attente de confirmation' : payment.status === 'PAYE' ? 'Paiement confirmé · inscription en cours de synchronisation' : payment.status === 'REMBOURSEMENT_EN_COURS' ? 'Remboursement en cours' : payment.status === 'REMBOURSE' ? 'Remboursé' : 'Paiement non abouti';
   return <section className="account-bookings" id="mes-inscriptions" aria-label="Mes inscriptions">
@@ -68,10 +70,11 @@ export function MyBookings({ userId }: { userId: number }) {
     <div className="account-filters" role="group" aria-label="Filtrer les inscriptions">
       {[["all","Toutes"],["upcoming","À venir"],["past","Passées"],["cancelled","Annulées / échouées"]].map(([id,label]) => <button key={id} aria-pressed={filter === id} disabled={busyId !== null} onClick={() => {setFilter(id);setEditId(null);setConfirmId(null);setActionError("");}}>{label}<span>{bookings && paidAttempts ? count(id) : "—"}</span></button>)}
     </div>
+    <label className="account-participation-search">Rechercher une activité<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nom de l’activité" /></label>
     <p className={notice ? "account-notice" : "account-notice-empty"} ref={noticeRef} tabIndex={-1} role="status">{notice}</p>
     {actionError && <p role="alert">{actionError}</p>}
     {!notice && new URLSearchParams(window.location.search).get("inscription") === "confirmee" && <p className="account-notice" role="status">Votre inscription a bien été enregistrée.</p>}
-    {error ? <p role="alert">{error} <button className="text-link" onClick={() => {setError(""); setAttempt(v => v + 1);}}>Réessayer</button></p> : !bookings || !paidAttempts ? <p role="status">Chargement…</p> : visible?.length === 0 && visiblePayments.length === 0 && visibleDemos.length === 0 ? <div className="account-empty"><span><Icon name="calendar" /></span><h3>{filter === "all" ? "Aucune inscription" : "Aucune inscription dans cette catégorie"}</h3><p>{filter === "all" ? "Vos inscriptions gratuites et vos paiements Stripe confirmés apparaissent ici. Les simulations payantes effectuées depuis ce navigateur sont affichées séparément, sans réservation réelle." : "Vos inscriptions apparaîtront ici au fil de vos découvertes."}</p><a className="button navy" href="/activites">Découvrir les activités <Icon name="arrow" /></a></div> : <>{visible?.map(b => <article key={b.id} className={`account-booking-card ${b.status === "ANNULEE" ? "is-cancelled" : ""}`}>
+    {error ? <p role="alert">{error} <button className="text-link" onClick={() => {setError(""); setAttempt(v => v + 1);}}>Réessayer</button></p> : !bookings || !paidAttempts ? <p role="status">Chargement…</p> : visible?.length === 0 && visiblePayments.length === 0 && visibleDemos.length === 0 ? <div className="account-empty"><span><Icon name="calendar" /></span><h3>{search.trim() ? "Aucun résultat pour cette recherche" : filter === "all" ? "Aucune inscription" : "Aucune inscription dans cette catégorie"}</h3><p>{search.trim() ? "Essayez un autre nom d’activité ou effacez la recherche." : filter === "all" ? "Vos inscriptions gratuites et vos paiements Stripe confirmés apparaissent ici. Les simulations payantes effectuées depuis ce navigateur sont affichées séparément, sans réservation réelle." : "Vos inscriptions apparaîtront ici au fil de vos découvertes."}</p>{!search.trim() && <a className="button navy" href="/activites">Découvrir les activités <Icon name="arrow" /></a>}</div> : <>{visible?.map(b => <article key={b.id} className={`account-booking-card ${b.status === "ANNULEE" ? "is-cancelled" : ""}`}>
       <div className="account-booking-top">
       <span className="account-booking-image" aria-hidden="true">{activities.find(a => a.id === b.activityId)?.image ? <img src={`/images/${activities.find(a => a.id === b.activityId)?.image}.jpg`} alt="" /> : <Icon name="ticket" />}</span>
       <div className="account-booking-info"><div className="account-card-meta"><span className={`account-status status-${group(b)}`}>{b.activityCancelled ? "Activité annulée" : b.status === "ANNULEE" ? "Annulée" : group(b) === "past" ? "Passée" : "Confirmée"}</span><span className="account-reference">Réf. #{b.id}</span></div>

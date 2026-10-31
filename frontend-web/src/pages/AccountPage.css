@@ -216,6 +216,9 @@
 .account-filters button span { display:grid; place-items:center; min-width:19px; height:19px; padding:0 4px; background:#e9eef0; border-radius:5px; font-size:10px; }
 .account-filters button[aria-pressed=true] span { background:#ffffff26; }
 .account-filters button:hover:not([aria-pressed=true]) { background:#e9eef0; }
+.account-participation-search { display:grid; gap:7px; max-width:360px; margin:-6px 0 20px; color:#405768; font-size:13px; font-weight:600; }
+.account-participation-search input { width:100%; min-height:42px; border:1px solid #d9e2e5; border-radius:9px; padding:9px 12px; background:#fff; color:var(--navy); font:inherit; }
+.account-participation-search input:focus-visible { outline:2px solid #18796c; outline-offset:2px; }
 .account-booking-card { background:white; border:1px solid #e1e8ec; border-radius:16px; padding:22px; margin-bottom:18px; box-shadow:0 3px 12px #16374a03; }
 .account-booking-top { display:flex; gap:20px; }
 .account-booking-image { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:112px; height:128px; border-radius:10px; overflow:hidden; background:#eef4f3; color:#297c74; }
