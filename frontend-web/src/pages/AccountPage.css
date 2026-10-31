@@ -96,6 +96,20 @@
 .account-profile-popover a,.account-profile-popover button { display:block; width:100%; padding:10px; border-radius:8px; text-align:left; font-size:13px; font-weight:650; }
 .account-profile-popover a:hover,.account-profile-popover button:hover { background:#e9f3f2; }
 .account-profile-popover button { border-top:1px solid #e8edef; }
+.account-profile-identity { display:grid; gap:3px; padding:2px 2px 10px; border-bottom:1px solid #e8edef; }
+.account-profile-heading { display:flex; align-items:center; gap:16px; padding-bottom:20px; border-bottom:1px solid #e3ebee; }
+.account-profile-heading h2 { margin:3px 0; }
+.account-profile-heading p { margin:0; overflow-wrap:anywhere; }
+.account-profile-avatar { display:grid; place-items:center; flex:none; width:52px; height:52px; border-radius:14px; background:#e9f3f2; color:#167570; font-weight:750; }
+.account-profile-section,.account-settings-section { display:grid; gap:10px; padding:20px 0; border-bottom:1px solid #e3ebee; }
+.account-profile-section h3,.account-settings-section h3 { margin:0; font-size:18px; }
+.account-profile-section p,.account-settings-section p { margin:0; color:#617583; line-height:1.55; }
+.account-settings-link,.account-settings-section a { color:#126b62; font-weight:650; }
+.account-settings-main { display:grid; gap:6px; }
+.account-delete-form { display:grid; gap:12px; max-width:380px; }
+.account-delete-form label { display:grid; gap:6px; font-weight:650; }
+.account-delete-form input { min-height:42px; border:1px solid #cbd9e1; border-radius:8px; padding:9px 11px; font:inherit; }
+.account-settings-danger { border-bottom:0; }
 .work-queue-list { display:grid; gap:12px; }
 .work-queue-list .workspace-card { display:grid; justify-items:start; gap:8px; }
 .work-queue-list .workspace-card h3,.work-queue-list .workspace-card p { margin:0; }

@@ -26,6 +26,20 @@ class AuthApiTests {
   if(csrf) { var token=json.readTree(get("csrf").body()); builder.header(token.get("headerName").asText(),token.get("token").asText()); }
   return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build(),HttpResponse.BodyHandlers.ofString());
  }
+ @Test void webAccountDeletionRequiresPasswordAndEndsSession() throws Exception {
+  String email="web-delete-"+UUID.randomUUID()+"@example.com", password="Web-delete-password-123";
+  long id=0;
+  try {
+   var created=post("register",Map.of("email",email,"password",password,"firstName","Alex","lastName","Test"),true);
+   assertEquals(201,created.statusCode(),created.body());
+   id=json.readTree(created.body()).get("id").asLong();
+   assertEquals(403,post("delete",Map.of("password","wrong"),true).statusCode());
+   assertEquals(200,get("me").statusCode());
+   assertEquals(204,post("delete",Map.of("password",password),true).statusCode());
+   assertEquals(401,get("me").statusCode());
+   assertEquals("DESACTIVE",jdbc.queryForObject("SELECT statut FROM utilisateur WHERE id=?",String.class,id));
+  } finally { if(id>0) jdbc.update("DELETE FROM utilisateur WHERE id=?",id); }
+ }
  @Test void completeAccountLifecycleAndSecurity() throws Exception {
   String email="auth-test-"+UUID.randomUUID()+"@example.com", password="Test-only-"+UUID.randomUUID();
   var registration=Map.of("email",email.toUpperCase(Locale.ROOT),"password",password,"firstName","Camille","lastName","Test");

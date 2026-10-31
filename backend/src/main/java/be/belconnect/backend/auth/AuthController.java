@@ -40,6 +40,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private final AccountRepository accounts;
+    private final MobileAuthController accountDeletion;
     private final PasswordEncoder passwords;
     private final HttpSessionSecurityContextRepository contexts;
     private final JdbcTemplate jdbc;
@@ -51,11 +52,11 @@ public class AuthController {
     private final String dummyHash;
     private final ConcurrentHashMap<String, Window> attempts = new ConcurrentHashMap<>();
     private record Window(long start, int count) {}
-    public AuthController(AccountRepository accounts, PasswordEncoder passwords, HttpSessionSecurityContextRepository contexts,
+    public AuthController(AccountRepository accounts, MobileAuthController accountDeletion, PasswordEncoder passwords, HttpSessionSecurityContextRepository contexts,
             JdbcTemplate jdbc, TransactionTemplate transactions, ObjectProvider<MailSender> mailProvider,
             @Value("${MAIL_FROM:}") String mailFrom,
             @Value("${APP_PUBLIC_URL:http://localhost:5173}") String publicUrl) {
-        this.accounts = accounts; this.passwords = passwords; this.contexts = contexts;
+        this.accounts = accounts; this.accountDeletion = accountDeletion; this.passwords = passwords; this.contexts = contexts;
         this.jdbc = jdbc; this.transactions = transactions; this.mailProvider = mailProvider;
         this.mailFrom = mailFrom; this.publicUrl = publicUrl.replaceAll("/+$", "");
         this.dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
@@ -107,6 +108,14 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous reconnecter.");
         }
         return account.profile();
+    }
+
+    @PostMapping("/delete") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(Authentication authentication, @Valid @RequestBody MobileAuthController.DeleteAccount body,
+                              HttpServletRequest request) {
+        accountDeletion.deleteAccount(authentication, body);
+        if (request.getSession(false) != null) request.getSession(false).invalidate();
+        SecurityContextHolder.clearContext();
     }
 
     @PostMapping("/profile")
