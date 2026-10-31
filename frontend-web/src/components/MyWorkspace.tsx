@@ -48,6 +48,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', userId, selectedS
   const [openGroupId, setOpenGroupId] = useState<number | null>(null);
   const [activityView, setActivityView] = useState<'organized' | 'registrations'>('organized');
   const [spaceView, setSpaceView] = useState<'all' | 'managed' | 'joined'>('all');
+  const [requestView, setRequestView] = useState<'form' | 'tracking'>('form');
   const [organizedActivityPath, setOrganizedActivityPath] = useState<string[]>(['En cours et à venir']);
   useEffect(() => { if (createActivity) setActivityView('organized'); }, [createActivity]);
   const [settingsDetailTab, setSettingsDetailTab] = useState<'information' | 'admins' | 'members'>('information');
@@ -118,10 +119,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', userId, selectedS
   </div>;
   return <div className="workspace-sections">
     {error && <p className="draft-error" role="alert">{error} <button className="text-link" onClick={() => setAttempt(n => n + 1)}>Actualiser</button></p>}
-    {view === 'requests' && <div className="account-welcome workspace-section-banner">
-      <span className="account-welcome-icon"><Icon name="document" /></span>
-      <div><h2>Mes demandes</h2><p>Demandez un espace organisateur et suivez la réponse de Belconnect.</p></div>
-    </div>}
+    {view === 'requests' && <header className="workspace-context-header"><div className="workspace-context-heading"><span className="workspace-context-symbol"><Icon name="document" /></span><div><span className="workspace-context-kicker">Mon espace</span><h2>Mes demandes</h2><p>Demandez un espace organisateur et suivez la réponse de Belconnect.</p></div></div><nav className="workspace-context-location" aria-label="Chemin des demandes"><span>Mon espace</span><Icon name="chevron" /><span>Mes demandes</span><Icon name="chevron" /><strong aria-current="page">{data.owner ? 'Demandes à examiner' : requestView === 'form' ? 'Fiche de demande' : 'Suivi demande'}</strong></nav></header>}
     {view === 'dashboard' && <WorkspaceDashboard data={data} firstName={firstName} refreshToken={attempt} onRefresh={() => setAttempt(value => value + 1)} />}
     {view === 'inbox' && (data.owner ? <SpaceRequests owner onChanged={() => setAttempt(n => n + 1)} mode="inbox" /> : manageableSpaces.length ? <WorkQueue /> : <div className="account-empty"><h3>Aucune tâche de gestion</h3><p>Les décisions confiées à un administrateur ou à un référent apparaîtront ici.</p></div>)}
     {['owner', 'owner-spaces'].includes(view) && <div className="workspace-intro"><h2>{view === 'owner-spaces' ? 'Espaces organisateurs' : 'Pilotage de la plateforme'}</h2><p>{view === 'owner' ? 'Indicateurs de la plateforme en mode test.' : 'Consultez les espaces et intervenez en cas de signalement.'}</p></div>}
@@ -174,7 +172,7 @@ export function MyWorkspace({ view = 'spaces', firstName = '', userId, selectedS
     </div>}
     {view === 'requests' && <div className="workspace-panel">
       {!data.owner && <p className="workspace-description">Starter permet 1 espace et jusqu’à 2 groupes ; Pro permet jusqu’à 2 espaces et 4 groupes par espace.</p>}
-      <SpaceRequests owner={data.owner} mode={data.owner ? 'all' : 'combined'} onChanged={() => setAttempt(n => n + 1)} />
+      <SpaceRequests owner={data.owner} mode={data.owner ? 'all' : 'combined'} onTabChange={setRequestView} onChanged={() => setAttempt(n => n + 1)} />
     </div>}
     {view === 'projects' && <div className="workspace-panel">
     <section aria-labelledby="my-projects-title">

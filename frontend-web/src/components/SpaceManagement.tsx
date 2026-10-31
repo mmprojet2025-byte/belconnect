@@ -161,7 +161,7 @@ function ReopenRequestButton({ request, onDone }: { request: Opening; onDone: ()
   }}><fieldset disabled={busy}><label>Motif du réexamen<input required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label><div className="management-actions"><button className="button coral">Remettre en examen</button><button type="button" className="button outline" onClick={() => setOpen(false)}>Annuler</button></div></fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
 }
 
-export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boolean; onChanged: () => void; mode?: 'all' | 'combined' | 'inbox' }) {
+export function SpaceRequests({ owner, onChanged, onTabChange, mode = 'all' }: { owner: boolean; onChanged: () => void; onTabChange?: (tab: 'form' | 'tracking') => void; mode?: 'all' | 'combined' | 'inbox' }) {
   const [mine, setMine] = useState<Opening[]>([]);
   const [queue, setQueue] = useState<Opening[]>([]);
   const [quota, setQuota] = useState<SpaceQuota | null>(null);
@@ -170,6 +170,7 @@ export function SpaceRequests({ owner, onChanged, mode = 'all' }: { owner: boole
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(mode === 'combined');
   const [requestTab, setRequestTab] = useState<'form' | 'tracking'>('form');
+  useEffect(() => { onTabChange?.(requestTab); }, [onTabChange, requestTab]);
   const [historyLimit, setHistoryLimit] = useState(10);
   const [historyQuery, setHistoryQuery] = useState('');
   const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
