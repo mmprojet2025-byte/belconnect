@@ -3,6 +3,14 @@
 .workspace-dashboard { display:grid; gap:26px; width:100%; max-width:1100px; margin-inline:auto; }
 .workspace-dashboard--organizer { max-width:1400px; grid-template-columns:minmax(0,1fr) 282px; align-items:start; column-gap:24px; }
 .workspace-dashboard--single { max-width:1100px; grid-template-columns:minmax(0,1fr); }
+.workspace-dashboard--member { max-width:1000px; }
+.dashboard-member-overview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.dashboard-member-overview .dashboard-panel { min-width:0; }
+.dashboard-member-overview h2 { margin:8px 0 16px; font-size:20px; }
+.dashboard-member-overview h3 { margin:0 0 8px; font-size:17px; }
+.dashboard-member-overview p { margin:0 0 18px; color:#617583; font-size:13px; line-height:1.55; }
+.dashboard-member-project-link { justify-self:start; color:#147975; font-size:13px; font-weight:700; }
+@media(max-width:700px) { .dashboard-member-overview { grid-template-columns:1fr; } }
 .workspace-dashboard--organizer .dashboard-hero { grid-column:1 / -1; }
 .dashboard-main,.dashboard-rail { display:grid; gap:24px; min-width:0; }
 .dashboard-rail { gap:14px; }

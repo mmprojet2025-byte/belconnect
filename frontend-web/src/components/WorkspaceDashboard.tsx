@@ -77,6 +77,18 @@ export function WorkspaceDashboard({ data, firstName, onRefresh, refreshToken = 
   }, [data.owner, manager, data]);
 
   const tasks = queue ? queue.openings + queue.memberships + queue.projects : null;
+  if (!data.owner && !manager) return <div className="workspace-dashboard workspace-dashboard--member">
+    <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · Membre</span><h2>Bonjour {firstName} !</h2><p>Votre prochain rendez-vous et vos groupes, au même endroit.</p></header>
+    <div className="dashboard-member-overview">
+      <section className="dashboard-panel" aria-labelledby="member-next-booking"><span className="dashboard-eyebrow">À retenir</span><h2 id="member-next-booking">Mon prochain rendez-vous</h2>
+        {bookingError ? <p>Vos inscriptions sont momentanément indisponibles.</p> : bookingLoading ? <p role="status">Chargement de vos inscriptions…</p> : nextBooking ? <><h3>{nextBooking.title}</h3><p>{new Intl.DateTimeFormat('fr-BE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(nextBooking.startsAt))} · {nextBooking.quantity} place{nextBooking.quantity > 1 ? 's' : ''}</p><a className="text-link" href="/mon-espace#mes-inscriptions">Voir mon inscription →</a></> : <><p>Vous n’avez pas d’activité réservée à venir.</p><a className="text-link" href="/activites">Découvrir les activités →</a></>}
+      </section>
+      <section className="dashboard-panel" aria-labelledby="member-groups"><span className="dashboard-eyebrow">Mes liens</span><h2 id="member-groups">Mes groupes</h2>
+        {data.groups.length ? <><ul className="dashboard-member-groups">{data.groups.slice(0, 2).map(group => <li key={group.id}><strong>{group.name}</strong><span>{data.spaces.find(space => space.id === group.spaceId)?.name ?? 'Espace organisateur'}</span></li>)}</ul><a className="text-link" href="/mon-espace#groupes">Voir mes groupes →</a></> : <><p>Vous n’avez pas encore rejoint de groupe.</p><a className="text-link" href="/groupes">Découvrir les groupes →</a></>}
+      </section>
+    </div>
+    <a className="dashboard-member-project-link" href="/mon-espace#participations-projets">Retrouver mes participations aux projets →</a>
+  </div>;
   return <div className={`workspace-dashboard workspace-dashboard--organizer${organizer ? ' workspace-dashboard--single' : ''}`}>
     <header className="dashboard-hero"><span className="dashboard-eyebrow">Belconnect · {role}</span><h2>Bonjour {firstName} !</h2><p>{data.owner ? 'Suivez les espaces et prenez les décisions qui relèvent de Belconnect.' : manager ? 'Retrouvez vos espaces et les demandes qui attendent votre décision.' : 'Retrouvez vos groupes, vos projets et vos participations au même endroit.'}</p></header>
     <div className="dashboard-main"><div className="account-section-heading"><h2>Vue d’ensemble</h2><button className="text-link" type="button" onClick={onRefresh}>Actualiser</button></div>
