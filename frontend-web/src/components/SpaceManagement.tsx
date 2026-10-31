@@ -54,17 +54,29 @@ function OpeningForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
 function RequestDecision({ request, onDone }: { request: Opening; onDone: () => void }) {
   const [decision, setDecision] = useState<'APPROUVEE' | 'REFUSEE' | null>(null);
   const [reason, setReason] = useState('');
+  const [checks, setChecks] = useState([false, false, false]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const reviewItems = [
+    'Le nom, le type et la présentation de l’espace sont cohérents.',
+    'La demande explique les activités ou projets envisagés et leur public.',
+    'Aucun indice manifeste d’usurpation ou de contenu trompeur n’apparaît dans la demande.',
+  ];
   async function submit(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError('');
-    try { await postJson(`/api/workspace/opening-requests/${request.id}/decision`, { version: request.version, status: decision, reason: reason.trim() }); onDone(); }
+    event.preventDefault();
+    if (decision === 'APPROUVEE' && !checks.every(Boolean)) { setError('Terminez les trois contrôles avant d’approuver.'); return; }
+    setBusy(true); setError('');
+    const recordedReason = decision === 'APPROUVEE'
+      ? 'Contrôle déclaratif effectué : présentation cohérente, objet et public décrits, aucun indice manifeste d’usurpation ou de contenu trompeur. Identité et tenue des activités non vérifiées.'
+      : reason.trim();
+    try { await postJson(`/api/workspace/opening-requests/${request.id}/decision`, { version: request.version, status: decision, reason: recordedReason }); onDone(); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   if (!decision) return <div className="management-actions"><button className="button coral" onClick={() => setDecision('APPROUVEE')}>Approuver l’ouverture</button><button className="button outline" onClick={() => setDecision('REFUSEE')}>Refuser</button></div>;
   return <form className="draft-editor" onSubmit={submit}><p>{decision === 'APPROUVEE' ? `L’espace sera créé et ${request.applicant} en deviendra administrateur. Cette décision n’autorise pas les paiements réels : ils nécessitent une vérification distincte.` : 'Le demandeur pourra consulter votre motif de refus.'}</p><fieldset disabled={busy}>
+    {decision === 'APPROUVEE' && <div className="workspace-card"><h4>Contrôle avant ouverture</h4><p className="workspace-description">Examinez uniquement les informations fournies. Ce contrôle ne prouve ni l’identité du demandeur ni la tenue future de ses activités.</p>{reviewItems.map((item, index) => <label key={item} className="workspace-description"><input type="checkbox" checked={checks[index]} onChange={event => setChecks(current => current.map((value, position) => position === index ? event.target.checked : value))} /> {item}</label>)}</div>}
     {decision === 'REFUSEE' && <label>Motif du refus<textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label>}
-    <div className="management-actions"><button className="button coral">{busy ? 'Traitement…' : decision === 'APPROUVEE' ? 'Confirmer l’ouverture' : 'Confirmer le refus'}</button><button type="button" className="button outline" onClick={() => { setDecision(null); setReason(''); setError(''); }}>Annuler</button></div>
+    <div className="management-actions"><button className="button coral" disabled={decision === 'APPROUVEE' && !checks.every(Boolean)}>{busy ? 'Traitement…' : decision === 'APPROUVEE' ? 'Confirmer l’ouverture' : 'Confirmer le refus'}</button><button type="button" className="button outline" onClick={() => { setDecision(null); setReason(''); setChecks([false, false, false]); setError(''); }}>Annuler</button></div>
   </fieldset>{error && <p role="alert" className="draft-error">{error}</p>}</form>;
 }
 
