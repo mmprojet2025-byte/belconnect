@@ -92,6 +92,7 @@ const entries: Record<string, [string, string]> = {
   'Rechercher une activité ou une ville': ['Search for an activity or city', 'Zoek een activiteit of stad'],
   'Une activité, une ville…': ['An activity, a city…', 'Een activiteit, een stad…'],
   'Rechercher un projet': ['Search for a project', 'Zoek een project'],
+  'Aide recherchée': ['Help wanted', 'Hulp gezocht'],
   'Un projet, un objectif…': ['A project, a goal…', 'Een project, een doel…'],
   'Téléphone': ['Phone', 'Telefoon'], 'Écrire un message': ['Write a message', 'Schrijf een bericht'],
   'Écrire un message…': ['Write a message…', 'Schrijf een bericht…'], 'Envoyer le message': ['Send message', 'Bericht verzenden'],
