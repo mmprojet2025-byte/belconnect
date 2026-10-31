@@ -85,11 +85,13 @@ it('charge les droits puis les outils d’organisation à l’ouverture de la ru
   await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url === '/api/workspace')).toBe(true));
   expect(document.getElementById('workspace-title')?.textContent).toBe('Mes espaces');
   expect(screen.getByRole('link', { name: 'Mes espaces' }).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByText(/Pour demander un nouvel espace, ouvrez « Mes demandes »/)).toBeTruthy();
+  expect(screen.getByText(/Un espace vous permet d’organiser vos groupes/)).toBeTruthy();
+  expect(within(screen.getByRole('navigation', { name: 'Espaces et groupes' })).getByRole('link', { name: 'Mes espaces 0' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('heading', { name: 'Aucun espace pour le moment' })).toBeTruthy();
   fireEvent.click(screen.getByRole('link', { name: 'Mes groupes' }));
   expect(document.getElementById('workspace-title')?.textContent).toBe('Mes groupes');
   expect(screen.getByRole('link', { name: 'Mes groupes' }).getAttribute('aria-current')).toBe('page');
+  expect(within(screen.getByRole('navigation', { name: 'Espaces et groupes' })).getByRole('link', { name: 'Mes groupes 0' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('heading', { name: 'Aucun groupe pour le moment' })).toBeTruthy();
   fireEvent.click(screen.getByRole('link', { name: 'Mes espaces' }));
   expect(screen.queryByRole('button', { name: 'Demander un espace' })).toBeNull();
