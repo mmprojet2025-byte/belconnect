@@ -10,14 +10,24 @@ export function ProposeHelp({ projectId, signedIn, availableTypes }: { projectId
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
   const [sent,setSent] = useState<Participation | null>(null);
+  const [existing,setExisting] = useState<Participation[]>([]);
+  useEffect(() => {
+    if (!signedIn) return;
+    const controller=new AbortController();
+    fetch('/api/project-participations',{credentials:'same-origin',cache:'no-store',signal:controller.signal})
+      .then(result).then((items:Participation[])=>{if(!controller.signal.aborted)setExisting(items.filter(item=>item.projectId===projectId));})
+      .catch(()=>{});
+    return ()=>controller.abort();
+  },[projectId,signedIn]);
+  const activeProposal=existing.find(item=>item.type===type && ['PROPOSEE','ACCEPTEE'].includes(item.status));
   async function send(event:React.FormEvent) {
     event.preventDefault(); if(busy)return;
     setBusy(true);setError('');
-    try { setSent(await postJson('/api/project-participations',{ projectId,requestId,type:availableTypes.includes(type)?type:availableTypes[0],message:message.trim() })); }
+    try { const saved=await postJson('/api/project-participations',{ projectId,requestId,type:availableTypes.includes(type)?type:availableTypes[0],message:message.trim() }) as Participation; setSent(saved); setExisting(items=>[saved,...items]); }
     catch(e) {setError(e instanceof Error ? e.message : 'Impossible d’envoyer votre proposition.');}
     finally {setBusy(false);}
   }
-  return <section className="project-help" aria-labelledby="help-title"><h2 id="help-title">Et si vous apportiez votre aide ?</h2><p>Ce projet recherche : {availableTypes.map(value => helpTypes[value]).join(', ')}. Proposez une aide gratuite. Votre proposition attendra la réponse de l’administrateur ; elle ne réserve aucune place et ne vous inscrit pas dans un groupe.</p>{!signedIn ? <a className="button coral" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour proposer son aide</a> : sent ? <div><p role="status">{statuses[sent.status]}. Retrouvez votre proposition dans « Mes aides aux projets ».</p><a className="button outline" href="/mon-espace#aides-projets">Voir mes aides aux projets</a><button className="text-link" onClick={() => {setSent(null);setMessage('');setRequestId(crypto.randomUUID());}}>Proposer une autre aide</button></div> : <form onSubmit={send}><label>Comment souhaitez-vous aider ?<select value={availableTypes.includes(type)?type:availableTypes[0]} disabled={busy} onChange={e=>setType(e.target.value)}>{availableTypes.map(value=><option key={value} value={value}>{helpTypes[value]}</option>)}</select></label><label>Votre proposition (facultatif)<textarea rows={4} maxLength={1000} value={message} disabled={busy} onChange={e=>setMessage(e.target.value)} placeholder="Précisez ce que vous souhaitez apporter au projet." /></label><p>Votre nom et votre message seront visibles par l’administrateur de l’espace.</p><button className="button coral" disabled={busy}>{busy?'Envoi…':'Envoyer ma proposition'}</button>{error && <p role="alert">{error} Votre saisie est conservée.</p>}</form>}</section>;
+  return <section className="project-help" aria-labelledby="help-title"><h2 id="help-title">Et si vous apportiez votre aide ?</h2><p>Ce projet recherche : {availableTypes.map(value => helpTypes[value]).join(', ')}. Proposez une aide gratuite. Votre proposition attendra la réponse de l’administrateur ; elle ne réserve aucune place et ne vous inscrit pas dans un groupe.</p>{!signedIn ? <a className="button coral" href={`/connexion?retour=${encodeURIComponent(`/projets/${projectId}`)}`}>Se connecter pour proposer son aide</a> : sent ? <div><p role="status">{statuses[sent.status]}. Retrouvez votre proposition dans « Mes participations → Aides proposées ».</p><a className="button outline" href="/mon-espace#aides-projets">Voir mes aides proposées</a><button className="text-link" onClick={() => {setSent(null);setMessage('');setRequestId(crypto.randomUUID());}}>Proposer une autre aide</button></div> : <form onSubmit={send}><label>Comment souhaitez-vous aider ?<select value={availableTypes.includes(type)?type:availableTypes[0]} disabled={busy} onChange={e=>{setType(e.target.value);setError('');}}>{availableTypes.map(value=><option key={value} value={value}>{helpTypes[value]}</option>)}</select></label>{activeProposal ? <p role="status">Vous avez déjà proposé cette aide : {statuses[activeProposal.status]}. <a href="/mon-espace#aides-projets">Voir mes aides proposées</a></p> : <><label>Votre proposition (facultatif)<textarea rows={4} maxLength={1000} value={message} disabled={busy} onChange={e=>setMessage(e.target.value)} placeholder="Précisez ce que vous souhaitez apporter au projet." /></label><p>Votre nom et votre message seront visibles par l’administrateur de l’espace.</p><button className="button coral" disabled={busy}>{busy?'Envoi…':'Envoyer ma proposition'}</button></>}{error && <p role="alert">{error} Votre saisie est conservée.</p>}</form>}</section>;
 }
 function ParticipationCard({ item,received,onSaved }: { item:Participation;received:boolean;onSaved:(p:Participation)=>void }) {
   const [action,setAction] = useState('');
