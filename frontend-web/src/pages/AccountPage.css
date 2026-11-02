@@ -750,3 +750,21 @@
 .group-card-heading h3 { flex: 1 1 160px; margin: 0; }
 .group-card-heading .account-status, .group-card-heading .group-visibility-badge { margin: 0; align-self: center; white-space: nowrap; }
 .group-card-description { padding: 14px 16px; margin: 14px 0; border: 1px solid #dce8e4; border-left: 3px solid #78a99c; border-radius: 8px; background: #f3f8f6; color: #345561; line-height: 1.6; }
+
+/* Account menu: identity, destinations and sign-out are distinct. */
+.account-profile-menu summary { display:flex; gap:8px; width:auto; min-width:66px; padding:4px 8px 4px 4px; background:#fff; border-color:#cadeda; }
+.account-menu-avatar { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; background:#e7f2ef; color:#176b61; }
+.account-menu-chevron { width:12px; height:12px; transform:rotate(90deg); }
+.account-profile-menu[open] summary { border-color:#388b80; box-shadow:0 0 0 3px #e8f3ef; }
+.account-profile-menu[open] .account-menu-chevron { transform:rotate(-90deg); }
+.account-profile-popover { padding:8px; gap:4px; border-radius:16px; top:calc(100% + 12px); box-shadow:0 16px 40px #183d4c20; }
+.account-profile-identity { margin-bottom:4px; padding:16px; background:#f1f7f5; border:1px solid #e1ece8; border-radius:10px; gap:6px; }
+.account-profile-identity strong { font-size:16px; color:#19394a; }
+.account-profile-identity small { color:#216d62; font-weight:650; }
+.account-profile-popover a,.account-profile-popover button { display:flex; align-items:center; gap:12px; min-height:46px; padding:12px; }
+.account-profile-popover .icon { width:19px; height:19px; flex:none; color:#527b77; }
+.account-profile-popover button { margin-top:6px; border-top:1px solid #dce7e3; border-radius:0 0 10px 10px; color:#9a4238; }
+.account-profile-popover button .icon { color:inherit; }
+.account-profile-popover button:hover { background:#fff3ef; }
+.account-profile-menu summary:focus-visible,.account-profile-popover a:focus-visible,.account-profile-popover button:focus-visible,.account-toolbar-notifications:focus-visible { outline:3px solid #318f83; outline-offset:3px; }
+.account-toolbar-badge { top:-5px; right:-5px; border:2px solid white; min-width:21px; height:21px; }

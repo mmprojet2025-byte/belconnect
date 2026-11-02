@@ -23,7 +23,7 @@ public class SecurityConfig {
     }
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
     @Bean HttpSessionSecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts, MobileTokenService mobileTokens, JdbcTemplate jdbc) throws Exception {
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, HttpSessionSecurityContextRepository repository, AccountRepository accounts, MobileTokenService mobileTokens, JdbcTemplate jdbc, OwnerMfaService ownerMfa, OwnerSessionService ownerSessions) throws Exception {
         return http
             .securityContext(context -> context.securityContextRepository(repository))
             .authorizeHttpRequests(auth -> auth
@@ -41,12 +41,16 @@ public class SecurityConfig {
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, exception) -> response.sendError(401))
                 .accessDeniedHandler((request, response, exception) -> response.sendError(403)))
-            .logout(logout -> logout.logoutUrl("/api/auth/logout").invalidateHttpSession(true)
+            .logout(logout -> logout.logoutUrl("/api/auth/logout").addLogoutHandler((request,response,authentication) -> ownerSessions.close(request.getSession(false))).invalidateHttpSession(true)
                 .clearAuthentication(true).deleteCookies("JSESSIONID")
-                .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
+                .logoutSuccessHandler((request, response, authentication) -> {
+                    if(authentication!=null) jdbc.update("INSERT INTO owner_security_event(utilisateur_id,evenement) SELECT u.id,'DECONNEXION' FROM utilisateur u JOIN role_plateforme r ON r.utilisateur_id=u.id WHERE u.email=? AND r.role='PROPRIETAIRE'",authentication.getName());
+                    response.setStatus(204);
+                }))
             .addFilterAfter(new CredentialSessionFilter(accounts), SecurityContextHolderFilter.class)
             .addFilterAfter(new MobileBearerFilter(mobileTokens), CredentialSessionFilter.class)
-            .addFilterAfter(new PlatformOwnerWorkflowFilter(jdbc), MobileBearerFilter.class)
+            .addFilterAfter(new OwnerMfaFilter(ownerMfa,ownerSessions), MobileBearerFilter.class)
+            .addFilterAfter(new PlatformOwnerWorkflowFilter(jdbc), OwnerMfaFilter.class)
             .build(); // Default CSRF protection remains enabled, including login and registration.
     }
 }

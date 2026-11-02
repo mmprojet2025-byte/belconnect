@@ -1,3 +1,4 @@
+import { OwnerSecurityGate } from "../components/OwnerSecurityGate";
 import { AccountPage } from "./AccountPage";
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -71,7 +72,7 @@ export function AuthPage({
     finally { setBusy(false); }
   }
 
-  if (user && !activity) return <AccountPage key={user.id} user={user} onLogout={onLogout} onProfileSaved={onComplete} />;
+  if (user && !activity) return <OwnerSecurityGate key={user.id} onLogout={onLogout}><AccountPage user={user} onLogout={onLogout} onProfileSaved={onComplete} /></OwnerSecurityGate>;
 
   return (
     <section className="enrollment-shell auth-shell">

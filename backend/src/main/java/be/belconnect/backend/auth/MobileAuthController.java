@@ -21,11 +21,11 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/mobile/auth")
 public class MobileAuthController {
+    private final LoginProtection loginProtection;
     private final AccountRepository accounts;
     private final PasswordEncoder passwords;
     private final MobileTokenService tokens;
     private final JdbcTemplate jdbc;
-    private final String dummyHash;
     private final ConcurrentHashMap<String,Window> attempts=new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,Window> deletionAttempts=new ConcurrentHashMap<>();
     private record Window(long start,int count) {}
@@ -40,8 +40,8 @@ public class MobileAuthController {
     public record AvatarChoice(@NotBlank @Pattern(regexp="mint|amber|coral|blue") String avatarCode) {}
     public record DeleteAccount(@NotBlank String password) {}
 
-    public MobileAuthController(AccountRepository accounts,PasswordEncoder passwords,MobileTokenService tokens,JdbcTemplate jdbc) {
-        this.accounts=accounts; this.passwords=passwords; this.tokens=tokens; this.jdbc=jdbc; this.dummyHash=passwords.encode(java.util.UUID.randomUUID().toString());
+    public MobileAuthController(LoginProtection loginProtection,AccountRepository accounts,PasswordEncoder passwords,MobileTokenService tokens,JdbcTemplate jdbc) {
+        this.loginProtection=loginProtection;this.accounts=accounts; this.passwords=passwords; this.tokens=tokens; this.jdbc=jdbc;
     }
     private static String normalize(String email) { return email==null?null:email.strip().toLowerCase(Locale.ROOT); }
 
@@ -57,10 +57,10 @@ public class MobileAuthController {
 
     @PostMapping("/login")
     public Session login(@Valid @RequestBody Login body,HttpServletRequest request) {
-        limit(request); checkPassword(body.password());
-        var account=accounts.findByEmail(body.email()).orElse(null);
-        boolean matches=passwords.matches(body.password(),account==null?dummyHash:account.passwordHash());
-        if(!matches || account==null || !"ACTIF".equals(account.status())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Adresse e-mail ou mot de passe incorrect.");
+        checkPassword(body.password());
+        var account=loginProtection.authenticate(body.email(),request.getRemoteAddr(),body.password());
+        if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE')",Boolean.class,account.profile().id())))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Utilisez le site web pour le compte propriétaire et sa double authentification.");
         return new Session(account.profile(),tokens.issue(account));
     }
 

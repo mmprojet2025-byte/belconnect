@@ -8,6 +8,7 @@ export class HttpError extends Error {
 export async function result(response: Response) {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
+    if (body?.code === "OWNER_REVERIFY_REQUIRED") window.dispatchEvent(new Event("owner-reverify-required"));
     const locale = currentLocale();
     const messages: Record<number, string> = {
       400: tr(locale, "Vérifiez les informations saisies.", "Check the information you entered.", "Controleer de ingevulde gegevens."),

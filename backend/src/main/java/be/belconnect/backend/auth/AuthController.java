@@ -39,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/auth")
 public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+    private final LoginProtection loginProtection;
     private final AccountRepository accounts;
     private final MobileAuthController accountDeletion;
     private final PasswordEncoder passwords;
@@ -49,17 +50,16 @@ public class AuthController {
     private final String mailFrom;
     private final String publicUrl;
     private final SecureRandom random = new SecureRandom();
-    private final String dummyHash;
     private final ConcurrentHashMap<String, Window> attempts = new ConcurrentHashMap<>();
     private record Window(long start, int count) {}
-    public AuthController(AccountRepository accounts, MobileAuthController accountDeletion, PasswordEncoder passwords, HttpSessionSecurityContextRepository contexts,
+    public AuthController(LoginProtection loginProtection, AccountRepository accounts, MobileAuthController accountDeletion, PasswordEncoder passwords, HttpSessionSecurityContextRepository contexts,
             JdbcTemplate jdbc, TransactionTemplate transactions, ObjectProvider<MailSender> mailProvider,
             @Value("${MAIL_FROM:}") String mailFrom,
             @Value("${APP_PUBLIC_URL:http://localhost:5173}") String publicUrl) {
+        this.loginProtection=loginProtection;
         this.accounts = accounts; this.accountDeletion = accountDeletion; this.passwords = passwords; this.contexts = contexts;
         this.jdbc = jdbc; this.transactions = transactions; this.mailProvider = mailProvider;
         this.mailFrom = mailFrom; this.publicUrl = publicUrl.replaceAll("/+$", "");
-        this.dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
     static String normalizedEmail(String value) { return value == null ? null : value.strip().toLowerCase(Locale.ROOT); }
     public record Registration(@NotBlank @Size(max=80) String firstName, @NotBlank @Size(max=80) String lastName,
@@ -91,10 +91,14 @@ public class AuthController {
 
     @PostMapping("/login")
     public AccountRepository.Profile login(@Valid @RequestBody Login body, HttpServletRequest request, HttpServletResponse response) {
-        limit(request,response); checkPasswordBytes(body.password());
-        var account = accounts.findByEmail(body.email()).orElse(null);
-        boolean matches = passwords.matches(body.password(), account == null ? dummyHash : account.passwordHash());
-        if (!matches || account == null || !"ACTIF".equals(account.status())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Adresse e-mail ou mot de passe incorrect.");
+        checkPasswordBytes(body.password());
+        AccountRepository.Account account;
+        try { account=loginProtection.authenticate(body.email(),request.getRemoteAddr(),body.password()); }
+        catch(ResponseStatusException exception){
+            if(exception.getStatusCode()==HttpStatus.UNAUTHORIZED)ownerEvent(body.email(),"CONNEXION_REFUSEE");
+            throw exception;
+        }
+        ownerEvent(body.email(),"MOT_DE_PASSE_VALIDE");
         establishSession(account.profile(),request,response);
         return account.profile();
     }
@@ -170,11 +174,17 @@ public class AuthController {
             if (rows.isEmpty()) return false;
             long userId = ((Number)rows.getFirst().get("utilisateur_id")).longValue();
             jdbc.update("UPDATE utilisateur SET mot_de_passe_hash=? WHERE id=? AND statut='ACTIF'", passwords.encode(body.password()), userId);
+            jdbc.update("UPDATE owner_web_session SET revoquee_le=now() WHERE utilisateur_id=? AND revoquee_le IS NULL",userId);
             jdbc.update("DELETE FROM reinitialisation_mot_de_passe WHERE utilisateur_id=?", userId);
+            jdbc.update("INSERT INTO owner_security_event(utilisateur_id,evenement) SELECT utilisateur_id,'MOT_DE_PASSE_REINITIALISE' FROM role_plateforme WHERE utilisateur_id=? AND role='PROPRIETAIRE'",userId);
             return true;
         });
         if (!Boolean.TRUE.equals(changed))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Ce lien de réinitialisation est invalide ou expiré.");
+    }
+
+    private void ownerEvent(String email,String event) {
+        jdbc.update("INSERT INTO owner_security_event(utilisateur_id,evenement) SELECT u.id,? FROM utilisateur u JOIN role_plateforme r ON r.utilisateur_id=u.id WHERE u.email=? AND r.role='PROPRIETAIRE'",event,email);
     }
 
     private static String tokenHash(String token) {
