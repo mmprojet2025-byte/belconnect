@@ -15,7 +15,11 @@ import tools.jackson.databind.JsonNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@org.springframework.test.context.TestPropertySource(properties="STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_test_subscription_local")
+@org.springframework.test.context.TestPropertySource(properties={
+  "STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_test_subscription_local",
+  "STRIPE_SECRET_KEY=",
+  "OWNER_MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+})
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SpaceManagementApiTests {
  @LocalServerPort int port;
@@ -31,6 +35,7 @@ class SpaceManagementApiTests {
  final List<Long> users=new ArrayList<>();
  class Actor {
   long id;
+  String password;
   final HttpClient client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();
   HttpResponse<String> get(String path) throws Exception {
    return client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).GET().build(),HttpResponse.BodyHandlers.ofString());
@@ -42,7 +47,8 @@ class SpaceManagementApiTests {
   }
  }
  Actor actor() throws Exception {
-  var a=new Actor(); var response=a.post("/api/auth/register",Map.of("firstName","Camille","lastName","Gestion","email","management-"+UUID.randomUUID()+"@example.com","password","Test-only-"+UUID.randomUUID()),true);
+  var a=new Actor(); a.password="Test-only-"+UUID.randomUUID();
+  var response=a.post("/api/auth/register",Map.of("firstName","Camille","lastName","Gestion","email","management-"+UUID.randomUUID()+"@example.com","password",a.password),true);
   assertEquals(201,response.statusCode(),response.body()); a.id=json.readTree(response.body()).get("id").asLong(); users.add(a.id); a.get("/api/auth/csrf"); return a;
  }
  JsonNode ok(HttpResponse<String> r,int status) throws Exception { assertEquals(status,r.statusCode(),r.body()); return json.readTree(r.body()); }
@@ -185,7 +191,11 @@ class SpaceManagementApiTests {
    assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM espace_organisateur WHERE createur_id=?",Integer.class,applicant.id));
   } finally { cleanup(); }
  }
- void owner(Actor a) { jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id); }
+ void owner(Actor a) throws Exception {
+  jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",a.id);
+  var begin=ok(a.post("/api/auth/owner-mfa/begin",Map.of("password",a.password),true),200);
+  ok(a.post("/api/auth/owner-mfa/confirm",Map.of("code",TestOwnerMfa.currentCode(begin.get("secret").asText())),true),200);
+ }
  @Test void administratorOnlySeesOwnSpaceInvoicesAndMemberRoles() throws Exception {
   try {
    var first=actor(); var second=actor(); var outsider=actor();
@@ -634,13 +644,14 @@ class SpaceManagementApiTests {
    long project=jdbc.queryForObject("INSERT INTO projet(espace_id,groupe_id,auteur_id,titre,description,objectif,statut,etape_validation) VALUES (?,?,?,'Projet pour examen','Description','Objectif','SOUMIS','REFERENT') RETURNING id",Long.class,space,group,admin.id);
    assertEquals(1,ok(ref.get("/api/project-reviews"),200).size());
    assertEquals(404,ref.post("/api/project-reviews/"+project+"/decision",Map.of("version",0,"decision","APPROUVE","comment",""),true).statusCode());
-   // Multiple referents are allowed, and removal keeps ordinary group membership.
-   ok(admin.post(path+"/members/"+member.id+"/role",promote,true),200);
+   // A group has one referent; the existing role must be removed before transferring it.
+   assertEquals(409,admin.post(path+"/members/"+member.id+"/role",promote,true).statusCode());
    ok(admin.post(path+"/members/"+ref.id+"/role",Map.of("version",1,"role","MEMBRE"),true),200);
+   ok(admin.post(path+"/members/"+member.id+"/role",promote,true),200);
    assertEquals(0,ok(ref.get("/api/project-reviews"),200).size());assertEquals(403,ref.get(path+"/members").statusCode());
    assertEquals("ACTIF",jdbc.queryForObject("SELECT statut FROM appartenance_groupe WHERE groupe_id=? AND utilisateur_id=?",String.class,group,ref.id));
    assertEquals("MEMBRE",jdbc.queryForObject("SELECT role FROM appartenance_espace WHERE espace_id=? AND utilisateur_id=?",String.class,space,ref.id));
-   assertEquals(409,admin.post(path+"/members/"+ref.id+"/role",promote,true).statusCode());
+   assertEquals(409,admin.post(path+"/members/"+ref.id+"/role",Map.of("version",2,"role","REFERENT"),true).statusCode());
    jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",ref.id);
    assertEquals(404,admin.post(path+"/members/"+ref.id+"/role",Map.of("version",2,"role","REFERENT"),true).statusCode());
    assertEquals(1,ok(admin.get(path+"/members"),200).get("members").size());
@@ -940,15 +951,16 @@ class SpaceManagementApiTests {
    assertEquals(1,ok(ref.get(path),200).size());
    assertEquals(403,ref.get(path+"/"+otherA.get("id").asLong()+"/registrations.csv").statusCode());
    ok(ref.post(path+"/"+id,Map.of("version",0,"content",activityContent()),true),200);
-   ok(ref.post(path+"/"+id+"/publication",Map.of("version",1,"published",true),true),200);
+   ok(ref.post(path+"/"+id+"/submit",Map.of("version",1),true),200);
+   ok(admin.post(path+"/"+id+"/publication",Map.of("version",2,"published",true),true),200);
    ok(member.post("/api/bookings",booking(slug),true),201);
    assertEquals(1,ok(ref.get(path+"/"+id+"/registrations"),200).get("registrations").size());
    assertEquals(200,ref.get(path+"/"+id+"/registrations.csv").statusCode());
-   assertEquals(409,ref.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true).statusCode());
+   assertEquals(403,ref.post(path+"/"+id+"/publication",Map.of("version",3,"published",false),true).statusCode());
    ok(admin.post(permission,Map.of("version",1,"enabled",false),true),200);
    assertEquals(0,ok(ref.get(path),200).size());
    assertEquals(403,ref.get(path+"/"+id+"/registrations.csv").statusCode());
-   assertEquals(403,ref.post(path+"/"+id+"/publication",Map.of("version",2,"published",false),true).statusCode());
+   assertEquals(403,ref.post(path+"/"+id+"/publication",Map.of("version",3,"published",false),true).statusCode());
    assertEquals(200,admin.get(path+"/"+id+"/registrations").statusCode());
    assertEquals(200,member.get("/api/activities/"+slug).statusCode());
    ok(admin.post(permission,Map.of("version",2,"enabled",true),true),200);
@@ -971,6 +983,7 @@ class SpaceManagementApiTests {
    assertEquals(409,admin.post(path+"/cancel",Map.of("version",0),true).statusCode());
    ok(admin.post(path+"/publication",Map.of("version",0,"published",true),true),200);
    long booking=ok(participant.post("/api/bookings",booking(slug),true),201).get("id").asLong();
+   jdbc.update("UPDATE notification_activite SET date_lecture=now() WHERE utilisateur_id=?",participant.id);
    assertEquals(403,outsider.post(path+"/cancel",Map.of("version",1),true).statusCode());
    assertEquals(403,referent.post(path+"/cancel",Map.of("version",1),true).statusCode());
    ok(admin.post("/api/workspace/groups/"+group+"/activity-permission",Map.of("version",0,"enabled",true),true),200);

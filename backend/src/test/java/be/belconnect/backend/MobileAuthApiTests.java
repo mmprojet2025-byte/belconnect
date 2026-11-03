@@ -148,6 +148,7 @@ class MobileAuthApiTests {
       assertEquals(1,attempts.size());assertEquals("EN_ATTENTE",attempts.get(0).get("status").asText());
     } finally {
       jdbc.update("DELETE FROM reservation_payante_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
+      jdbc.update("DELETE FROM notification_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
       jdbc.update("DELETE FROM inscription_activite WHERE activite_id=(SELECT id FROM activite WHERE slug=?)",slug);
       jdbc.update("DELETE FROM activite WHERE slug=?",slug);
       jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
@@ -170,6 +171,7 @@ class MobileAuthApiTests {
       long registrationId=json.readTree(booking.body()).get("id").asLong();
       long userId=jdbc.queryForObject("SELECT id FROM utilisateur WHERE email=?",Long.class,email);
       long activityId=jdbc.queryForObject("SELECT id FROM activite WHERE slug=?",Long.class,slug);
+      jdbc.update("DELETE FROM notification_activite WHERE activite_id=? AND utilisateur_id=?",activityId,userId);
       jdbc.update("INSERT INTO notification_activite(utilisateur_id,inscription_id,activite_id) VALUES (?,?,?)",userId,registrationId,activityId);
       var unread=json.readTree(api("GET","/api/mobile/notifications",null,token).body());
       assertEquals(1,unread.size());

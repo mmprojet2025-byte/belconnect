@@ -59,6 +59,7 @@ class DraftApiTests {
    if(project!=null) {
     jdbc.update("DELETE FROM validation_projet WHERE projet_id=?",project);
     jdbc.update("DELETE FROM soumission_projet WHERE projet_id=?",project);
+   jdbc.update("DELETE FROM notification_projet WHERE projet_id=?",project);
     jdbc.update("DELETE FROM projet WHERE id=?",project);
    }
    if(space!=null) { jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space); }
@@ -78,9 +79,10 @@ class DraftApiTests {
    assertEquals(401,anonymous.post("/api/project-drafts",body,true).statusCode());
    assertEquals(403,author.post("/api/project-drafts",body,false).statusCode());
    assertEquals(403,author.post("/api/project-drafts",body,true).statusCode());
-   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE'),(?,?,'ADMINISTRATEUR')",uid,space,outsider,space);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR'),(?,?,'ADMINISTRATEUR')",uid,space,outsider,space);
    jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",outsider);
-   assertEquals(403,author.post("/api/project-drafts",creation(space,group),true).statusCode());
+   var groupDraft=author.post("/api/project-drafts",creation(space,group),true);assertEquals(201,groupDraft.statusCode(),groupDraft.body());
+   jdbc.update("DELETE FROM projet WHERE id=?",json.readTree(groupDraft.body()).get("id").asLong());
    assertEquals(403,author.post("/api/project-drafts",creation(space,foreignGroup),true).statusCode());
    var invalid=creation(space,null);invalid.put("content",content("    "));
    assertEquals(400,author.post("/api/project-drafts",invalid,true).statusCode());
@@ -101,7 +103,7 @@ class DraftApiTests {
    body.put("content",content("Changement après réponse perdue"));
    assertEquals(409,author.post("/api/project-drafts",body,true).statusCode());
    assertEquals("BROUILLON",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
-   assertEquals(404,other.get("/api/project-drafts/"+id).statusCode());
+   assertEquals(403,other.get("/api/project-drafts/"+id).statusCode());
    assertEquals(401,anonymous.get("/api/project-drafts/"+id).statusCode());
    var update=Map.of("version",0,"content",Map.of("title","Titre modifié du brouillon","description","","objective","","imageUrl","https://example.com/projet.jpg","helpTypes",List.of("BENEVOLAT","PARTAGE")));
    assertEquals(403,author.post("/api/project-drafts/"+id,update,false).statusCode());
@@ -122,7 +124,7 @@ class DraftApiTests {
    assertEquals(200,author.post("/api/project-drafts/"+groupedId,Map.of("version",0,"content",Map.of("title","Une idée de groupe","description","","objective","","visibility","PUBLIQUE")),true).statusCode());
    assertEquals("PUBLIQUE",jdbc.queryForObject("SELECT visibilite FROM projet WHERE id=?",String.class,groupedId));
    jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE utilisateur_id=?",uid);
-   assertEquals(403,author.post("/api/project-drafts/"+groupedId,update,true).statusCode());
+   assertEquals(409,author.post("/api/project-drafts/"+groupedId,update,true).statusCode());
    jdbc.update("UPDATE projet SET statut='SOUMIS' WHERE id=?",id);
    assertEquals(404,author.post("/api/project-drafts/"+id,Map.of("version",1,"content",content("Ne doit pas écraser")),true).statusCode());
    jdbc.update("UPDATE appartenance_espace SET statut='SUSPENDU' WHERE utilisateur_id=?",uid);
@@ -131,7 +133,7 @@ class DraftApiTests {
    jdbc.update("UPDATE utilisateur SET statut='SUSPENDU' WHERE id=?",uid);
    assertEquals(401,author.get("/api/project-drafts/"+groupedId).statusCode());
   } finally {
-   for(long id:spaces) {jdbc.update("DELETE FROM projet WHERE espace_id=?",id);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",id);jdbc.update("DELETE FROM groupe WHERE espace_id=?",id);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",id);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",id);}
+   for(long id:spaces) {jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",id);jdbc.update("DELETE FROM projet WHERE espace_id=?",id);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",id);jdbc.update("DELETE FROM groupe WHERE espace_id=?",id);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",id);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",id);}
    for(long id:users) {jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?",id);jdbc.update("DELETE FROM utilisateur WHERE id=?",id);}
   }
  }
@@ -141,7 +143,7 @@ class DraftApiTests {
   try {
    long uid=author.register();users.add(uid);long aid=admin.register();users.add(aid);long rid=referent.register();users.add(rid);long oid=outsider.register();users.add(oid);
    space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Test soumission','ORGANISATEUR',?) RETURNING id",Long.class,aid);
-   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'MEMBRE'),(?,?,'ADMINISTRATEUR'),(?,?,'MEMBRE')",uid,space,aid,space,rid,space);
+   jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR'),(?,?,'ADMINISTRATEUR'),(?,?,'MEMBRE')",uid,space,aid,space,rid,space);
    long group=jdbc.queryForObject("INSERT INTO groupe(espace_id,nom) VALUES (?,'Groupe soumis') RETURNING id",Long.class,space);
    jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE'),(?,?,?,'REFERENT')",uid,space,group,rid,space,group);
    jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",oid);
@@ -158,18 +160,18 @@ class DraftApiTests {
    assertEquals(200,author.post("/api/project-drafts/"+id,Map.of("version",0,"content",complete),true).statusCode());
    assertEquals(409,author.post(path,Map.of("version",0),true).statusCode());
    var sent=author.post(path,Map.of("version",1),true);assertEquals(200,sent.statusCode(),sent.body());
-   assertEquals("REFERENT",json.readTree(sent.body()).get("reviewStage").asText());
+   assertEquals("ADMINISTRATEUR",json.readTree(sent.body()).get("reviewStage").asText());
    assertEquals(200,author.post(path,Map.of("version",1),true).statusCode());
    assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM soumission_projet WHERE projet_id=?",Integer.class,id));
    assertEquals("SOUMIS",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
    assertEquals(2,jdbc.queryForObject("SELECT version FROM projet WHERE id=?",Long.class,id));
    assertEquals(404,author.post("/api/project-drafts/"+id,Map.of("version",2,"content",complete),true).statusCode());
    assertEquals(200,author.get("/api/project-reviews/"+id).statusCode());
-   assertEquals(200,referent.get("/api/project-reviews/"+id).statusCode());
+   assertEquals(404,referent.get("/api/project-reviews/"+id).statusCode());
    assertEquals(200,admin.get("/api/project-reviews/"+id).statusCode());
-   assertEquals(404,outsider.get("/api/project-reviews/"+id).statusCode());
+   assertEquals(403,outsider.get("/api/project-reviews/"+id).statusCode());
    assertEquals(401,new Session().get("/api/project-reviews/"+id).statusCode());
-   assertTrue(referent.get("/api/project-reviews").body().contains("Projet soumis pour examen"));
+   assertFalse(referent.get("/api/project-reviews").body().contains("Projet soumis pour examen"));
    assertFalse(outsider.get("/api/project-reviews").body().contains("Projet soumis pour examen"));
    jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE utilisateur_id=?",rid);
    assertEquals(404,referent.get("/api/project-reviews/"+id).statusCode());
@@ -201,6 +203,7 @@ class DraftApiTests {
   } finally {
    if(space!=null) {
     jdbc.update("DELETE FROM soumission_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
+    jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM projet WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
     jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
    }
@@ -214,59 +217,26 @@ class DraftApiTests {
   try {
    long uid=author.register();users.add(uid);long r1=ref1.register();users.add(r1);long r2=ref2.register();users.add(r2);long aid=admin.register();users.add(aid);
    space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Avis test','ORGANISATEUR',?) RETURNING id",Long.class,aid);
-   for(long u:users) jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,?)",u,space,u==aid?"ADMINISTRATEUR":"MEMBRE");
+   for(long u:users) jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,?)",u,space,u==aid || u==uid?"ADMINISTRATEUR":"MEMBRE");
    long group=jdbc.queryForObject("INSERT INTO groupe(espace_id,nom) VALUES (?,'Référents test') RETURNING id",Long.class,space);
-   for(long u:List.of(uid,r1,r2)) jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'REFERENT')",u,space,group);
+   jdbc.update("INSERT INTO appartenance_groupe(utilisateur_id,espace_id,groupe_id,role) VALUES (?,?,?,'MEMBRE'),(?,?,?,'REFERENT'),(?,?,?,'MEMBRE')",uid,space,group,r1,space,group,r2,space,group);
    var content=Map.of("title","Jardin partagé à examiner","description","Plan de jardin pour le quartier.","objective","Cultiver ensemble.");
    var body=creation(space,group);body.put("content",content);
    var created=author.post("/api/project-drafts",body,true);assertEquals(201,created.statusCode(),created.body());
    long id=json.readTree(created.body()).get("id").asLong();
-   String draft="/api/project-drafts/"+id, review="/api/project-reviews/"+id, opinion=review+"/opinion";
+   String draft="/api/project-drafts/"+id, review="/api/project-reviews/"+id;
    assertEquals(200,author.post(draft+"/submit",Map.of("version",0),true).statusCode());
-   assertTrue(json.readTree(ref1.get(review).body()).get("canReview").asBoolean());
-   assertFalse(json.readTree(author.get(review).body()).get("canReview").asBoolean());
-   assertFalse(json.readTree(admin.get(review).body()).get("canReview").asBoolean());
-   var correction=Map.of("version",1,"decision","A_CORRIGER","comment","Précisez le budget des outils.");
-   assertEquals(403,ref1.post(opinion,correction,false).statusCode());
-   assertEquals(401,new Session().post(opinion,correction,true).statusCode());
-   assertEquals(403,author.post(opinion,correction,true).statusCode());
-   assertEquals(404,admin.post(opinion,correction,true).statusCode());
-   assertEquals(400,ref1.post(opinion,Map.of("version",1,"decision","A_CORRIGER","comment","   "),true).statusCode());
-   assertEquals(400,ref1.post(opinion,Map.of("version",1,"decision","APPROUVE","comment",""),true).statusCode());
-   assertEquals(409,ref1.post(opinion,Map.of("version",0,"decision","AVIS_FAVORABLE","comment",""),true).statusCode());
-   var corrected=ref1.post(opinion,correction,true);assertEquals(200,corrected.statusCode(),corrected.body());
-   assertEquals("A_CORRIGER",json.readTree(corrected.body()).get("status").asText());
-   assertEquals(200,ref1.post(opinion,correction,true).statusCode());
-   assertEquals(409,ref2.post(opinion,correction,true).statusCode());
-   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM validation_projet WHERE projet_id=?",Integer.class,id));
-   assertEquals(404,ref1.get(review).statusCode());assertEquals(404,admin.get(review).statusCode());
-   var returned=json.readTree(author.get(draft).body());
-   assertEquals("A_CORRIGER",returned.get("status").asText());
-   assertEquals("Précisez le budget des outils.",returned.get("reviews").get(0).get("comment").asText());
-   var revised=Map.of("title","Jardin partagé à examiner","description","Budget outils précisé : 150 euros.","objective","Cultiver ensemble.");
-   assertEquals(200,author.post(draft,Map.of("version",2,"content",revised),true).statusCode());
-   assertEquals("A_CORRIGER",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
-   assertEquals(404,ref1.get(draft).statusCode());
-   assertEquals(404,ref1.get(review).statusCode());
-   assertEquals(200,author.post(draft+"/submit",Map.of("version",3),true).statusCode());
-   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM soumission_projet WHERE projet_id=?",Integer.class,id));
-   assertEquals("Budget outils précisé : 150 euros.",json.readTree(ref1.get(review).body()).get("description").asText());
-   jdbc.update("UPDATE appartenance_groupe SET statut='SUSPENDU' WHERE utilisateur_id=?",r2);
-   var favorable=Map.of("version",4,"decision","AVIS_FAVORABLE","comment","Le budget est clair.");
-   assertEquals(404,ref2.post(opinion,favorable,true).statusCode());
-   jdbc.update("UPDATE appartenance_groupe SET statut='ACTIF' WHERE utilisateur_id=?",r2);
-   var first=java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return ref1.post(opinion,favorable,true).statusCode();}catch(Exception e){throw new RuntimeException(e);}});
-   var second=java.util.concurrent.CompletableFuture.supplyAsync(()->{try{return ref2.post(opinion,favorable,true).statusCode();}catch(Exception e){throw new RuntimeException(e);}});
-   assertEquals(java.util.Set.of(200,409),java.util.Set.of(first.get(),second.get()));
-   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM validation_projet WHERE projet_id=?",Integer.class,id));
-   assertEquals("SOUMIS",jdbc.queryForObject("SELECT statut FROM projet WHERE id=?",String.class,id));
    assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT etape_validation FROM projet WHERE id=?",String.class,id));
-   var finalView=json.readTree(admin.get(review).body());assertEquals(2,finalView.get("reviews").size());assertFalse(finalView.get("canReview").asBoolean());
-   assertEquals(404,author.get(draft).statusCode());
+   assertEquals(404,ref1.get(review).statusCode());
+   assertEquals(404,ref2.get(review).statusCode());
+   assertTrue(json.readTree(admin.get(review).body()).get("canDecide").asBoolean());
+   assertFalse(json.readTree(author.get(review).body()).get("canDecide").asBoolean());
+   assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT etape_validation FROM projet WHERE id=?",String.class,id));
   } finally {
    if(space!=null) {
     jdbc.update("DELETE FROM validation_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM soumission_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
+    jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM projet WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
     jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
    }
@@ -290,7 +260,7 @@ class DraftApiTests {
    var approve=Map.of("version",1,"decision","APPROUVE","comment","Projet prêt.");
    assertEquals(404,admin.post(path,approve,true).statusCode());
    assertEquals(200,author.post("/api/project-drafts/"+id+"/submit",Map.of("version",0),true).statusCode());
-   assertEquals("REFERENT",jdbc.queryForObject("SELECT etape_validation FROM projet WHERE id=?",String.class,id));
+   assertEquals("ADMINISTRATEUR",jdbc.queryForObject("SELECT etape_validation FROM projet WHERE id=?",String.class,id));
    assertTrue(json.readTree(admin.get(review).body()).get("canDecide").asBoolean());
    assertFalse(json.readTree(author.get(review).body()).get("canDecide").asBoolean());
    assertEquals(401,new Session().post(path,approve,true).statusCode());
@@ -311,7 +281,7 @@ class DraftApiTests {
    assertEquals(409,second.post(path,approve,true).statusCode());
    var viewed=json.readTree(author.get(review).body());assertEquals("APPROUVE",viewed.get("status").asText());assertFalse(viewed.get("canDecide").asBoolean());assertEquals(1,viewed.get("reviews").size());
    assertEquals(404,author.get("/api/project-drafts/"+id).statusCode());
-   assertEquals(404,outsider.get(review).statusCode());
+   assertEquals(403,outsider.get(review).statusCode());
    assertFalse(admin.get("/api/project-reviews").body().contains("Projet décision finale"));
    // No group / direct administrator route, with a documented refusal.
    body=creation(space,null);body.put("content",Map.of("title","Projet refusé avec motif","description","Description.","objective","Objectif."));
@@ -329,6 +299,7 @@ class DraftApiTests {
    if(space!=null) {
     jdbc.update("DELETE FROM validation_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM soumission_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
+    jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM projet WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
     jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
    }
@@ -390,7 +361,7 @@ class DraftApiTests {
    long restricted=jdbc.queryForObject("INSERT INTO projet(espace_id,groupe_id,auteur_id,titre,description,objectif,statut,visibilite) VALUES (?,?,?,'Projet réservé test','Contenu réservé','Objectif privé','APPROUVE','GROUPE') RETURNING id",Long.class,space,group,uid);
    String privatePath="/api/projects/"+restricted, managePath="/api/project-publications/"+restricted;
    assertEquals(200,admin.post(managePath,publish,true).statusCode());
-   assertEquals(404,anonymous.get(privatePath).statusCode());assertEquals(404,other.get(privatePath).statusCode());assertEquals(404,admin.get(privatePath).statusCode());
+   assertEquals(404,anonymous.get(privatePath).statusCode());assertEquals(403,other.get(privatePath).statusCode());assertEquals(404,admin.get(privatePath).statusCode());
    assertFalse(anonymous.get("/api/projects").body().contains("Contenu réservé"));
    assertEquals(200,author.get(privatePath).statusCode());
    jdbc.update("UPDATE appartenance_groupe SET statut='RETIRE' WHERE utilisateur_id=?",uid);
@@ -410,6 +381,7 @@ class DraftApiTests {
    if(space!=null) {
     jdbc.update("DELETE FROM publication_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM validation_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
+    jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM projet WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
     jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
    }
@@ -424,7 +396,6 @@ class DraftApiTests {
    long uid=member.register();users.add(uid);long aid=admin.register();users.add(aid);long oid=outsider.register();users.add(oid);
    space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES ('Aides test','ORGANISATEUR',?) RETURNING id",Long.class,aid);
    jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",aid,space);
-   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",oid);
    long project=jdbc.queryForObject("INSERT INTO projet(espace_id,auteur_id,titre,description,objectif,statut,publie) VALUES (?,?,'Projet entraide public','Description','Objectif','APPROUVE',true) RETURNING id",Long.class,space,aid);
    var body=Map.of("projectId",project,"requestId",UUID.randomUUID(),"type","BENEVOLAT","message","Je peux aider le samedi.");
    String root="/api/project-participations";
@@ -445,12 +416,12 @@ class DraftApiTests {
    assertFalse(anonymous.get("/api/projects/"+project).body().contains("samedi"));
    String decision=root+"/"+id+"/decision",cancel=root+"/"+id+"/cancel";
    var accepted=Map.of("version",0,"status","ACCEPTEE","reason","Merci pour votre aide.");
-   assertEquals(403,outsider.post(decision,accepted,true).statusCode());assertEquals(404,member.post(decision,accepted,true).statusCode());
+   assertEquals(404,outsider.post(decision,accepted,true).statusCode());assertEquals(404,member.post(decision,accepted,true).statusCode());
    assertEquals(403,admin.post(decision,accepted,false).statusCode());
    assertEquals(400,admin.post(decision,Map.of("version",0,"status","REFUSEE","reason","  "),true).statusCode());
    assertEquals(200,admin.post(decision,accepted,true).statusCode());assertEquals(200,admin.post(decision,accepted,true).statusCode());
    assertEquals("ACCEPTEE",json.readTree(member.get(root).body()).get(0).get("status").asText());
-   assertEquals(403,outsider.post(cancel,Map.of("version",1),true).statusCode());
+   assertEquals(404,outsider.post(cancel,Map.of("version",1),true).statusCode());
    assertEquals(409,member.post(cancel,Map.of("version",0),true).statusCode());
    jdbc.update("UPDATE projet SET publie=false WHERE id=?",project);
    assertEquals(200,member.post(cancel,Map.of("version",1),true).statusCode());assertEquals(200,member.post(cancel,Map.of("version",1),true).statusCode());
@@ -491,6 +462,7 @@ class DraftApiTests {
    if(space!=null) {
     jdbc.update("DELETE FROM historique_participation WHERE participation_id IN (SELECT pp.id FROM participation_projet pp JOIN projet p ON p.id=pp.projet_id WHERE p.espace_id=?)",space);
     jdbc.update("DELETE FROM participation_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
+    jdbc.update("DELETE FROM notification_projet WHERE projet_id IN (SELECT id FROM projet WHERE espace_id=?)",space);
     jdbc.update("DELETE FROM projet WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_groupe WHERE espace_id=?",space);
     jdbc.update("DELETE FROM groupe WHERE espace_id=?",space);jdbc.update("DELETE FROM appartenance_espace WHERE espace_id=?",space);jdbc.update("DELETE FROM espace_organisateur WHERE id=?",space);
    }

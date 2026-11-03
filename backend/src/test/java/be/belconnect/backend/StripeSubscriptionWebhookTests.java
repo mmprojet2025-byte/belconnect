@@ -14,7 +14,10 @@ import org.springframework.test.context.TestPropertySource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@TestPropertySource(properties="STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_test_local_subscription")
+@TestPropertySource(properties={
+  "STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_test_local_subscription",
+  "STRIPE_SECRET_KEY="
+})
 @SpringBootTest
 class StripeSubscriptionWebhookTests {
   @Autowired JdbcTemplate jdbc;

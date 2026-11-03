@@ -11,12 +11,16 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.*;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@org.springframework.test.context.TestPropertySource(properties="STRIPE_SECRET_KEY=")
+@org.springframework.test.context.TestPropertySource(properties={
+ "STRIPE_SECRET_KEY=",
+ "OWNER_MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class WorkspaceApiTests {
  @LocalServerPort int port;
  @Autowired JdbcTemplate jdbc;
  final ObjectMapper json=new ObjectMapper();
+ final Map<Long,String> passwords=new HashMap<>();
  final HttpClient client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();
  HttpResponse<String> get(String path) throws Exception {
   return client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).GET().build(),HttpResponse.BodyHandlers.ofString());
@@ -28,12 +32,24 @@ class WorkspaceApiTests {
    .POST(HttpRequest.BodyPublishers.ofString("{}")) .build(),HttpResponse.BodyHandlers.ofString());
  }
  long register(String email) throws Exception {
+  String password="Test-only-"+UUID.randomUUID();
   var token=json.readTree(get("/api/auth/csrf").body());
   var response=client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/auth/register"))
    .header("Content-Type","application/json").header(token.get("headerName").asText(),token.get("token").asText())
-   .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("firstName","Camille","lastName","Test","email",email,"password","Test-only-"+UUID.randomUUID())))).build(),HttpResponse.BodyHandlers.ofString());
+   .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("firstName","Camille","lastName","Test","email",email,"password",password)))).build(),HttpResponse.BodyHandlers.ofString());
   assertEquals(201,response.statusCode(),response.body());
-  return json.readTree(response.body()).get("id").asLong();
+  long id=json.readTree(response.body()).get("id").asLong(); passwords.put(id,password); return id;
+ }
+ void owner(long id) throws Exception {
+  jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",id);
+  var begin=json.readTree(postJson("/api/auth/owner-mfa/begin",Map.of("password",passwords.get(id))).body());
+  assertNotNull(begin.get("secret"),begin.toString());
+  assertEquals(200,postJson("/api/auth/owner-mfa/confirm",Map.of("code",TestOwnerMfa.currentCode(begin.get("secret").asText()))).statusCode());
+ }
+ HttpResponse<String> postJson(String path,Object body) throws Exception {
+  var token=json.readTree(get("/api/auth/csrf").body());
+  return client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).header("Content-Type","application/json")
+   .header(token.get("headerName").asText(),token.get("token").asText()).POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build(),HttpResponse.BodyHandlers.ofString());
  }
  @Test void ownerBillingAndMemberRolesArePrivateAndScoped() throws Exception {
   String prefix="owner-roles-"+UUID.randomUUID();
@@ -43,7 +59,7 @@ class WorkspaceApiTests {
   try {
    for(String path:List.of("/api/workspace/owner/subscriptions","/api/workspace/owner/invoices","/api/workspace/owner/members"))
     assertEquals(403,get(path).statusCode(),path);
-   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",owner);
+   owner(owner);
    space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",Long.class,prefix,member);
    jdbc.update("INSERT INTO appartenance_espace(utilisateur_id,espace_id,role) VALUES (?,?,'ADMINISTRATEUR')",member,space);
    group=jdbc.queryForObject("INSERT INTO groupe(espace_id,nom) VALUES (?,?) RETURNING id",Long.class,space,prefix+" groupe");
@@ -103,7 +119,7 @@ class WorkspaceApiTests {
    jdbc.update("UPDATE appartenance_espace SET statut='RETIRE' WHERE utilisateur_id=?",me);
    var revoked=json.readTree(get("/api/workspace").body());
    assertEquals(0,revoked.get("spaces").size()); assertEquals(0,revoked.get("groups").size());
-   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",me);
+   owner(me);
    assertEquals("true",get("/api/workspace/owner/access").body());
    var owner=json.readTree(get("/api/workspace").body());
    assertTrue(owner.get("owner").asBoolean()); assertTrue(owner.get("managedSpaces").toString().contains(prefix+" hidden"));
@@ -133,7 +149,7 @@ class WorkspaceApiTests {
   Long space=null,project=null;
   try {
    assertEquals(403,get("/api/workspace/owner/finance").statusCode());
-   jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')",owner);
+   owner(owner);
    var baseline=json.readTree(get("/api/workspace/owner/finance").body());
    space=jdbc.queryForObject("INSERT INTO espace_organisateur(nom,type,createur_id) VALUES (?,'ORGANISATEUR',?) RETURNING id",Long.class,prefix,owner);
    project=jdbc.queryForObject("INSERT INTO projet(espace_id,auteur_id,titre,description,objectif) VALUES (?,?,'Test finance','Description','Objectif') RETURNING id",Long.class,space,owner);

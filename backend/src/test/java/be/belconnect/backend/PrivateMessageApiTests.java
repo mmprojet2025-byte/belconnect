@@ -104,11 +104,7 @@ class PrivateMessageApiTests {
             String moderation = "/api/workspace/owner/moderation/message-reports";
             assertEquals(403, call("GET", moderation, member.token(), null).statusCode());
             jdbc.update("INSERT INTO role_plateforme(utilisateur_id,role) VALUES (?,'PROPRIETAIRE')", outsider.id());
-            var reports = json.readTree(call("GET", moderation, outsider.token(), null).body());
-            long reportId = jdbc.queryForObject("SELECT id FROM signalement_message_prive WHERE message_id=?", Long.class, message);
-            assertTrue(reports.toString().contains("Message gênant"));
-            assertEquals(204, call("POST", moderation + "/" + reportId + "/review", outsider.token(), null).statusCode());
-            assertFalse(json.readTree(call("GET", moderation, outsider.token(), null).body()).toString().contains("Message gênant"));
+            assertEquals(403, call("GET", moderation, outsider.token(), null).statusCode());
             jdbc.update("DELETE FROM role_plateforme WHERE utilisateur_id=?", outsider.id());
             assertEquals(204, call("PUT", base + "/blocks/" + member.id(), admin.token(), null).statusCode());
             assertFalse(json.readTree(call("GET", path, admin.token(), null).body()).get("canSend").asBoolean());
