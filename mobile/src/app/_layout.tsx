@@ -4,6 +4,10 @@ import { AuthProvider } from '@/context/auth-context';
 import { LocaleProvider, useLocale } from '@/context/locale-context';
 import { translate } from '@/lib/translations';
 import { Colors } from '@/constants/theme';
+import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import * as SplashScreen from 'expo-splash-screen';
+
+void SplashScreen.preventAutoHideAsync();
 
 const navigationTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: Colors.brand, background: Colors.light.background, card: Colors.light.surface, text: Colors.light.text, border: Colors.light.border } };
 
@@ -30,6 +34,7 @@ function AppStack() {
         <Stack.Screen name="settings" options={{ title: label('Réglages'), headerBackTitle: label('Mon espace') }} />
       </Stack>
       <StatusBar style="dark" />
+      <AnimatedSplashOverlay />
     </ThemeProvider></AuthProvider>
   );
 }

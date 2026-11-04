@@ -1,148 +1,115 @@
-import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import Animated, { Easing, Keyframe } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { useCallback, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
-const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
-const DURATION = 600;
+import { Colors } from '@/constants/theme';
+
+const INTRO_DURATION = 650;
+const HOLD_DURATION = 650;
+const EXIT_DURATION = 350;
 
 export function AnimatedSplashOverlay() {
-  const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+  const started = useRef(false);
+  const [overlayOpacity] = useState(() => new Animated.Value(1));
+  const [markScale] = useState(() => new Animated.Value(0.92));
+  const [wordmarkOpacity] = useState(() => new Animated.Value(0));
+  const [wordmarkOffset] = useState(() => new Animated.Value(6));
+
+  const start = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled().catch(() => false).then((reduceMotion) => {
+      void SplashScreen.hideAsync().finally(() => {
+        if (reduceMotion) {
+          setVisible(false);
+          return;
+        }
+
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(markScale, {
+              toValue: 1,
+              duration: INTRO_DURATION,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(wordmarkOpacity, {
+              toValue: 1,
+              duration: INTRO_DURATION - 100,
+              delay: 100,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.timing(wordmarkOffset, {
+              toValue: 0,
+              duration: INTRO_DURATION,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.delay(HOLD_DURATION),
+          Animated.timing(overlayOpacity, {
+            toValue: 0,
+            duration: EXIT_DURATION,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start(() => setVisible(false));
+      });
+    });
+  }, [markScale, overlayOpacity, wordmarkOffset, wordmarkOpacity]);
 
   if (!visible) return null;
 
-  const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
-  });
-
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
-
-  return animate ? (
+  return (
     <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
-        'worklet';
-        if (finished) {
-          scheduleOnRN(setVisible, false);
-        }
-      })}
-      style={styles.splashOverlay}>
-      {image}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onLayout={start}
+      pointerEvents="none"
+      style={[styles.splashOverlay, { opacity: overlayOpacity }]}>
+      <View style={styles.lockup}>
+        <Animated.View style={[styles.mark, { transform: [{ scale: markScale }] }]}>
+          <Text style={styles.markLetter}>b</Text>
+          <View style={styles.dot} />
+        </Animated.View>
+        <Animated.Text
+          style={[
+            styles.wordmark,
+            { opacity: wordmarkOpacity, transform: [{ translateY: wordmarkOffset }] },
+          ]}>
+          BelConnect
+        </Animated.Text>
+      </View>
     </Animated.View>
-  ) : (
-    <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
-      {image}
-    </View>
   );
 }
-
-const keyframe = new Keyframe({
-  0: {
-    transform: [{ scale: INITIAL_SCALE_FACTOR }],
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-  },
-  40: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const glowKeyframe = new Keyframe({
-  0: {
-    transform: [{ rotateZ: '0deg' }],
-  },
-  100: {
-    transform: [{ rotateZ: '7200deg' }],
-  },
-});
 
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
-
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
-      </Animated.View>
+      <Text style={styles.iconLetter}>b</Text>
+      <View style={styles.iconDot} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glow: {
-    width: 201,
-    height: 201,
-    position: 'absolute',
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 128,
-    height: 128,
-    zIndex: 100,
-  },
-  image: {
-    width: 76,
-    height: 71,
-  },
-  background: {
-    borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
-    width: 128,
-    height: 128,
-    position: 'absolute',
-  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
     alignItems: 'center',
+    backgroundColor: Colors.brand,
     justifyContent: 'center',
     zIndex: 1000,
   },
+  lockup: { alignItems: 'center', gap: 16 },
+  mark: { alignItems: 'center', height: 96, justifyContent: 'center', width: 96 },
+  markLetter: { color: '#FFFFFF', fontSize: 92, fontWeight: '800', letterSpacing: -7, lineHeight: 98 },
+  dot: { backgroundColor: Colors.orange, borderRadius: 8, bottom: 18, height: 14, position: 'absolute', right: 4, width: 14 },
+  wordmark: { color: '#FFFFFF', fontSize: 28, fontWeight: '700', letterSpacing: -0.7 },
+  iconContainer: { alignItems: 'center', backgroundColor: Colors.brand, borderRadius: 28, height: 96, justifyContent: 'center', width: 96 },
+  iconLetter: { color: '#FFFFFF', fontSize: 72, fontWeight: '800', letterSpacing: -5, lineHeight: 78 },
+  iconDot: { backgroundColor: Colors.orange, borderRadius: 6, bottom: 16, height: 11, position: 'absolute', right: 7, width: 11 },
 });
