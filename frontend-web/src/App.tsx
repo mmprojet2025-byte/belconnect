@@ -5,6 +5,7 @@ import { NotFound } from "./pages/NotFound";
 import { Groups } from './pages/Groups';
 import { Projects } from './pages/Projects';
 import { LegalDrafts } from './pages/LegalDrafts';
+import { ContactPage } from './pages/ContactPage';
 import { currentUser, signOut } from "./lib/auth";
 import type { UserProfile } from "./lib/auth";
 import { useCatalog } from "./context/catalogStore";
@@ -44,6 +45,7 @@ function App() {
   const isProject = /^\/projets(?:\/[1-9]\d*)?$/.test(pathname);
   const isLegalDraft = import.meta.env.DEV && pathname === "/informations-legales";
   const isCatalogue = pathname === "/activites";
+  const isContact = pathname === "/contact";
   const isDetail = /^\/activites\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/(?:connexion|inscription|recapitulatif|paiement|confirmation|echec))?$/.test(pathname);
   const selectedActivity = activities.find(
     (a) => a.id === pathname.split("/")[2],
@@ -62,7 +64,7 @@ function App() {
     selectedActivity.details.remaining > 0;
   const isPasswordRecovery = pathname === "/reinitialiser-mot-de-passe";
   const isAuth = pathname === "/connexion" || pathname === "/mon-espace" || isPasswordRecovery;
-  const isNotFound = !(pathname === "/" || isGroups || isProject || isLegalDraft || isCatalogue || isDetail || isAuth);
+  const isNotFound = !(pathname === "/" || isGroups || isProject || isLegalDraft || isCatalogue || isContact || isDetail || isAuth);
   const needsCatalog = isCatalogue || isDetail;
   const quantity = selectedActivity
     ? bookingQuantity(selectedActivity, location.split("?")[1] || "")
@@ -113,7 +115,8 @@ function App() {
           : isCatalogue
             ? `${tr(locale, 'Activités en Belgique', 'Activities in Belgium', 'Activiteiten in België')} — Belconnect`
             : `Belconnect — ${tr(locale, 'La Belgique, à vivre ensemble', 'Experience Belgium together', 'Beleef België samen')}`;
-  }, [isNotFound, isLegalDraft, isGroups, isProject, isCatalogue, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, isSignedIn, locale]);
+  }, [isNotFound, isLegalDraft, isGroups, isProject, isCatalogue, isContact, isDetail, isAuth, isPasswordRecovery, isFlow, detailTitle, isSignedIn, locale]);
+  useEffect(() => { if (isContact) document.title = "Contact et avis — Belconnect"; }, [isContact]);
   useEffect(() => {
     if (pathname === "/mon-espace") {
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -273,7 +276,7 @@ function App() {
         <PageBoundary key={pathname}>
         {sessionError && <p className="container" role="alert">{sessionError}</p>}
         {needsCatalog && catalog.loaded && <CatalogNotice />}
-        {isNotFound ? <NotFound /> : needsCatalog && !catalog.loaded ? <CatalogNotice heading /> : (isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isLegalDraft ? <LegalDrafts /> : isPasswordRecovery ? <PasswordRecoveryPage /> : isAuth ? (
+        {isNotFound ? <NotFound /> : needsCatalog && !catalog.loaded ? <CatalogNotice heading /> : (isAuth || isFlow) && !sessionReady ? <p className="container" role="status">Vérification de votre session…</p> : isContact ? <ContactPage defaultName={user ? `${user.firstName} ${user.lastName}` : ''} defaultEmail={user?.email} /> : isLegalDraft ? <LegalDrafts /> : isPasswordRecovery ? <PasswordRecoveryPage /> : isAuth ? (
           <AuthPage user={user} onLogout={logout} onComplete={profile => {
             acceptUser(profile);
             const target = new URLSearchParams(location.split('?')[1] || '').get('retour');
@@ -653,6 +656,7 @@ function App() {
             <h3>Ensemble</h3>
             <a href="/projets">Les projets locaux</a>
             <a href="/mon-espace#espaces">Organiser une activité</a>
+            <a href="/contact">Contact et avis</a>
             {import.meta.env.DEV && <><a href="/informations-legales#confidentialite">Confidentialité (brouillon)</a><a href="/informations-legales#cookies">Autres informations légales</a></>}
             <button
               onClick={() =>

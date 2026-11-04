@@ -113,6 +113,26 @@ public class WorkspaceController {
                 r.getLong("pending_refunds")));
     }
 
+    public record SpaceNumbers(long spaceId,long groups,long members,long departures,long pendingRequests,long activities,long projects) {}
+    @GetMapping("/space-numbers") @Transactional(readOnly = true)
+    public List<SpaceNumbers> spaceNumbers(Authentication auth) {
+        if(auth==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return jdbc.query("""
+            SELECT e.id,
+              (SELECT count(*) FROM groupe g WHERE g.espace_id=e.id AND g.statut='ACTIF') AS groups,
+              (SELECT count(DISTINCT ag.utilisateur_id) FROM appartenance_groupe ag JOIN utilisateur member ON member.id=ag.utilisateur_id WHERE ag.espace_id=e.id AND ag.statut='ACTIF' AND member.statut='ACTIF') AS members,
+              (SELECT count(DISTINCT ag.utilisateur_id) FROM appartenance_groupe ag WHERE ag.espace_id=e.id AND ag.date_depart_volontaire IS NOT NULL) AS departures,
+              (SELECT count(*) FROM demande_adhesion_groupe d WHERE d.espace_id=e.id AND d.statut='EN_ATTENTE') AS pending_requests,
+              (SELECT count(*) FROM activite ac WHERE ac.espace_id=e.id) AS activities,
+              (SELECT count(*) FROM projet p WHERE p.espace_id=e.id) AS projects
+            FROM appartenance_espace a JOIN espace_organisateur e ON e.id=a.espace_id
+            JOIN utilisateur u ON u.id=a.utilisateur_id
+            WHERE u.email=? AND u.statut='ACTIF' AND a.role='ADMINISTRATEUR'
+              AND a.statut='ACTIF' AND e.statut='ACTIF'
+            ORDER BY e.nom,e.id
+            """,(r,n)->new SpaceNumbers(r.getLong("id"),r.getLong("groups"),r.getLong("members"),r.getLong("departures"),r.getLong("pending_requests"),r.getLong("activities"),r.getLong("projects")),auth.getName());
+    }
+
     @GetMapping @Transactional(readOnly = true)
     public Overview overview(Authentication auth) {
         long userId = jdbc.query("SELECT id FROM utilisateur WHERE email=? AND statut='ACTIF'",

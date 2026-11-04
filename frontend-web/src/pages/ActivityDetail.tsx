@@ -35,7 +35,7 @@ export function ActivityDetail({
       setExistingRegistration(confirmed ? "confirmed" : pending ? "pending" : null);
     }).catch(() => {});
     return () => controller.abort();
-  }, [activity?.id]);
+  }, [activity]);
   if (!activity)
     return (
       <section className="container detail-not-found">

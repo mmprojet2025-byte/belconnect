@@ -20,7 +20,7 @@ export function OwnerSecurityGate({ children, manage = false, onLogout }: { chil
     const value: Status = await fetch('/api/auth/owner-mfa/status', { credentials: 'same-origin', cache: 'no-store' }).then(result);
     setStatus(value);
   }
-  useEffect(() => { void refresh().catch(cause => setError(cause.message)); }, []);
+  useEffect(() => { const controller = new AbortController(); fetch('/api/auth/owner-mfa/status', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }).then(result).then(setStatus).catch(cause => { if (!controller.signal.aborted) setError(cause.message); }); return () => controller.abort(); }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     const form = event.currentTarget;

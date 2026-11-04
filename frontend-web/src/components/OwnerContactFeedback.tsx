@@ -1,0 +1,24 @@
+import { useEffect, useState } from 'react';
+import { postJson, result } from '../lib/auth';
+import './OwnerContactFeedback.css';
+
+type Status = 'NOUVEAU' | 'EN_COURS' | 'TRAITE';
+type Feedback = { id:number; name:string|null; email:string|null; category:string; message:string; replyRequested:boolean; status:Status; receivedAt:string };
+const categoryLabels:Record<string,string>={AVIS:'Avis',SUGGESTION:'Suggestion',PROBLEME:'Problème',QUESTION:'Question'};
+const statusLabels:Record<Status,string>={NOUVEAU:'Nouveau',EN_COURS:'En cours',TRAITE:'Traité'};
+
+export function OwnerContactFeedback() {
+  const [items,setItems]=useState<Feedback[]>([]); const [selected,setSelected]=useState<number|null>(null);
+  const [busy,setBusy]=useState(true); const [error,setError]=useState(''); const [notice,setNotice]=useState(''); const [revision,setRevision]=useState(0);
+  useEffect(()=>{const controller=new AbortController();fetch('/api/workspace/owner/contact-feedback',{credentials:'same-origin',cache:'no-store',signal:controller.signal}).then(result).then((value:Feedback[])=>{if(!controller.signal.aborted){setItems(value);setError('');setSelected(current=>current&&value.some(item=>item.id===current)?current:value[0]?.id??null);}}).catch(cause=>{if(!controller.signal.aborted)setError(cause instanceof Error?cause.message:'Les retours sont indisponibles.');}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});return()=>controller.abort();},[revision]);
+  const current=items.find(item=>item.id===selected)??null;
+  async function changeStatus(status:Status){if(!current||busy||current.status===status)return;setBusy(true);setError('');setNotice('');try{const updated:Feedback=await postJson(`/api/workspace/owner/contact-feedback/${current.id}/status`,{status});setItems(values=>values.map(item=>item.id===updated.id?updated:item));setNotice(`Statut du retour de ${updated.name||'la personne anonyme'} : ${statusLabels[updated.status]}.`);}catch(cause){setError(cause instanceof Error?cause.message:'Le statut n’a pas pu être modifié.');}finally{setBusy(false);}}
+  return <section className="workspace-panel owner-feedback" aria-labelledby="owner-feedback-title" aria-busy={busy}>
+    <div className="account-section-heading"><div><span className="workspace-context-kicker">Supervision Belconnect</span><h2 id="owner-feedback-title">Retours reçus</h2></div><button className="text-link" disabled={busy} onClick={()=>{setBusy(true);setError('');setRevision(value=>value+1);}}>Actualiser</button></div>
+    <p className="workspace-description">Messages privés envoyés depuis la page « Contact et avis ». Ils sont visibles uniquement par le propriétaire de la plateforme et ne sont jamais publiés automatiquement.</p>
+    {error&&<p role="alert">{error}</p>}<p className="sr-only" role="status" aria-live="polite">{notice}</p>{busy&&!items.length&&<p role="status">Chargement des retours…</p>}{!busy&&!error&&!items.length&&<p>Aucun retour reçu pour le moment.</p>}
+    {items.length>0&&<div className="owner-feedback-layout"><ul className="owner-feedback-list" aria-label="Retours reçus">{items.map(item=><li key={item.id}><button type="button" aria-pressed={item.id===selected} aria-controls="owner-feedback-detail" className={item.id===selected?'selected':''} onClick={()=>{setSelected(item.id);setNotice(`Retour de ${item.name||'la personne anonyme'} sélectionné.`);}}><span><strong>{categoryLabels[item.category]??item.category}</strong><span className={`owner-feedback-status status-${item.status.toLowerCase()}`}>{statusLabels[item.status]}</span></span><b>{item.name||'Anonyme'}</b><small>{new Date(item.receivedAt).toLocaleString('fr-BE')}</small><p>{item.message}</p></button></li>)}</ul>
+    {current&&<article id="owner-feedback-detail" className="owner-feedback-detail" aria-labelledby="owner-feedback-detail-title"><div className="owner-feedback-detail-heading"><div><span className="workspace-context-kicker">{categoryLabels[current.category]??current.category}</span><h3 id="owner-feedback-detail-title">{current.name||'Retour anonyme'}</h3></div><span className={`owner-feedback-status status-${current.status.toLowerCase()}`}>{statusLabels[current.status]}</span></div><dl><div><dt>Reçu le</dt><dd>{new Date(current.receivedAt).toLocaleString('fr-BE')}</dd></div><div><dt>E-mail</dt><dd>{current.email?<a href={`mailto:${current.email}`}>{current.email}</a>:'Non communiqué'}</dd></div><div><dt>Réponse souhaitée</dt><dd>{current.replyRequested?'Oui':'Non'}</dd></div></dl><div className="owner-feedback-message"><h4>Message</h4><p>{current.message}</p></div><fieldset disabled={busy}><legend>Statut du suivi</legend>{(['NOUVEAU','EN_COURS','TRAITE'] as Status[]).map(status=><button type="button" key={status} className={current.status===status?'active':''} aria-pressed={current.status===status} onClick={()=>void changeStatus(status)}>{statusLabels[status]}</button>)}</fieldset></article>}
+    </div>}
+  </section>;
+}

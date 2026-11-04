@@ -58,13 +58,13 @@ export function OwnerBilling() {
     {error && <p role="alert">{error}</p>}
     {busy && !subscriptions && <p role="status">Chargement…</p>}
     <h3>Demandes de passage en Pro</h3>
-    {requests.length ? <div className="workspace-grid">{requests.map(item => <article className="workspace-card" key={item.spaceId}>
+    {requests.length ? <div className={requests.length>4?"workspace-grid owner-scroll-list":"workspace-grid"}>{requests.map(item => <article className="workspace-card" key={item.spaceId}>
       <h4>{item.spaceName}</h4><p>{item.applicant} · {item.status === 'PRISE_EN_CHARGE' ? 'Prise en charge' : 'En attente'}</p>
       <p>Demande reçue le {new Date(item.createdAt).toLocaleDateString('fr-BE')}. Une prise en charge n’active pas Pro et ne crée pas de paiement.</p>
       {item.status === 'EN_ATTENTE' && <button className="button outline" onClick={() => take(item.spaceId)}>Marquer prise en charge</button>}
     </article>)}</div> : <p>Aucune demande de passage en Pro.</p>}
     <h3>Abonnements des espaces</h3>
-    {subscriptions && (subscriptions.length ? <div className="workspace-grid">{subscriptions.map(item => <article className="workspace-card" key={item.spaceId}>
+    {subscriptions && (subscriptions.length ? <div className={subscriptions.length>4?"workspace-grid owner-scroll-list":"workspace-grid"}>{subscriptions.map(item => <article className="workspace-card" key={item.spaceId}>
       <h4>{item.spaceName}</h4><p><strong>{item.plan === 'PRO' && item.status === 'ACTIF' ? 'Pro' : 'Starter'}</strong> · {subscriptionStatus[item.status] ?? item.status}</p>
       <p>Administrateur : {item.administrator || 'Aucun abonnement engagé'}</p>
       {item.spaceStatus !== 'ACTIF' && <p>Espace : {item.spaceStatus.toLowerCase()}</p>}
@@ -74,7 +74,7 @@ export function OwnerBilling() {
     <h3>Factures Stripe</h3>
     {!configured && <p>Stripe test n’est pas configuré sur ce serveur.</p>}
     {configured && !bills.length && !busy && !error && <p>Aucune facture pour le moment.</p>}
-    {bills.length > 0 && <div className="workspace-grid">{bills.map(item => <article className="workspace-card" key={item.id}>
+    {bills.length > 0 && <div className={bills.length>4?"workspace-grid owner-scroll-list":"workspace-grid"}>{bills.map(item => <article className="workspace-card" key={item.id}>
       <h4>{item.number || 'Facture en préparation'}</h4><p>{item.spaceName} · {new Date(item.createdAt * 1000).toLocaleDateString('fr-BE')}</p>
       <p>{invoiceStatus[item.status] ?? item.status} · {euro(item.amountDueCents, item.currency)} dus · {euro(item.amountPaidCents, item.currency)} payés</p>
       {item.hostedUrl?.startsWith('https://invoice.stripe.com/') && <a href={item.hostedUrl} target="_blank" rel="noopener noreferrer">Voir la facture</a>}

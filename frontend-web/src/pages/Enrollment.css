@@ -256,10 +256,11 @@
 }
 .forgot-password {
   align-self: flex-end;
+  min-height: 44px;
   color: #087579;
   font-size: 11px;
   text-decoration: underline;
-  padding: 4px;
+  padding: 8px;
 }
 .inline-notice {
   background: #f2f7fc;

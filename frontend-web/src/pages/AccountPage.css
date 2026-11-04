@@ -768,3 +768,24 @@
 .account-profile-popover button:hover { background:#fff3ef; }
 .account-profile-menu summary:focus-visible,.account-profile-popover a:focus-visible,.account-profile-popover button:focus-visible,.account-toolbar-notifications:focus-visible { outline:3px solid #318f83; outline-offset:3px; }
 .account-toolbar-badge { top:-5px; right:-5px; border:2px solid white; min-width:21px; height:21px; }
+
+.account-nav-group summary { display:flex; gap:10px; align-items:center; padding:11px 12px; cursor:pointer; list-style:none; border-radius:8px; color:#edf5f3; font-size:13px; font-weight:650; }
+.account-nav-group summary::-webkit-details-marker { display:none; }
+.account-nav-group summary::after { content:'⌄'; margin-left:auto; }.account-nav-group[open] summary::after { content:'⌃'; }
+.account-nav-group summary:hover { background:#ffffff0c; }.account-nav-group summary:focus-visible { outline:2px solid #91c8bc; outline-offset:-2px; }
+.account-nav-group>div { display:grid; gap:3px; margin-left:14px; padding-left:8px; border-left:1px solid #53676f; }
+.account-nav-group .icon { width:18px; height:18px; flex:none; }
+
+.account-sidebar .account-nav-group>summary { color:#edf5f3; }
+.account-sidebar .account-nav-group>summary .icon,.account-sidebar .account-nav-group>summary::after { color:#c6ded7; }
+
+/* Independent owner workspace panes on desktop; normal document scrolling on mobile. */
+@media(min-width:761px){
+ .account-page[data-owner=true] .account-main{height:calc(100dvh - 82px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;scrollbar-width:auto;scrollbar-color:#6e8e83 #edf3ef;min-height:0;box-sizing:border-box}
+ .account-page[data-owner=true] .account-sidebar{overscroll-behavior-y:contain;scrollbar-gutter:stable}
+ .account-page[data-owner=true] .account-main:focus-visible{outline:2px solid #43806a;outline-offset:-3px}
+}
+
+@media(min-width:761px){.owner-scroll-list{max-height:min(52vh,520px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:8px;border:1px solid #dce7e1;border-radius:12px}}
+
+.workspace-space-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}.workspace-space-numbers{padding:18px;border:1px solid #d4e3da;border-radius:12px;background:#fff}.workspace-space-numbers h3{margin:0 0 14px;font-size:1.05rem}.workspace-space-number-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.workspace-space-number-grid>div{display:grid;gap:7px;padding:10px;border:1px solid #e3ede7;border-radius:9px;background:#f7faf8;min-width:0}.workspace-space-number-grid>div>span:first-child{font-size:.75rem;color:#526a60}.workspace-space-number-grid strong{font-size:1.6rem;color:#295f4d}.workspace-space-number-track{height:5px;background:#dbe9df;border-radius:9px;overflow:hidden}.workspace-space-number-track i{display:block;height:100%;background:#5b9a78;border-radius:9px}@media(max-width:500px){.workspace-space-number-grid{grid-template-columns:1fr}}

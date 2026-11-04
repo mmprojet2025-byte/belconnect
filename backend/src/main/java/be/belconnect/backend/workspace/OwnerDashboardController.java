@@ -31,4 +31,21 @@ public class OwnerDashboardController {
    """,(r,n)->new Summary(r.getLong("openings"),r.getLong("reports"),r.getLong("pro"),r.getLong("unmanaged"),r.getLong("suspended"),r.getLong("refunds"),r.getLong("active"),r.getLong("members")));
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(summary);
  }
+
+ public record Alerts(long failedChecks,java.time.OffsetDateTime lastFailure,long failedPayments,long settledPayments,boolean paymentThreshold,java.time.OffsetDateTime checkedAt) {}
+ @GetMapping("/alerts") @Transactional(readOnly=true)
+ public ResponseEntity<Alerts> alerts(Authentication auth) {
+  Long user=jdbc.query("SELECT u.id FROM utilisateur u JOIN role_plateforme r ON r.utilisateur_id=u.id WHERE u.email=? AND u.statut='ACTIF' AND r.role='PROPRIETAIRE'",(r,n)->r.getLong(1),auth.getName()).stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN));
+  var security=jdbc.queryForMap("SELECT count(*) AS failures,max(date_creation) AS latest FROM owner_security_event WHERE utilisateur_id=? AND evenement IN ('ECHEC','CONNEXION_REFUSEE') AND date_creation>=now()-interval '15 minutes'",user);
+  var payments=jdbc.queryForMap("""
+   WITH attempts AS (
+    SELECT statut FROM reservation_payante_activite WHERE date_creation>=now()-interval '24 hours'
+    UNION ALL SELECT statut FROM inscription_payante_projet WHERE date_creation>=now()-interval '24 hours'
+   ) SELECT count(*) FILTER(WHERE statut='ECHOUE') AS failed,
+    count(*) FILTER(WHERE statut IN ('ECHOUE','PAYE','REMBOURSE','REMBOURSEMENT_EN_COURS')) AS settled FROM attempts
+   """);
+  long failed=((Number)payments.get("failed")).longValue(), settled=((Number)payments.get("settled")).longValue();
+  var last=jdbc.queryForObject("SELECT max(date_creation) FROM owner_security_event WHERE utilisateur_id=? AND evenement IN ('ECHEC','CONNEXION_REFUSEE') AND date_creation>=now()-interval '15 minutes'",java.time.OffsetDateTime.class,user);
+  return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new Alerts(((Number)security.get("failures")).longValue(),last,failed,settled,settled>=10&&failed*100>=settled*30,java.time.OffsetDateTime.now()));
+ }
 }

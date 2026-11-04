@@ -318,7 +318,7 @@ export function SpaceManagement({ spaceId, section, onChanged, onSettingsTabChan
   }, [spaceId, attempt]);
   const reload = () => { setData(null); setError(''); setAttempt(n => n + 1); };
   return <section className="management-panel" aria-labelledby={section === 'settings' ? 'manage-space-title' : undefined} aria-label={section === 'groups' ? 'Groupes de l’espace' : undefined}>
-    {section === 'settings' && <div className="account-section-heading"><h2 id="manage-space-title">Réglages de l’espace</h2></div>}
+    {section === 'settings' && <div className="account-section-heading"><h2 id="manage-space-title">Réglages</h2></div>}
     {error ? <div role="alert"><p className="draft-error">{error}</p><button className="button outline" onClick={reload}>Réessayer</button></div> : !data ? <p role="status">Chargement de l’espace…</p> : <>
       {section === 'settings' && <nav className="workspace-subnav" aria-label="Réglages de l’espace"><button aria-pressed={detailTab === 'information'} disabled={editingSpace} onClick={() => { if (confirmLeavingEditor()) { setDetailTab('information'); onSettingsTabChange?.('information'); } }}>Informations</button><button aria-pressed={detailTab === 'admins'} disabled={editingSpace} onClick={() => { if (confirmLeavingEditor()) { setDetailTab('admins'); onSettingsTabChange?.('admins'); } }}>Équipe de l’espace</button><button aria-pressed={detailTab === 'members'} disabled={editingSpace} onClick={() => { if (confirmLeavingEditor()) { setDetailTab('members'); onSettingsTabChange?.('members'); } }}>Membres de l’espace</button></nav>}
       {notice && <p className="account-notice" role="status">{notice}</p>}

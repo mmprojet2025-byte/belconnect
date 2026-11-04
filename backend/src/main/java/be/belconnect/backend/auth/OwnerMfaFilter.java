@@ -29,10 +29,12 @@ final class OwnerMfaFilter extends OncePerRequestFilter {
                 String path=request.getServletPath();
                 boolean allowed=Set.of("/api/auth/me","/api/auth/csrf","/api/auth/logout","/api/auth/login").contains(path)||path.startsWith("/api/auth/owner-mfa/");
                 if(!allowed&&!service.status(id,session).verified()){deny(response,"La double authentification du propriétaire est requise.");return;}
-                boolean sensitive=request.getMethod().equals("POST") && (
+                boolean sensitive=request.getMethod().equals("POST") && (path.equals("/api/workspace/member-interventions") ||
                     path.matches("/api/workspace/opening-requests/[0-9]+/(decision|edit|reopen)") ||
                     path.matches("/api/workspace/spaces/[0-9]+/administrators.*") ||
                     path.startsWith("/api/workspace/owner/moderation/") ||
+                    path.matches("/api/workspace/owner/contact-feedback/[0-9]+/status") ||
+                    path.matches("/api/workspace/owner/contact-feedback/[0-9]+/anonymize") ||
                     path.matches("/api/workspace/owner/pro-requests/[0-9]+/take") ||
                     path.matches("/api/auth/owner-mfa/sessions/.*"));
                 if(sensitive && !service.recentlyVerified(id,session)){

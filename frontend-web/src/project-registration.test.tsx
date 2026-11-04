@@ -21,7 +21,7 @@ it('confirme une inscription gratuite au projet sans ouvrir Stripe', async () =>
   vi.stubGlobal('fetch', fetcher);
   render(<PaidProjectParticipation projectId={7} signedIn />);
   fireEvent.click(await screen.findByRole('button', { name: 'Confirmer mon inscription gratuite' }));
-  expect(await screen.findByText(/Inscription confirmée/)).toBeTruthy();
+  expect(await screen.findByText(/Vous êtes déjà inscrit à ce projet/)).toBeTruthy();
   expect(fetcher.mock.calls.some(([path]) => String(path).includes('/api/project-paid-participations/free/7'))).toBe(true);
   expect(fetcher.mock.calls.some(([path]) => String(path).includes('checkout.stripe.com'))).toBe(false);
 });

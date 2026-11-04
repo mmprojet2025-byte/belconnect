@@ -32,6 +32,8 @@ export function WorkspaceDashboard({ data, onRefresh, refreshToken = 0 }: { data
   const [projectEnrollments, setProjectEnrollments] = useState<ProjectEnrollment[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState(false);
+  const [dashboardNow] = useState(() => Date.now());
+  const [dashboardToday] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     if (data.owner || organizer) return;
@@ -90,10 +92,10 @@ export function WorkspaceDashboard({ data, onRefresh, refreshToken = 0 }: { data
   }, [data.owner, manager, data]);
 
   const tasks = queue ? queue.openings + queue.memberships + queue.projects : null;
-  const upcomingBookings = bookings.filter(booking => booking.status === 'CONFIRMEE' && !booking.activityCancelled && new Date(booking.startsAt).getTime() > Date.now())
+  const upcomingBookings = bookings.filter(booking => booking.status === 'CONFIRMEE' && !booking.activityCancelled && new Date(booking.startsAt).getTime() > dashboardNow)
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   const nextBooking = upcomingBookings[0] ?? null;
-  const activeProjects = projectEnrollments.filter(item => ['CONFIRMEE', 'PAYE'].includes(item.status) && (!item.endsOn || item.endsOn >= new Date().toISOString().slice(0, 10)))
+  const activeProjects = projectEnrollments.filter(item => ['CONFIRMEE', 'PAYE'].includes(item.status) && (!item.endsOn || item.endsOn >= dashboardToday))
     .sort((a, b) => (a.startsOn ?? '').localeCompare(b.startsOn ?? ''));
   if (!data.owner && !manager) return <div className="workspace-dashboard workspace-dashboard--member">
     <div className="dashboard-member-overview">

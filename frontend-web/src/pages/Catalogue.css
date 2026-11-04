@@ -57,7 +57,8 @@
 }
 .filter-heading button {
   font-size: 10px;
-  padding: 5px 0;
+  min-height: 44px;
+  padding: 8px 4px;
   color: #087579;
 }
 .catalogue-filters fieldset {

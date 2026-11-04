@@ -1,3 +1,5 @@
+import { OwnerOperationalAlerts } from "./OwnerOperationalAlerts";
+import { OwnerAccessRights } from "./OwnerAccessRights";
 import { OwnerSessions } from "./OwnerSessions";
 import { OwnerActionLog } from "./OwnerActionLog";
 import { useEffect, useState } from 'react';
@@ -7,14 +9,14 @@ type Entry = { id: number; action: string; at: string };
 type Page = { items: Entry[]; hasMore: boolean };
 const labels: Record<string, string> = { ACTIVATION: 'Application et codes de secours configurés', VERIFICATION: 'Code de l’application validé', RECUPERATION: 'Code de récupération utilisé', ECHEC: 'Tentative de vérification refusée', CONNEXION_REFUSEE: 'Mot de passe refusé pour ce compte', MOT_DE_PASSE_VALIDE: 'Mot de passe validé — second facteur encore requis', DECONNEXION: 'Déconnexion volontaire', MOT_DE_PASSE_REINITIALISE: 'Mot de passe réinitialisé', SESSION_REVOQUEE: 'Une autre session révoquée', AUTRES_SESSIONS_REVOQUEES: 'Les autres sessions révoquées' };
 export function OwnerSecurityLog() {
-  const [tab, setTab] = useState<'access' | 'actions' | 'sessions'>('access');
+  const [tab, setTab] = useState<'access' | 'actions' | 'sessions' | 'rights' | 'alerts'>('access');
   const [items, setItems] = useState<Entry[]>([]);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    const controller = new AbortController(); setBusy(true); setError('');
+    const controller = new AbortController();
     fetch('/api/auth/owner-mfa/events', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }).then(result).then((page: Page) => { setItems(page.items); setMore(page.hasMore); }).catch(cause => { if (!controller.signal.aborted) setError(cause.message); }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
   }, [revision]);
@@ -27,9 +29,9 @@ export function OwnerSecurityLog() {
     finally { setBusy(false); }
   }
   return <section className="owner-security-log" aria-labelledby="security-log-title" aria-busy={busy}>
-    <div className="account-section-heading"><h3 id="security-log-title">Journal de sécurité</h3><button className="button outline" disabled={busy} onClick={() => setRevision(value => value + 1)}>Actualiser</button></div>
-    <nav className="workspace-context-nav" aria-label="Rubriques du journal"><button aria-current={tab === 'access' ? 'page' : undefined} onClick={() => setTab('access')}>Connexions et protection</button><button aria-current={tab === 'actions' ? 'page' : undefined} onClick={() => setTab('actions')}>Actions sensibles</button><button aria-current={tab === 'sessions' ? 'page' : undefined} onClick={() => setTab('sessions')}>Sessions ouvertes</button></nav>
-    {tab === 'sessions' ? <OwnerSessions /> : tab === 'actions' ? <OwnerActionLog /> : <>
+    <div className="account-section-heading"><h3 id="security-log-title">Journal de sécurité</h3>{tab === 'access' && <button className="button outline" disabled={busy} onClick={() => { setBusy(true); setError(''); setRevision(value => value + 1); }}>Actualiser</button>}</div>
+    <nav className="workspace-context-nav" aria-label="Rubriques du journal"><button aria-current={tab === 'access' ? 'page' : undefined} onClick={() => setTab('access')}>Connexions et protection</button><button aria-current={tab === 'actions' ? 'page' : undefined} onClick={() => setTab('actions')}>Actions sensibles</button><button aria-current={tab === 'sessions' ? 'page' : undefined} onClick={() => setTab('sessions')}>Sessions ouvertes</button><button aria-current={tab === 'rights' ? 'page' : undefined} onClick={() => setTab('rights')}>Droits d’accès</button><button aria-current={tab === 'alerts' ? 'page' : undefined} onClick={() => setTab('alerts')}>Alertes</button></nav>
+    {tab === 'alerts' ? <OwnerOperationalAlerts mode="security" /> : tab === 'rights' ? <OwnerAccessRights /> : tab === 'sessions' ? <OwnerSessions /> : tab === 'actions' ? <OwnerActionLog /> : <>
     <p>Accès et protection de votre compte, du plus récent au plus ancien. Les connexions par mot de passe et les déconnexions sont enregistrées à partir de cette mise à jour. Une tentative refusée ne permet pas d’identifier la personne qui l’a faite. Les heures sont celles de votre appareil.</p>
     {error && <p role="alert">{error}</p>}
     {!items.length && !busy && !error && <p>Aucun événement enregistré pour votre compte.</p>}

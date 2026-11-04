@@ -31,7 +31,7 @@ public class OwnerBillingController {
   }
 
   public record Subscription(long spaceId,String spaceName,String spaceStatus,String administrator,
-      String plan,String status,OffsetDateTime periodEnd,OffsetDateTime updatedAt,boolean stripeLinked) {}
+      String plan,String status,OffsetDateTime periodEnd,OffsetDateTime updatedAt,boolean stripeLinked,boolean terminatedSubscription) {}
   public record Bill(String id,String number,String spaceName,String status,long amountDueCents,
       long amountPaidCents,String currency,long createdAt,String hostedUrl,String pdfUrl) {}
   public record Bills(List<Bill> items,String nextCursor,boolean stripeConfigured) {}
@@ -51,7 +51,8 @@ public class OwnerBillingController {
     var rows=jdbc.query("""
         SELECT e.id,e.nom,e.statut AS espace_statut,COALESCE(u.prenom || ' ','') || u.nom AS administrateur,
           COALESCE(a.formule,'STARTER') AS formule,COALESCE(a.statut,'GRATUIT') AS abonnement_statut,
-          a.fin_periode,a.date_modification,a.client_stripe
+          a.fin_periode,a.date_modification,a.client_stripe,
+          (a.abonnement_stripe IS NOT NULL AND a.termine_definitivement) AS terminated_subscription
         FROM espace_organisateur e
         LEFT JOIN abonnement_espace a ON a.espace_id=e.id
         LEFT JOIN utilisateur u ON u.id=a.administrateur_id
@@ -61,7 +62,7 @@ public class OwnerBillingController {
         """,(r,n)->new Subscription(r.getLong("id"),r.getString("nom"),r.getString("espace_statut"),
           r.getString("administrateur"),r.getString("formule"),r.getString("abonnement_statut"),
           r.getObject("fin_periode",OffsetDateTime.class),r.getObject("date_modification",OffsetDateTime.class),
-          r.getString("client_stripe")!=null));
+          r.getString("client_stripe")!=null,r.getBoolean("terminated_subscription")));
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(rows);
   }
 

@@ -21,12 +21,12 @@ public class OwnerMembersController {
   private final JdbcTemplate jdbc;
   public OwnerMembersController(JdbcTemplate jdbc) { this.jdbc=jdbc; }
 
-  public record Assignment(String scope,String name,String role,String status) {}
+  public record Assignment(String scope,String name,String role,String status,Long scopeId,Long spaceId) { public Assignment(String scope,String name,String role,String status){this(scope,name,role,status,null,null);} }
   public record Member(long id,String name,String email,String status,boolean owner,List<Assignment> roles) {}
   public record MemberPage(List<Member> items,long total,int page,int pageSize) {}
 
   @GetMapping("/owner/members/paged")
-  public ResponseEntity<MemberPage> pagedMembers(Authentication auth,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="") String search) {
+  public ResponseEntity<MemberPage> pagedMembers(Authentication auth,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="") String search,@RequestParam(defaultValue="") String role,@RequestParam(defaultValue="") String status,@RequestParam(required=false) Long spaceId,@RequestParam(required=false) Long groupId) {
     if(auth==null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Veuillez vous connecter.");
     Boolean owner=jdbc.queryForObject("""
         SELECT EXISTS(SELECT 1 FROM role_plateforme r JOIN utilisateur u ON u.id=r.utilisateur_id
@@ -43,7 +43,22 @@ public class OwnerMembersController {
           OR EXISTS (SELECT 1 FROM appartenance_groupe ag JOIN groupe g ON g.id=ag.groupe_id
             WHERE ag.utilisateur_id=u.id AND lower(g.nom) LIKE ? ESCAPE '\\'))
         """;
-    Long total=jdbc.queryForObject("SELECT count(*) FROM utilisateur u "+where,Long.class,needle,needle,needle,needle);
+    var args=new ArrayList<Object>(List.of(needle,needle,needle,needle));
+    if(!status.isEmpty()){if(!List.of("ACTIF","SUSPENDU","DESACTIVE").contains(status))throw new ResponseStatusException(HttpStatus.BAD_REQUEST);where+=" AND u.statut=?";args.add(status);}
+    if(!role.isEmpty()){
+      if(role.equals("PROPRIETAIRE"))where+=" AND EXISTS(SELECT 1 FROM role_plateforme r WHERE r.utilisateur_id=u.id AND r.role='PROPRIETAIRE')";
+      else if(List.of("ADMINISTRATEUR","REFERENT","MEMBRE").contains(role)){
+        String table=role.equals("REFERENT")?"appartenance_groupe":"appartenance_espace";
+        where+=" AND EXISTS(SELECT 1 FROM "+table+" a WHERE a.utilisateur_id=u.id AND a.role=? AND a.statut='ACTIF'";args.add(role);
+        if(spaceId!=null){where+=" AND a.espace_id=?";args.add(spaceId);}
+        if(groupId!=null&&role.equals("REFERENT")){where+=" AND a.groupe_id=?";args.add(groupId);}
+        where+=")";
+      }else throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    }
+    if(spaceId!=null){where+=" AND EXISTS(SELECT 1 FROM appartenance_espace a WHERE a.utilisateur_id=u.id AND a.espace_id=? AND a.statut<>'RETIRE')";args.add(spaceId);}
+    if(groupId!=null){where+=" AND EXISTS(SELECT 1 FROM appartenance_groupe a WHERE a.utilisateur_id=u.id AND a.groupe_id=? AND a.statut<>'RETIRE')";args.add(groupId);}
+    Long total=jdbc.queryForObject("SELECT count(*) FROM utilisateur u "+where,Long.class,args.toArray());
+    args.add(page*20);
     var people=new LinkedHashMap<Long,Member>();
     jdbc.query("""
         SELECT u.id,u.prenom,u.nom,u.email,u.statut,EXISTS(SELECT 1 FROM role_plateforme r
@@ -53,16 +68,16 @@ public class OwnerMembersController {
           String name=((row.getString("prenom")==null?"":row.getString("prenom"))+" "+row.getString("nom")).trim();
           var member=new Member(row.getLong("id"),name,row.getString("email"),row.getString("statut"),row.getBoolean("owner"),new ArrayList<>());
           people.put(member.id(),member);
-        },needle,needle,needle,needle,page*20);
+        },args.toArray());
     for(var member:people.values()) {
       jdbc.query("""
-          SELECT e.nom,a.role,a.statut FROM appartenance_espace a JOIN espace_organisateur e ON e.id=a.espace_id
+          SELECT e.id,e.nom,a.role,a.statut FROM appartenance_espace a JOIN espace_organisateur e ON e.id=a.espace_id
           WHERE a.utilisateur_id=? ORDER BY e.nom
-          """,row->{ member.roles().add(new Assignment("ESPACE",row.getString("nom"),row.getString("role"),row.getString("statut"))); },member.id());
+          """,row->{ member.roles().add(new Assignment("ESPACE",row.getString("nom"),row.getString("role"),row.getString("statut"),row.getLong("id"),row.getLong("id"))); },member.id());
       jdbc.query("""
-          SELECT g.nom,a.role,a.statut FROM appartenance_groupe a JOIN groupe g ON g.id=a.groupe_id
+          SELECT g.id,g.espace_id,g.nom,a.role,a.statut FROM appartenance_groupe a JOIN groupe g ON g.id=a.groupe_id
           WHERE a.utilisateur_id=? ORDER BY g.nom
-          """,row->{ member.roles().add(new Assignment("GROUPE",row.getString("nom"),row.getString("role"),row.getString("statut"))); },member.id());
+          """,row->{ member.roles().add(new Assignment("GROUPE",row.getString("nom"),row.getString("role"),row.getString("statut"),row.getLong("id"),row.getLong("espace_id"))); },member.id());
     }
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new MemberPage(List.copyOf(people.values()),total==null?0:total,page,20));
   }

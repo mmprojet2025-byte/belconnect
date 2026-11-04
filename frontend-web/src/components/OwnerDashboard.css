@@ -1,1 +1,22 @@
 .owner-dashboard{display:grid;gap:1.25rem}.owner-dashboard h2{margin:0 0 .7rem}.owner-dashboard .workspace-context-header p{margin:.4rem 0}.owner-priority-panel,.owner-task-panel,.owner-watch-panel{border:1px solid #d4e1df;border-radius:14px;padding:1.3rem;background:white}.owner-priority-panel.has-priorities{border:2px solid #d7a15c;border-left:6px solid #c58130;background:#fffbf4}.owner-priority-panel.is-clear{background:#eef7f3;border-left:5px solid #78a98f}.owner-dashboard ul{list-style:none;margin:0;padding:0;display:grid;gap:.75rem}.owner-dashboard li{display:flex;align-items:center;gap:1rem;padding:1rem;background:white;border:1px solid #dce5e2;border-radius:9px}.owner-dashboard li>div{flex:1}.owner-dashboard h3{margin:0;font-size:1rem}.owner-dashboard li p{margin:.35rem 0 0;color:#526b76}.owner-priority-count{min-width:2.5rem;text-align:center;font-weight:750;font-size:1.4rem;background:#edf4f2;padding:.5rem;border-radius:8px}.owner-dashboard-summary{display:flex;gap:1rem;flex-wrap:wrap;border-top:1px solid #d5e1df;padding-top:1rem;color:#4b6570;font-size:.9rem}.owner-dashboard-summary a{margin-left:auto}@media(max-width:700px){.owner-dashboard li{flex-wrap:wrap}.owner-dashboard li .button{width:100%}.owner-dashboard-summary a{margin-left:0}}
+
+.operational-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:16px; }
+.operational-tile { border:1px solid #d7e4df; border-radius:12px; padding:18px; background:#fbfdfc; }
+.operational-tile.needs-review { border-color:#d6af72; background:#fffbf3; }
+.operational-tile-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid #e1e9e5; padding-bottom:12px; margin-bottom:14px; }
+.operational-status { font-size:11px; font-weight:650; padding:5px 8px; border-radius:6px; background:#edf2ef; color:#49635b; }
+.operational-status.warning { background:#fae7c8; color:#795011; }
+.operational-number { display:block; font-size:30px; color:#254a45; }.operational-number small { font-size:14px; font-weight:500; color:#5e7470; }
+.operational-tile p { font-size:13px; color:#61746e; margin:6px 0 18px; }
+.operational-tile .button { font-size:12px; }
+.operational-meta { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:#667b76; font-size:12px; padding:14px 0; }
+.operational-panel details { border-top:1px solid #dce6e1; padding:12px 0 0; margin-top:10px; }
+.operational-panel summary { cursor:pointer; font-size:13px; font-weight:650; color:#375b54; }
+.operational-panel details p { font-size:13px; line-height:1.6; color:#5b706b; }
+.owner-dashboard .operational-coverage { margin-top:12px; gap:6px; }
+.owner-dashboard .operational-coverage li { display:list-item; list-style:disc; margin-left:20px; padding:0; border:0; font-size:13px; color:#5b706b; background:transparent; }
+@media(max-width:700px) { .operational-grid { grid-template-columns:1fr; } }
+
+.operational-summary { display:grid; gap:10px; }.operational-summary a { display:flex; align-items:center; gap:16px; padding:14px; border:1px solid #dce7e1; border-radius:9px; background:#fbfdfc; }.operational-summary a>span:first-of-type { flex:1; color:#5c726b; font-size:13px; }.operational-summary a:hover { background:#eef6f2; }@media(max-width:600px){.operational-summary a {flex-wrap:wrap;}.operational-summary a>strong{width:100%;}}
+
+.owner-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.owner-kpi{display:flex;flex-direction:column;gap:12px;padding:20px;border:1px solid #cddfd6;border-top:4px solid #43806a;border-radius:12px;background:#f7fbf8;text-decoration:none;color:#234d40;min-width:0}.owner-kpi>span{font-size:.88rem;font-weight:650}.owner-kpi>strong{font-size:2.8rem;line-height:1.1;font-variant-numeric:tabular-nums}.owner-kpi>small{margin-top:auto;padding-top:12px;border-top:1px solid #dbe7df;color:#526a60;line-height:1.5}.owner-kpi:hover{background:#edf6f0;border-color:#43806a}.owner-kpi:focus-visible{outline:3px solid #245f4c;outline-offset:3px}.owner-kpi-attention{background:#fff8ed;border-top-color:#bc7927}.owner-kpi-attention>strong{color:#8b5719}@media(max-width:1050px){.owner-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.owner-kpi-grid{grid-template-columns:1fr}}

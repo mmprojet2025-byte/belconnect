@@ -117,11 +117,7 @@ export function AccountNotifications({ onOpenBookings, onOpenRequests, owner }: 
       </div>
       <label>{t('Type', 'Type', 'Type')} <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}>
         <option value="all">{t('Tous les types', 'All types', 'Alle soorten')}</option>
-        <option value="activity">{t('Activités', 'Activities', 'Activiteiten')}</option>
-        <option value="project">{t('Projets', 'Projects', 'Projecten')}</option>
-        <option value="group">{t('Groupes', 'Groups', 'Groepen')}</option>
-        <option value="workspace">{t('Espaces', 'Spaces', 'Ruimtes')}</option>
-        <option value="message">{t('Messages', 'Messages', 'Berichten')}</option>
+        {(['workspace','activity','project','group','message'] as const).filter(type=>notices.some(n=>type==='group'?n.source==='group'||n.source==='group-invite':n.source===type)).map(type=><option key={type} value={type}>{type==='workspace'?t('Espaces','Spaces','Ruimtes'):type==='activity'?t('Activités','Activities','Activiteiten'):type==='project'?t('Projets','Projects','Projecten'):type==='group'?t('Groupes','Groups','Groepen'):t('Messages','Messages','Berichten')}</option>)}
       </select></label>
     </div>
     {!notices.length && !error && <p className="account-notice account-notice-empty">{t('Aucune notification pour le moment.', 'No notifications yet.', 'Nog geen meldingen.')}</p>}

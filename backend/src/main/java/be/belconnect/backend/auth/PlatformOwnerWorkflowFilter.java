@@ -36,7 +36,7 @@ final class PlatformOwnerWorkflowFilter extends OncePerRequestFilter {
               JOIN utilisateur u ON u.id=r.utilisateur_id
               WHERE u.email=? AND u.statut='ACTIF' AND r.role='PROPRIETAIRE')
             """, Boolean.class, authentication.getName()));
-        boolean ownerAction = method.equals("POST") && (path.matches("/api/workspace/opening-requests/[0-9]+/decision")
+        boolean ownerAction = method.equals("POST") && (path.equals("/api/workspace/member-interventions") || path.matches("/api/workspace/opening-requests/[0-9]+/decision")
                 || path.matches("/api/workspace/opening-requests/[0-9]+/(edit|reopen)")
                 || path.matches("/api/workspace/notifications/[0-9]+/read")
                 || path.matches("/api/mobile/notifications/workspace/[0-9]+/read")
@@ -45,7 +45,8 @@ final class PlatformOwnerWorkflowFilter extends OncePerRequestFilter {
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators/recovery")
                 || path.matches("/api/workspace/spaces/[0-9]+/administrators/[0-9]+/status")
                 || path.matches("/api/workspace/owner/pro-requests/[0-9]+/take")
-                || path.matches("/api/workspace/owner/moderation/.*"));
+                || path.matches("/api/workspace/owner/moderation/.*")
+                || path.matches("/api/workspace/owner/contact-feedback/[0-9]+/(status|anonymize)"));
         if (owner && !ownerAction) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN,
                 "Le compte propriétaire est réservé à la supervision de Belconnect.");

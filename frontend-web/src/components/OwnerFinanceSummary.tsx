@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { result } from '../lib/auth';
-import { OwnerDashboardCharts } from './DashboardCharts';
+
 
 type Summary = {
   activeSpaces: number;
@@ -28,7 +28,7 @@ export function OwnerFinanceSummary() {
   }, [attempt]);
 
   return <section aria-labelledby="owner-finance-title">
-    <div className="account-section-heading"><h2 id="owner-finance-title">Suivi de Belconnect</h2><button className="text-link" type="button" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
+    <div className="account-section-heading"><h2 id="owner-finance-title">Paiements et commissions</h2><button className="text-link" type="button" onClick={() => setAttempt(value => value + 1)}>Actualiser</button></div>
     <p className="workspace-description">Données locales en mode test, hors espace de démonstration. Les commissions ci-dessous concernent les paiements confirmés encore marqués « payés » ; les remboursements et les frais Stripe ne sont pas inclus dans un résultat comptable.</p>
     {error && <p role="alert">{error} Les derniers chiffres chargés restent affichés.</p>}
     {!summary && !error && <p role="status">Chargement du suivi…</p>}
@@ -37,7 +37,7 @@ export function OwnerFinanceSummary() {
       <div className="workspace-card"><strong>{money(summary.confirmedCommissionCents)}</strong><span>commissions sur paiements confirmés</span></div>
       <div className="workspace-card"><strong>{summary.pendingRefunds}</strong><span>remboursements en cours dans les espaces</span></div>
     </div>}
-    <OwnerDashboardCharts key={attempt} />
+    <a className="button outline" href="/mon-espace#statistiques">Voir les graphiques dans Statistiques →</a>
     <p className="workspace-description">Les revenus des abonnements ne figurent pas dans ces indicateurs. Consultez « Abonnements et factures » pour voir la facturation Stripe test.</p>
   </section>;
 }
