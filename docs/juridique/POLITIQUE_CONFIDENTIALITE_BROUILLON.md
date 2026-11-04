@@ -1,43 +1,50 @@
-# Politique de confidentialité de Belconnect — brouillon avant lancement
+# Politique de confidentialité — brouillon interne
 
-**Statut : document de travail, non publiable.** Le responsable du traitement n'est pas encore identifié : Belconnect n'a pas de structure enregistrée. Les champs entre crochets et les durées de conservation doivent être complétés et validés avant toute publication.
+> **NON PUBLIABLE — RESPONSABLE, RÔLES, PRESTATAIRES ET DURÉES À VALIDER.** Version de travail du 3 novembre 2026.
 
-## Qui traite les données et comment nous contacter
+## Responsable et contacts
 
-Responsable du traitement : **[dénomination légale, forme, adresse, numéro d'entreprise]**. Contact pour les questions et demandes relatives aux données : **[adresse e-mail dédiée]**. Délégué à la protection des données, si sa désignation est nécessaire : **[coordonnées ou « sans objet » après analyse]**.
+Responsable du traitement : **[dénomination, forme, adresse, BCE]**. Contact données : **[e-mail/adresse]**. DPO : **[coordonnées ou décision motivée qu’aucune désignation n’est requise]**.
 
-## Quelles données sont utilisées
+Pour les données de participants accessibles à un organisateur, **[DÉCISION REQUISE : qualifier, par finalité, Belconnect et l’organisateur comme responsables indépendants, conjoints ou responsable/sous-traitant et fournir l’information/accord approprié]**.
 
-Belconnect traite les données fournies lors de la création du compte (nom, prénom, adresse e-mail et mot de passe sous forme hachée), les informations de profil, les inscriptions aux activités (coordonnées, nombre de places et statut), les demandes d'espaces et de groupes, les invitations, les projets et propositions d'aide, les annonces et publications de groupe, les commentaires, les mentions « J'aime », les messages privés, les notifications et les signalements. Les parcours de paiement prévus conservent des références et statuts de transactions ; les données de carte sont saisies sur la page hébergée par Stripe, et non dans le formulaire Belconnect. Les données techniques nécessaires à l'authentification et à la sécurité comprennent les sessions web et mobile, les identifiants d'appareils destinés aux notifications push si cette fonction est activée, et les journaux du serveur. Leur description précise reste à confirmer après le choix de l'hébergement et des prestataires.
+## Traitements à documenter
 
-Une personne qui publie un projet ou une annonce ne doit pas y inclure de données personnelles concernant autrui sans disposer d'un motif valable et des autorisations nécessaires. Les coordonnées fournies pour une inscription peuvent être consultées par l'organisateur autorisé de l'activité pour la gérer.
+- **Compte et authentification** : nom, prénom, e-mail, mot de passe haché, avatar, état du compte, sessions web/mobile, réinitialisation et journaux de connexion. Finalités : créer et sécuriser le compte. Base pressentie : contrat et intérêt légitime de sécurité **[valider]**.
+- **Activités et projets** : inscriptions, coordonnées, places, aide proposée, offres payantes, dons, statuts et remboursements. Finalités : exécuter la demande et gérer l’offre. Bases : contrat et obligations légales **[valider selon l’acteur]**.
+- **Espaces et groupes** : demandes, rôles, adhésions, invitations, publications et historique de gestion. Finalités : collaboration et administration. Base pressentie : contrat.
+- **Interactions** : commentaires, mentions J’aime, messages privés, notifications, blocages et signalements. Finalités : communication, fonctionnement et modération. Bases : contrat et intérêt légitime **[documenter la mise en balance]**.
+- **Support/contact** : identité, e-mail, catégorie, message, souhait de réponse, adresse réseau/limitation anti-abus et historique de traitement. Bases : mesures précontractuelles/contrat et intérêt légitime de sécurité **[valider]**.
+- **Paiements** : références Stripe, montants, commissions, compte connecté, statuts, factures/reçus et litiges ; les cartes sont saisies chez Stripe. Bases : contrat et obligations comptables/fiscales **[valider]**.
+- **Sécurité et administration propriétaire** : sessions, MFA, codes de récupération hachés, journaux d’actions et modération. Base : intérêt légitime et obligations de sécurité **[valider]**.
+- **Notifications push** : identifiant appareil et jeton Expo lorsque l’utilisateur active/emploie la fonction. **[Identifier Expo et la base juridique ; définir désactivation et durée.]**
 
-Dans une conversation privée entre membres d'un même groupe, chaque participant peut consulter le nom et l'adresse e-mail de l'autre participant dans sa fiche de conversation, tant que les deux personnes disposent encore de l'accès au groupe et que la conversation n'est pas bloquée. Ce partage doit être confirmé dans l'information remise lors de l'inscription avant l'ouverture au public.
+Ne pas traiter les appartenances à certains groupes ou projets comme anodines : elles peuvent révéler indirectement des informations sensibles. Limiter strictement l’accès et éviter toute inférence ou ciblage.
 
-## Pourquoi et sur quelle base
+## Destinataires et transferts
 
-Les traitements à documenter sont : fonctionnement du compte et des inscriptions ; gestion des espaces, groupes et projets ; paiement, abonnement et remboursement ; assistance et sécurité ; obligations comptables et légales. **[Déterminer et documenter une base juridique pour chaque traitement, sans faire du consentement une base générale par défaut.]** Toute prospection commerciale ou mesure d'audience non nécessaire doit être décrite séparément avant son activation.
+Accès limité aux utilisateurs concernés, administrateurs/référents habilités, organisateurs pour gérer leurs participants, propriétaire Belconnect pour les fonctions d’assistance/modération dûment protégées, et prestataires nécessaires.
 
-## À qui les données sont transmises
+Prestataires à compléter : **[hébergeur/API/base et pays]**, **[e-mail]**, **[Expo/push]**, Stripe pour paiements/abonnements, **[CDN, sauvegardes, surveillance]**. Pour chacun : finalité, rôle, contrat art. 28 le cas échéant, sous-traitants ultérieurs, localisation et mécanisme de transfert hors EEE. Stripe peut aussi agir comme responsable propre pour certaines finalités ; le rôle doit être décrit sans le présenter uniformément comme simple sous-traitant.
 
-Les administrateurs et référents autorisés voient uniquement les informations nécessaires à leurs missions. Les prestataires techniques à renseigner sont : **[hébergeur et lieu d'hébergement]**, **[service d'e-mail]**, **Stripe pour les paiements si activés**, ainsi que **[autres prestataires]**. **[Préciser le rôle de chaque prestataire, ses garanties contractuelles et les éventuels transferts hors EEE.]** Les organisateurs qui reçoivent des coordonnées de participants doivent être informés de leurs propres obligations de confidentialité ; la répartition des responsabilités entre Belconnect et chaque organisateur reste à qualifier.
+## Conservation
 
-## Durée de conservation
+**Aucune durée finale n’est décidée.** Avant publication, fixer une durée et une règle d’effacement/anonymisation pour : comptes actifs et supprimés ; sessions/réinitialisations/MFA ; inscriptions et adhésions ; contenus/messages ; signalements et journaux ; contacts/support ; appareils push ; paiements, factures et litiges ; sauvegardes. Les obligations comptables ne justifient que les données nécessaires aux pièces concernées.
 
-**[Fixer et justifier par catégorie les durées applicables aux comptes, inscriptions, projets et historiques, messages, paiements, justificatifs comptables, journaux et sauvegardes.]** Une donnée n'est pas gardée indéfiniment au seul motif qu'elle pourrait être utile. Prévoir l'effacement ou l'anonymisation lorsque la finalité prend fin, sous réserve des obligations légales de conservation.
+Le module contact permet désormais de dater le traitement et d’anonymiser explicitement le nom, l’e-mail, le lien utilisateur et le texte. **[Fixer le délai d’anonymisation automatique ou procédural.]**
 
-## Vos droits
+## Suppression du compte et droits
 
-Vous pouvez demander l'accès à vos données, leur rectification, et, dans les conditions prévues par le RGPD, leur effacement, la limitation du traitement, la portabilité ou vous opposer à certains traitements. Adressez votre demande à **[adresse e-mail dédiée]**. Une réponse est normalement apportée dans un délai d'un mois ; une vérification proportionnée de l'identité peut être demandée si nécessaire. Vous pouvez saisir l'[Autorité de protection des données belge](https://www.autoriteprotectiondonnees.be/).
+Le parcours automatisé réauthentifie l’utilisateur, bloque la suppression si des responsabilités ou paiements actifs subsistent, annule certaines inscriptions gratuites futures, retire les adhésions, révoque les sessions mobiles et pseudonymise le compte. Il ne supprime pas automatiquement tous les contenus, messages, traces de modération ou références financières. Il faut expliquer les exceptions finalité par finalité et offrir un examen manuel.
 
-**État du produit :** le profil peut être corrigé partiellement dans « Mon espace », mais aucun parcours complet d'export ou d'effacement du compte n'est encore disponible. Un processus manuel vérifiable doit exister avant l'ouverture, puis les fonctions adaptées peuvent être ajoutées.
+La personne peut demander accès, rectification, effacement, limitation, portabilité lorsque applicable et opposition aux traitements fondés sur l’intérêt légitime. Demande à **[contact]** ; réponse en principe sous un mois, avec vérification d’identité proportionnée et explication de tout refus. Réclamation possible auprès de l’[Autorité de protection des données](https://www.autoriteprotectiondonnees.be/).
 
-## Cookies et sécurité
+## Sécurité, cookies et incidents
 
-Le cookie de session `JSESSIONID` sert à maintenir la connexion web et à protéger l'accès au compte. Son usage est expliqué dans la [notice sur les cookies](COOKIES_BROUILLON.md). L'application mobile utilise des jetons de session stockés sur l'appareil et vérifiés côté serveur ; une déconnexion les révoque. Belconnect utilise une protection contre les requêtes non autorisées ; la sécurité de l'hébergement, des sauvegardes et des prestataires reste à vérifier avant la mise en ligne.
+Mesures observées : mots de passe hachés, cookies `HttpOnly`/`SameSite`, CSRF, sessions révocables, limitation de tentatives, MFA des opérations propriétaire sensibles et audit de certaines actions. **[Confirmer `Secure` en production, chiffrement, sauvegardes, habilitations, tests, réponse aux violations et délais de notification.]** Voir la [notice cookies](COOKIES_BROUILLON.md).
 
-## Enfants et évolution de cette politique
+## Mineurs et modifications
 
-**[Définir si les mineurs peuvent utiliser Belconnect, dans quelles conditions, et les éventuelles mesures adaptées.]** Toute évolution significative des finalités, destinataires ou traceurs doit être annoncée avant son entrée en vigueur. Date d'effet : **[à compléter]**.
+**[DÉCISION REQUISE : âge minimum, autorisation parentale et protections ; aucune date de naissance n’est collectée aujourd’hui.]** Date d’effet/version : **[à compléter]**. Informer avant toute modification substantielle.
 
-Sources de préparation : [RGPD, articles 5, 6, 12 à 22, 28 et 30](https://eur-lex.europa.eu/legal-content/FR/TXT/?uri=CELEX%3A32016R0679) ; [droit à l'information, APD](https://www.autoriteprotectiondonnees.be/professionnel/rgpd-/droits-des-citoyens/droit-a-l-information).
+Sources : [RGPD](https://eur-lex.europa.eu/legal-content/FR/TXT/?uri=CELEX%3A32016R0679) ; [Commission européenne — principes](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/principles-gdpr_en) ; [Commission européenne — droits](https://commission.europa.eu/law/law-topic/data-protection/information-individuals_en) ; [APD — effacement](https://www.autoriteprotectiondonnees.be/professionnel/rgpd-/droits-des-citoyens/droit-a-l-effacement) ; [APD — intérêt légitime](https://www.autoriteprotectiondonnees.be/professionnel/rgpd-/bases-juridiques/interet-legitime).

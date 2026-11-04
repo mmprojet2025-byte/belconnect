@@ -1,13 +1,25 @@
-# Notice sur les cookies de Belconnect — brouillon avant lancement
+# Notice cookies et stockages locaux — brouillon interne
 
-**Statut : document de travail, à vérifier sur l'environnement déployé avant publication.**
+> **NON PUBLIABLE — audit du déploiement requis.** Version de travail du 3 novembre 2026.
 
-Belconnect utilise un cookie de session `JSESSIONID` pour reconnaître une personne connectée. Il est configuré `HttpOnly` et `SameSite=Lax`, avec une expiration de session après 30 minutes d'inactivité. En production HTTPS, l'attribut `Secure` devra être activé. Le jeton CSRF protège les actions du compte. Ces mécanismes sont nécessaires à la connexion et à la sécurité du service.
+## État observé dans le code
 
-Le code web examiné ne contient pas de traceur publicitaire ou d'outil d'analyse d'audience. **[Vérifier les cookies et stockages réellement déposés par l'hébergement, les contenus externes et les prestataires avant publication.]** Stripe Checkout, s'il est activé, s'ouvre sur une page hébergée par Stripe avec ses propres informations de confidentialité.
+Le site utilise `JSESSIONID`, cookie strictement nécessaire à l’authentification. Il est configuré `HttpOnly`, `SameSite=Lax` et expire avec la session après 30 minutes d’inactivité. L’attribut `Secure` dépend de `SESSION_COOKIE_SECURE` et **doit être vérifié à `true` en production HTTPS**. Un mécanisme CSRF protège les actions authentifiées.
 
-Si Belconnect ajoute un traceur non strictement nécessaire (mesure d'audience non exemptée, publicité ou personnalisation), il devra informer les visiteurs et recueillir leur choix avant son dépôt, avec une possibilité de refus et de retrait. Une bannière ne doit pas être ajoutée uniquement pour le cookie de session nécessaire ; l'information sur ce cookie reste toutefois requise.
+La version web de l’application mobile conserve dans `localStorage` le jeton de session et la langue. Sur iOS/Android, ces éléments utilisent le stockage sécurisé de l’appareil. Ces stockages fonctionnels doivent être décrits même lorsqu’aucun consentement n’est requis.
 
-Contact : **[adresse e-mail]**. Date d'effet : **[à compléter]**.
+L’examen du dépôt ne révèle aucun outil publicitaire ou de mesure d’audience. Stripe Checkout et le portail Stripe sont externes et peuvent utiliser leurs propres cookies.
 
-Source de préparation : [APD belge, cookies et autres traceurs](https://www.autoriteprotectiondonnees.be/professionnel/themes/internet/cookies).
+## Inventaire à valider en production
+
+- `JSESSIONID` : authentification et sécurité ; durée de session ; destinataire Belconnect.
+- jeton CSRF : sécurité ; **[confirmer support et durée exacts]**.
+- jeton mobile-web : authentification ; jusqu’à déconnexion, révocation ou expiration serveur.
+- langue : confort ; **[confirmer la durée]**.
+- **[inventorier tout ajout de l’hébergeur, CDN, contenu intégré, Stripe ou futur prestataire]**.
+
+Aucun bandeau d’acceptation n’est requis pour les seuls mécanismes strictement nécessaires, mais l’information l’est. Tout futur traceur non nécessaire devra être bloqué avant un choix libre, spécifique, éclairé et révocable ; refuser doit être aussi simple qu’accepter, sans mur de cookies ni interface trompeuse.
+
+Contact : **[adresse e-mail]**. Date d’effet et version : **[à compléter]**.
+
+Source : [Autorité de protection des données — cookies](https://autoriteprotectiondonnees.be/professionnel/themes/internet/cookies).

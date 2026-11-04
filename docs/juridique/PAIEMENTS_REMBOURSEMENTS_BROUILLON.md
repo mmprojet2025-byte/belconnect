@@ -1,25 +1,29 @@
-# Paiements et remboursements de Belconnect — brouillon avant lancement
+# Paiements, remboursements et abonnements — brouillon interne
 
-**Statut : document de travail, aucun paiement réel Belconnect n'est actuellement ouvert.** Le statut juridique des ventes, dons et abonnements, les taxes et le droit de rétractation doivent être validés avant toute mise en paiement. Les règles commerciales ci-dessous ne remplacent pas les droits impératifs des consommateurs.
+> **NON PUBLIABLE — VENDEUR, FISCALITÉ ET POLITIQUES COMMERCIALES À VALIDER.** Version de travail du 3 novembre 2026. Le code exige actuellement des identifiants Stripe de test ; aucune ouverture réelle ne doit précéder la validation.
 
-## Qui reçoit les fonds et quels frais s'appliquent
+## Architecture observée
 
-Les paiements d'activités et d'actions de projets, ainsi que les dons aux projets, sont prévus pour l'organisateur via Stripe Connect. Belconnect retient une commission de **8 % en formule Starter** ou **5 % en formule Pro** sur le prix total payé. La formule Pro est prévue à **10 € HT par mois et par espace organisateur**. **[Confirmer TVA, facturation, répartition des frais Stripe et identité du vendeur/bénéficiaire affichées avant paiement.]** Le montant total dû par le participant doit être visible avant la validation de sa commande.
+Activités payantes, actions de projets et dons utilisent Stripe Checkout avec le compte connecté de l’organisateur. Belconnect calcule une commission de **8 % Starter** ou **5 % Pro**. L’abonnement Pro est configuré à **10 € par mois**. Ces valeurs sont une réalité technique, pas encore une offre contractuelle approuvée.
 
-## Activités et actions payantes de projets
+**[DÉCISIONS REQUISES : vendeur/prestataire et bénéficiaire de chaque flux ; prix TTC/HT ; TVA ; frais Stripe ; facturation des commissions ; devise ; versements ; chargebacks et soldes négatifs.]** Le bouton final doit indiquer sans ambiguïté l’obligation de payer et une confirmation durable doit être fournie.
 
-Une réservation ou participation payante n'est confirmée qu'après confirmation du paiement par Stripe. Si l'organisateur annule l'activité ou l'action payante du projet, le participant doit recevoir un remboursement intégral, commission comprise. Si le participant annule lui-même, aucun remboursement automatique n'est prévu dans le produit actuel ; **cette règle doit être présentée avant l'achat et ne doit pas priver la personne d'un droit légal applicable**. **[Examiner, pour chaque type de service, si une exception au droit de rétractation s'applique, notamment pour un loisir à date ou période déterminée ; fournir l'information précontractuelle requise.]**
+## Réservation et participation payantes
 
-## Dons aux projets
+La confirmation dépend du paiement Stripe vérifié. À l’annulation d’une activité payante par l’organisateur, ou à la fermeture d’une offre payante de projet, le code tente le remboursement intégral du montant payé et suit les états en attente. Les opérations incohérentes sont conservées pour reprise plutôt que déclarées remboursées à tort.
 
-Le montant est libre dans les limites affichées par le service. Le don ne réserve pas de place et n'ouvre pas de droit d'adhésion. **[Définir la qualification juridique du versement, son bénéficiaire exact, la politique de remboursement, les frais, les justificatifs et le traitement fiscal.]** Ne pas promettre de reçu fiscal ou de déduction sans validation spécifique.
+Aucun remboursement automatique général n’est prévu quand le participant annule. **[Décider et afficher avant achat : délai, cas remboursables, frais, transfert éventuel, absence à l’événement, changement substantiel et force majeure.]** Pour un loisir à date/période déterminée, l’exception au droit de rétractation peut s’appliquer, y compris via un intermédiaire, mais elle doit être qualifiée pour chaque offre et annoncée avant contrat. Ne pas généraliser cette exception aux dons ou abonnements.
+
+## Dons
+
+Le don ne réserve pas de place et n’ouvre aucun avantage fiscal promis. **[Qualifier juridiquement le versement ; identifier le bénéficiaire ; décider remboursement, erreur/fraude, frais, justificatif et fiscalité.]** Le terme « don » ne doit pas masquer un achat ou une contrepartie.
 
 ## Abonnement organisateur
 
-L'abonnement Pro est mensuel et géré via Stripe Billing. **[Préciser date de renouvellement, taxes, moment d'application du tarif, résiliation, effet de la résiliation sur les commissions et droit de rétractation éventuel selon le statut du client.]** Le portail Stripe hébergé permet la gestion des moyens de paiement et de la résiliation ; ce parcours doit être testé avant ouverture.
+Stripe Billing gère un abonnement mensuel et son portail. **[Confirmer prix TTC/HT, client professionnel ou consommateur, date/renouvellement, essai, paiement échoué, résiliation, fin de période, effet sur commission/fonctions, rétractation et remboursement.]** Informer clairement avant souscription et confirmer le contrat sur support durable.
 
-## Échecs, litiges et contact
+## Réclamations
 
-En cas d'échec ou de paiement non confirmé, aucune place ni don ne doit être présenté comme acquis. Les remboursements et leur état réel doivent être suivis dans le compte. Contact pour une question ou réclamation : **[adresse e-mail et autre moyen de contact]**. **[Définir un circuit de traitement des contestations et demandes de remboursement avec l'organisateur.]**
+Contact : **[coordonnées]**. **[Définir qui répond — organisateur, Belconnect ou les deux — les délais, preuves, escalade Stripe, médiation et journalisation.]** Les droits impératifs priment toujours.
 
-Sources de préparation : [SPF Économie, obligations avant achat](https://economie.fgov.be/fr/themes/entreprises/guidance/pratiques-commerciales/obligations-dinformation-dans) ; [SPF Économie, rétractation à distance](https://economie.fgov.be/fr/themes/ventes/reglementation/delais-de-retractation/droit-de-retractation-lors-de).
+Sources : [SPF Économie — obligations d’information](https://economie.fgov.be/fr/themes/entreprises/guidance/pratiques-commerciales/obligations-dinformation-dans) ; [SPF Économie — vente à distance de voyages/loisirs datés](https://economie.fgov.be/fr/themes/protection-des-consommateurs/voyages/vente-distance-de-voyages) ; [CJUE — droits des consommateurs](https://curia.europa.eu/site/jcms/qua1_5955/en/consumer-rights) ; [Stripe Connected Account Agreement](https://stripe.com/legal/connect-account).

@@ -1,37 +1,45 @@
-# Conditions d'utilisation de Belconnect — brouillon avant lancement
+# Conditions générales d’utilisation — utilisateurs — brouillon interne
 
-**Statut : document de travail, non publiable sans identité légale, validation du modèle de plateforme et revue juridique.** Les présentes règles ne peuvent ni supprimer les droits impératifs des consommateurs ni dispenser Belconnect ou les organisateurs de leurs obligations légales.
+> **NON PUBLIABLE — IDENTITÉ, ÂGE, RÔLES CONTRACTUELS ET RECOURS À VALIDER.** Version de travail du 3 novembre 2026. Ce brouillon ne limite aucun droit impératif.
 
-## Service et acteurs
+## 1. Objet et exploitant
 
-Belconnect permet de découvrir des activités, de réserver des places, de consulter des projets, de proposer son aide et de soutenir des initiatives. **[Identifier l'exploitant légal et ses coordonnées.]** Un « organisateur » est l'espace qui publie une activité ou un projet ; un « participant » est la personne qui s'y inscrit ou contribue. **[Préciser, avec conseil juridique, qui conclut le contrat de l'activité payante avec le participant : l'organisateur, Belconnect ou les deux selon les prestations.]** Cette distinction doit aussi être visible avant le paiement.
+Belconnect, exploité par **[identité et coordonnées complètes]**, permet de découvrir des activités, rejoindre des groupes, publier et commenter, échanger des messages privés, participer à des projets et, lorsque la fonction est activée, réserver ou contribuer financièrement.
 
-## Compte et utilisation
+Un « organisateur » administre un espace et publie une offre. **[DÉCISION REQUISE : confirmer que l’organisateur, et non Belconnect, est le cocontractant/vendeur de l’activité ou de l’action ; définir le rôle d’intermédiaire de Belconnect.]** Son identité doit être affichée avant tout engagement et paiement.
 
-Les informations du compte doivent être exactes. Chacun protège ses identifiants et signale un accès suspect. Les rôles d'administrateur ou de référent sont attribués dans les espaces ; ils ne donnent pas un accès général aux autres espaces. L'usage frauduleux, la publication d'offres illicites ou trompeuses, le harcèlement et la collecte non autorisée de données d'autrui sont interdits.
+## 2. Compte et âge
 
-**[Définir les conditions d'âge et, si des mineurs sont admis, les protections et autorisations nécessaires.]**
+L’utilisateur fournit des informations exactes, protège ses identifiants et signale rapidement tout accès suspect. **[DÉCISION REQUISE : âge minimum ; accès des mineurs ; autorité parentale ; restrictions.]** Le produit ne recueille aucune date de naissance et ne peut donc pas appliquer une règle d’âge.
 
-## Publications et responsabilité des organisateurs
+La suppression dans les réglages requiert le mot de passe, révoque les sessions mobiles, désactive et pseudonymise le compte, retire les adhésions et annule certaines inscriptions gratuites futures. Elle est refusée tant qu’une responsabilité de gestion ou une opération payante active subsiste. Les contenus partagés, messages, références de paiement et traces nécessaires peuvent rester selon la politique de confidentialité. Un canal manuel doit couvrir les droits dépassant ce parcours automatisé.
 
-L'organisateur doit décrire honnêtement l'activité ou le projet, son prix, ses dates, son lieu, ses conditions d'accès et ses modalités d'annulation. Il garantit disposer des droits nécessaires sur les textes, images et autres contenus qu'il publie, ainsi que des autorisations requises pour l'activité proposée. Il ne doit pas publier les coordonnées ou images d'autres personnes sans base adéquate.
+## 3. Conduite et contenus
 
-L'organisateur autorisé peut recevoir les coordonnées nécessaires à la gestion d'une inscription ; il ne peut pas les réutiliser librement pour de la prospection. **[Définir la répartition des responsabilités RGPD et les engagements contractuels organisateur.]** Belconnect doit conserver des moyens proportionnés pour examiner les signalements et agir sur des contenus ou comptes contraires aux règles, avec information et recours adaptés aux personnes concernées.
+Sont interdits : contenus illicites ou trompeurs, harcèlement, usurpation, atteinte aux droits d’autrui, collecte ou réutilisation non autorisée de données, contournement de sécurité et fraude. L’utilisateur garantit ses droits sur ses textes et images.
 
-## Projets, aides et dons
+L’auteur conserve ses droits et concède à Belconnect une licence non exclusive et gratuite, limitée à l’hébergement, la reproduction technique et l’affichage nécessaires au service, pendant la publication et le temps des sauvegardes **[durée à fixer]**. Aucune promotion externe n’est autorisée par cette seule clause.
 
-Proposer son aide à un projet ne réserve pas une activité, ne crée pas d'adhésion à un groupe et attend la réponse de l'organisateur. Une participation payante à une action du projet est distincte de l'aide bénévole. Un don libre ne crée pas de billet ni de droit d'adhésion. Aucun avantage fiscal ni reçu ouvrant droit à déduction n'est promis tant que le cadre applicable n'a pas été établi.
+## 4. Groupes et messages
 
-## Paiements, annulations et réclamations
+L’accès dépend de la visibilité, de l’adhésion et du rôle. Les gestionnaires n’obtiennent pas un accès général aux autres espaces. Blocage, masquage et signalement n’entraînent pas nécessairement l’effacement chez l’autre participant ni des traces de modération.
 
-Avant tout paiement, la page concernée doit afficher le prix total, le bénéficiaire, ce que la personne achète ou finance, les modalités d'annulation et les informations sur un éventuel droit de rétractation. Les règles envisagées et les décisions encore ouvertes figurent dans [Paiements et remboursements](PAIEMENTS_REMBOURSEMENTS_BROUILLON.md). Les réclamations peuvent être envoyées à **[contact à compléter]**. **[Définir le parcours de médiation ou règlement extrajudiciaire lorsqu'il s'applique.]**
+## 5. Activités, projets et paiements
 
-## Signalement, suspension et propriété intellectuelle
+L’offre doit présenter avant confirmation : vendeur/bénéficiaire, caractéristiques, prix total, conditions de participation, annulation et remboursement. Proposition d’aide, inscription payante et don sont distincts. Un don ne confère ni billet, ni adhésion, ni avantage fiscal sauf indication validée.
 
-Un contenu problématique peut être signalé à **[contact ou formulaire à créer]**. **[Définir la procédure de notification, examen, décision, motivation et contestation applicable à la plateforme ; confirmer l'application des obligations DSA.]** Belconnect peut suspendre un accès ou retirer un contenu selon des critères transparents et proportionnés, sans empêcher une contestation légitime.
+Voir [Paiements et remboursements](PAIEMENTS_REMBOURSEMENTS_BROUILLON.md). **[DÉCISION REQUISE : annulation par le participant et force majeure.]**
 
-L'auteur conserve ses droits sur son contenu. Il accorde à Belconnect une autorisation limitée aux usages nécessaires pour afficher et faire fonctionner le service, pendant la durée de publication et selon **[conditions détaillées à valider]**. Les marques, textes et images de tiers restent protégés.
+## 6. Signalement et recours
 
-Date d'effet et version : **[à compléter]**. Les modifications substantielles seront annoncées selon **[modalités à définir]**.
+Un message privé peut déjà être signalé. **[À CONSTRUIRE : point de contact uniforme pour activités, projets, profils et autres contenus ; accusé de réception ; décision motivée ; contestation ; délais et conservation.]** Belconnect peut retirer ou suspendre de façon proportionnée. L’applicabilité exacte du DSA doit être qualifiée.
 
-Sources de préparation : [SPF Économie, information e-commerce](https://economie.fgov.be/fr/themes/entreprises/guidance/pratiques-commerciales/obligations-dinformation-dans) ; [Commission européenne, DSA](https://digital-strategy.ec.europa.eu/en/policies/digital-services-act).
+## 7. Disponibilité et réclamations
+
+Belconnect ne garantit pas une disponibilité ininterrompue. Aucune clause n’exclut responsabilité, garanties ou recours impératifs. L’organisateur reste responsable de la légalité, exactitude, sécurité et exécution de son offre selon la répartition finale.
+
+Réclamations : **[e-mail, adresse et téléphone]**. Règlement extrajudiciaire : **[après qualification]**. Droit applicable et juridiction : **[à valider sans retirer les protections impératives]**.
+
+Date d’effet, version et modifications : **[à compléter]**. Les conditions doivent être accessibles sur support durable avant engagement et leur version acceptée traçable.
+
+Sources : [SPF Économie — obligations d’information](https://economie.fgov.be/fr/themes/entreprises/guidance/pratiques-commerciales/obligations-dinformation-dans) ; [Commission européenne — notification et action DSA](https://digital-strategy.ec.europa.eu/en/policies/dsa-notice-and-action-mechanism).
