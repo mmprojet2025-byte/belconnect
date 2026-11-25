@@ -25,6 +25,18 @@ class BookingApiTests {
   if(csrf) {var t=json.readTree(get(c,"/api/auth/csrf").body());b.header(t.get("headerName").asText(),t.get("token").asText());}
   return c.send(b.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(data))).build(),HttpResponse.BodyHandlers.ofString());
  }
+ @Test void paidParticipationRefusalExplainsItsReason() throws Exception {
+  String marker=UUID.randomUUID().toString(), email="paid-reason-"+marker+"@example.com";
+  var c=client();
+  try {
+   assertEquals(201,post(c,"/api/auth/register",Map.of("email",email,"password","Test-password-"+marker,"firstName","Test","lastName","Raison"),true).statusCode());
+   var refused=post(c,"/api/project-paid-participations/free/999999999",Map.of(),true);
+   assertEquals(404,refused.statusCode());
+   assertEquals("Projet indisponible.",json.readTree(refused.body()).get("message").asText());
+  } finally {
+   jdbc.update("DELETE FROM utilisateur WHERE email=?",email);
+  }
+ }
  @Test void pendingPaidAttemptIsVisibleInItsOwnersAccount() throws Exception {
   String marker=UUID.randomUUID().toString(), slug="paid-list-"+marker;
   String email="paid-list-"+marker+"@example.com", otherEmail="paid-other-"+marker+"@example.com";

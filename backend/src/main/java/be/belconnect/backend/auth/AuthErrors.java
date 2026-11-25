@@ -7,7 +7,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
-@RestControllerAdvice(assignableTypes = {AuthController.class, MobileAuthController.class, OwnerMfaController.class, be.belconnect.backend.booking.BookingController.class})
+// Clients (web and mobile) read the refusal reason from {"message": ...}. Without this advice,
+// Spring's default error body drops the reason and users only see a generic message.
+@RestControllerAdvice(assignableTypes = {AuthController.class, MobileAuthController.class, OwnerMfaController.class,
+    be.belconnect.backend.booking.BookingController.class,
+    be.belconnect.backend.booking.PaidActivityBookingController.class,
+    be.belconnect.backend.project.PaidProjectParticipationController.class})
 public class AuthErrors {
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<Map<String,String>> status(ResponseStatusException exception) {

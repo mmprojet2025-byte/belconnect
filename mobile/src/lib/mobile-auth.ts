@@ -28,7 +28,7 @@ export async function deleteAccount(token:string,password:string):Promise<void> 
   if(response.status===403)throw new Error('Mot de passe incorrect.');
   if(response.status===409) {
     const problem=await response.json().catch(()=>({}));
-    throw new Error(typeof problem.detail==='string'?problem.detail:'Terminez vos réservations payantes ou transférez vos responsabilités avant de supprimer ce compte.');
+    throw new Error(typeof problem.message==='string'?problem.message:'Terminez vos réservations payantes ou transférez vos responsabilités avant de supprimer ce compte.');
   }
   if(response.status===401)throw new Error('Votre session a expiré. Reconnectez-vous.');
   throw new Error('Suppression impossible pour le moment. Réessayez.');
